@@ -1,0 +1,88 @@
+{
+  "safe": [
+    {
+      "label": "safe",
+      "stats": {
+        "packet_count": 32422,
+        "avg_size": 807.3021713651225,
+        "median_size": 1514.0,
+        "protocol_counts": {
+          "TCP": 31335,
+          "UDP": 721,
+          "Other": 366
+        },
+        "top_ports": [
+          [
+            80,
+            13127
+          ],
+          [
+            49701,
+            549
+          ],
+          [
+            9200,
+            535
+          ],
+          [
+            0,
+            366
+          ],
+          [
+            443,
+            286
+          ]
+        ],
+        "unique_src": 27,
+        "unique_dst": 27,
+        "dns_query_count": 199,
+        "http_request_count": 107,
+        "unique_http_hosts": 3,
+        "top_dns": [
+          [
+            "wpad.local",
+            39
+          ],
+          [
+            "DESKTOP-VSOUDSD.local",
+            24
+          ],
+          [
+            "DESKTOP-10ACM05.local",
+            22
+          ],
+          [
+            "DESKTOP-10ACM04.local",
+            17
+          ],
+          [
+            "DESKTOP-10ACM03.local",
+            14
+          ]
+        ]
+      },
+      "features": {
+        "packet_count": 32422,
+        "avg_size": 807.3021713651225,
+        "proto_ratio": {
+          "TCP": 0.9664733822712973,
+          "UDP": 0.022237986552341004,
+          "Other": 0.01128863117636173
+        },
+        "top_ports": [
+          80,
+          49701,
+          9200,
+          0,
+          443
+        ],
+        "dns_query_count": 199,
+        "http_request_count": 107,
+        "unique_http_hosts": 3
+      },
+      "summary": "Packets: 32422, Avg Size: 807.3, Top Ports: [(80, 13127), (49701, 549), (9200, 535), (0, 366), (443, 286)], Protocols: {'TCP': 31335, 'UDP': 721, 'Other': 366}, DNS Queries: 199, HTTP Requests: 107",
+      "timestamp": "2026-02-10T14:50:43.569813Z"
+    }
+  ],
+  "malicious": []
+}

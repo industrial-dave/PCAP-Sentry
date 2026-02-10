@@ -1,0 +1,29 @@
+[Setup]
+AppName=PCAP Sentry
+AppVersion=2026.02.10-3
+DefaultDirName={commonpf}\PCAP Sentry
+DefaultGroupName=PCAP Sentry
+OutputDir=dist
+OutputBaseFilename=PCAP_Sentry_Setup
+Compression=lzma
+SolidCompression=yes
+ArchitecturesInstallIn64BitMode=x64compatible
+WizardStyle=modern
+SetupIconFile=..\assets\pcap_sentry.ico
+LicenseFile=..\LICENSE.txt
+InfoBeforeFile=..\README.txt
+
+[Files]
+Source: "..\dist\PCAP_Sentry.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\README.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"
+Name: "{commondesktop}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"; Tasks: desktopicon
+
+[Tasks]
+Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
+
+[Run]
+Filename: "{app}\PCAP_Sentry.exe"; Description: "Launch PCAP Sentry"; Flags: nowait postinstall skipifsilent

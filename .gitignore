@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+.venv/
+venv/
+
+# Build artifacts
+build/
+dist/
+installer/dist/
+logs/
+models/*.gguf
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Editor
+.vscode/
