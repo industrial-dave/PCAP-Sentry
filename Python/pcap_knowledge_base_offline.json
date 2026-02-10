@@ -1,0 +1,10 @@
+﻿{
+  "safe": [],
+  "malicious": [],
+  "unsure": [],
+  "ioc": {
+    "ips": [],
+    "domains": [],
+    "hashes": []
+  }
+}

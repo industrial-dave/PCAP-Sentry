@@ -1,0 +1,8 @@
+streamlit>=1.29
+pandas>=2.0
+plotly>=5.18
+scapy>=2.5
+ollama>=0.1
+matplotlib>=3.8
+llama-cpp-python>=0.2.78
+tkinterdnd2>=0.3.0
