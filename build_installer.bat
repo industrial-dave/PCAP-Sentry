@@ -55,11 +55,9 @@ echo ==== Build succeeded! ====>> "%LOG_PATH%"
 echo ==== Uploading to GitHub ====>> "%LOG_PATH%"
 
 REM Get current version from version_info.txt
-for /f "tokens=2 delims=,()" %%A in ('findstr /R "filevers=" version_info.txt ^| findstr /v "prod"') do (
-	for /f "tokens=1,2,3,4 delims=, " %%B in ("%%A") do (
-		set "VERSION=%%B.%%C.%%D-%%E"
-	)
-)
+powershell -NoProfile -Command "$c = Get-Content -Path 'version_info.txt' -Raw; if ($c -match 'filevers=\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)') { '{0}.{1}.{2}-{3}' -f $matches[1],$matches[2],$matches[3],$matches[4] }" > "%TEMP%\pcap_version.txt"
+set /p VERSION=<"%TEMP%\pcap_version.txt"
+del "%TEMP%\pcap_version.txt" >nul 2>&1
 
 REM Stage and commit version changes plus installer
 git add version_info.txt VERSION_LOG.md installer\PCAP_Sentry.iss dist\PCAP_Sentry_Setup.exe >> "%LOG_PATH%" 2>&1

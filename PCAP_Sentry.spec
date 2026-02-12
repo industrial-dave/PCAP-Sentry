@@ -1,11 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
 from PyInstaller.utils.hooks import (
-    collect_all,
     collect_data_files,
     collect_dynamic_libs,
     collect_submodules,
 )
+
+
+def _require_package(name):
+    try:
+        __import__(name)
+    except Exception as exc:
+        raise SystemExit(
+            f"Missing required build dependency: {name}. Install it before building."
+        ) from exc
 
 
 def _filter_hiddenimports(items):
@@ -35,16 +43,28 @@ if os.path.isdir(npcap_dir):
 datas = []
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('llama_cpp')
-datas += _filter_datas(tmp_ret[0]); binaries += tmp_ret[1]; hiddenimports += _filter_hiddenimports(tmp_ret[2])
 tmp_ret = _collect_package('matplotlib')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = _collect_package('pandas')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+_require_package('scapy')
 tmp_ret = _collect_package('scapy')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+_require_package('sklearn')
+tmp_ret = _collect_package('sklearn')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+_require_package('joblib')
+tmp_ret = _collect_package('joblib')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = _collect_package('tkinterdnd2')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+hiddenimports += ['scapy', 'scapy.all', 'sklearn', 'joblib']
+
+for icon_name in ("pcap_sentry.ico", "custom.ico"):
+    icon_path = os.path.join("assets", icon_name)
+    if os.path.exists(icon_path):
+        datas.append((icon_path, "assets"))
 
 # Include Npcap DLLs if available for packet capture support.
 wpcap_path = r"C:\\Windows\\System32\\Npcap\\wpcap.dll"

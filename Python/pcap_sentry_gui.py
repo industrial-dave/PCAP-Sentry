@@ -561,7 +561,12 @@ def anomaly_score(vector, baseline):
         zscores.append(z)
 
     capped = [min(z, 4.0) for z in zscores]
-    score = sum(capped) / max(len(capped), 1) / 4.0 * 100.0
+    avg_score = sum(capped) / max(len(capped), 1) / 4.0 * 100.0
+    # Use max z-score as secondary signal to avoid masking critical anomalies
+    max_z = max(zscores) if zscores else 0.0
+    max_score = min(max_z / 4.0, 1.0) * 100.0
+    # Blend: 60% average + 40% max to catch single extreme outliers
+    score = avg_score * 0.6 + max_score * 0.4
 
     top = sorted(enumerate(zscores), key=lambda item: item[1], reverse=True)[:3]
     reasons = [f"{FEATURE_NAMES[idx]} z={value:.1f}" for idx, value in top if value > 0]
@@ -574,17 +579,15 @@ def classify_vector(vector, kb, normalizer_cache=None):
     if not safe_entries or not mal_entries:
         return None
 
-    # OPTIMIZATION: Use cached normalizer if provided, otherwise compute and return it
+    # OPTIMIZATION: Use cached normalizer if provided, otherwise compute
+    safe_vectors = [_vector_from_features(entry["features"]) for entry in safe_entries]
+    mal_vectors = [_vector_from_features(entry["features"]) for entry in mal_entries]
+
     if normalizer_cache is not None:
         normalizer = normalizer_cache
     else:
-        safe_vectors = [_vector_from_features(entry["features"]) for entry in safe_entries]
-        mal_vectors = [_vector_from_features(entry["features"]) for entry in mal_entries]
         all_vectors = safe_vectors + mal_vectors
         normalizer = _compute_normalizer(all_vectors)
-
-    safe_vectors = [_vector_from_features(entry["features"]) for entry in safe_entries]
-    mal_vectors = [_vector_from_features(entry["features"]) for entry in mal_entries]
 
     safe_norm = [_normalize_vector(vec, normalizer) for vec in safe_vectors]
     mal_norm = [_normalize_vector(vec, normalizer) for vec in mal_vectors]
@@ -613,9 +616,10 @@ def _domain_matches(domain, ioc_domains):
     if domain in ioc_domains:
         return domain
     parts = domain.split(".")
+    # Require at least 2 parts to avoid matching bare TLDs (e.g., "com", "net")
     for idx in range(1, len(parts)):
         candidate = ".".join(parts[idx:])
-        if candidate in ioc_domains:
+        if len(candidate.split(".")) >= 2 and candidate in ioc_domains:
             return candidate
     return None
 
@@ -877,9 +881,12 @@ def parse_http_payload(payload):
     if not payload or len(payload) < 14:  # Minimum GET / HTTP/1.1
         return "", "", ""
     
-    # Fast check for common HTTP methods
-    first_bytes = payload[:5]
-    if not (first_bytes.startswith(b"GET ") or first_bytes.startswith(b"POST") or first_bytes.startswith(b"HEAD")):
+    # Fast check for HTTP methods
+    first_bytes = payload[:8]
+    if not (first_bytes.startswith(b"GET ") or first_bytes.startswith(b"POST") or
+            first_bytes.startswith(b"HEAD") or first_bytes.startswith(b"PUT ") or
+            first_bytes.startswith(b"DELETE") or first_bytes.startswith(b"PATCH") or
+            first_bytes.startswith(b"OPTIONS") or first_bytes.startswith(b"CONNECT")):
         return "", "", ""
     
     try:
@@ -1221,11 +1228,14 @@ def compute_flow_stats(df):
     return flow_df.sort_values("Bytes", ascending=False)
 
 
-def detect_suspicious_flows(df, kb, max_items=8):
+def detect_suspicious_flows(df, kb, max_items=8, flow_df=None):
     if df.empty:
         return []
     pd = _get_pandas()
-    flow_df = compute_flow_stats(df).copy()
+    if flow_df is None:
+        flow_df = compute_flow_stats(df).copy()
+    else:
+        flow_df = flow_df.copy()
     ioc_ips = set(kb.get("ioc", {}).get("ips", []))
     if ioc_ips:
         flow_df["ioc_match"] = flow_df["Src"].isin(ioc_ips) | flow_df["Dst"].isin(ioc_ips)
@@ -1373,8 +1383,9 @@ def _plot_top_tls_sni(df):
     return fig
 
 
-def _plot_top_flows(df):
-    flow_df = compute_flow_stats(df)
+def _plot_top_flows(df, flow_df=None):
+    if flow_df is None:
+        flow_df = compute_flow_stats(df)
     if flow_df.empty:
         return _empty_figure("No flows")
     Figure = _get_figure()
@@ -2045,12 +2056,15 @@ class PCAPSentryApp:
         self._style_text(self.result_text)
         self.result_text.pack(fill=tk.BOTH, expand=True)
 
-        why_frame = ttk.LabelFrame(self.why_tab, text="Why This Looks Malicious", padding=10)
+        why_frame = ttk.LabelFrame(self.why_tab, text="Training Guide: Understanding the Analysis", padding=10)
         why_frame.pack(fill=tk.BOTH, expand=True)
 
         self.why_text = tk.Text(why_frame, height=12)
         self._style_text(self.why_text)
-        self.why_text.insert(tk.END, "Run analysis to see explanations.")
+        self.why_text.insert(tk.END, "Run an analysis on a PCAP file to get a guided walkthrough\n"
+                            "of how to identify malicious vs. safe traffic.\n\n"
+                            "This tab will teach you what to look for and why each\n"
+                            "indicator matters when investigating network captures.")
         self.why_text.pack(fill=tk.BOTH, expand=True)
 
         why_controls = ttk.Frame(self.why_tab)
@@ -2254,14 +2268,10 @@ class PCAPSentryApp:
 
     def _apply_packet_filters(self):
         if self.current_df is None or self.packet_table is None:
-            print("[DEBUG] No current_df or packet_table available.")
             return
 
-        df = self.current_df.copy()
-        print(f"[DEBUG] DataFrame columns: {list(df.columns)}")
-        print(f"[DEBUG] DataFrame row count before filter: {len(df)}")
+        df = self.current_df
         if df.empty:
-            print("[DEBUG] DataFrame is empty before filtering.")
             self._update_packet_table(df)
             return
 
@@ -2337,7 +2347,6 @@ class PCAPSentryApp:
             dns_filter = (df["DnsQuery"].astype(str) != "") | (df["HttpHost"].astype(str) != "")
             df = df[dns_filter]
 
-        print(f"[DEBUG] DataFrame row count after filter: {len(df)}")
         self._update_packet_table(df)
 
     def _update_packet_table(self, df):
@@ -2347,11 +2356,8 @@ class PCAPSentryApp:
             self.packet_table.delete(row)
 
         if df is None or df.empty:
-            print("[DEBUG] _update_packet_table: DataFrame is empty at insert stage.")
             return
 
-        print(f"[DEBUG] _update_packet_table: self.packet_table id={id(self.packet_table)}")
-        print(f"[DEBUG] _update_packet_table: DataFrame row count before insert: {len(df)}")
         columns = [
             "UTC Time",
             "RelTime",
@@ -2373,19 +2379,11 @@ class PCAPSentryApp:
         for col in [c for c in columns if c not in ("UTC Time", "RelTime")]:
             if col not in df.columns:
                 df[col] = ""
-        # Debug: print first 3 rows' keys and values
-        for i, (_, row) in enumerate(df.head(3).iterrows()):
-            print(f"[DEBUG] Row {i} keys: {list(row.keys())}")
-            print(f"[DEBUG] Row {i} values: {list(row.values)}")
         rows_for_size = []
-        row_count = 0
-        for idx, (_, row) in enumerate(df.head(500).iterrows()):
+        for _, row in df.head(500).iterrows():
             values = [self._format_packet_table_value(row, col) for col in columns]
-            print(f"[DEBUG] Insert row {idx}: {values}")
             self.packet_table.insert("", tk.END, values=values)
             rows_for_size.append(values)
-            row_count += 1
-        print(f"[DEBUG] Inserted {row_count} rows into packet table.")
         self._autosize_packet_table(columns, rows_for_size)
 
     def _format_packet_table_value(self, row, col):
@@ -2502,13 +2500,14 @@ class PCAPSentryApp:
         }
         return labels.get(column, column)
 
-    def _update_packet_hints(self, df, stats):
+    def _update_packet_hints(self, df, stats, flow_df=None):
         if self.packet_hint_text is None:
             return
 
         hint_lines = ["Focus areas for C2 / exfil review:"]
 
-        flow_df = compute_flow_stats(df)
+        if flow_df is None:
+            flow_df = compute_flow_stats(df)
         if not flow_df.empty:
             flow_df["Duration"] = flow_df["Duration"].fillna(0.0)
             long_lived = flow_df[flow_df["Duration"] >= 60.0]
@@ -2544,7 +2543,7 @@ class PCAPSentryApp:
                     continue
                 std_gap = statistics.pstdev(gaps)
                 cv = std_gap / avg_gap if avg_gap else 0.0
-                if cv < 0.2:
+                if cv < 0.35:
                     flow_str = f"{keys[0]}:{keys[3]} -> {keys[1]}:{keys[4]} ({keys[2]})"
                     beacon_flow = (flow_str, avg_gap)
                     break
@@ -2871,10 +2870,17 @@ class PCAPSentryApp:
         canvas = tk.Canvas(self.root, highlightthickness=0, bd=0, bg=self.colors["bg"])
         canvas.place(x=0, y=0, relwidth=1, relheight=1)
         canvas.tk.call("lower", canvas._w)
-        canvas.bind("<Configure>", self._draw_background)
+        canvas.bind("<Configure>", self._schedule_draw_background)
         self.bg_canvas = canvas
+        self._bg_draw_pending = None
+
+    def _schedule_draw_background(self, event=None):
+        if self._bg_draw_pending is not None:
+            self.root.after_cancel(self._bg_draw_pending)
+        self._bg_draw_pending = self.root.after(100, self._draw_background)
 
     def _draw_background(self, _event=None):
+        self._bg_draw_pending = None
         if self.bg_canvas is None:
             return
         w = self.bg_canvas.winfo_width()
@@ -3497,126 +3503,433 @@ class PCAPSentryApp:
                 output_lines.append("- Wireshark filters: see Why tab")
 
             why_lines = [
-                "Summary",
-                f"- Verdict: {verdict} (risk {risk_score}/100)",
+                "========================================",
+                "  PCAP ANALYSIS TRAINING WALKTHROUGH",
+                "========================================",
                 "",
-                "What this means:",
+                f"Verdict: {verdict}  |  Risk Score: {risk_score}/100",
+                "",
+                "HOW TO READ THIS: This guide walks you through each piece of",
+                "evidence that led to the verdict above. As a network analyst,",
+                "these are the same clues you would look for manually in Wireshark",
+                "or any packet analysis tool.",
+                "",
+                "----------------------------------------",
+                "STEP 1: UNDERSTAND THE VERDICT",
+                "----------------------------------------",
             ]
             
-            # Add simple explanation based on verdict
+            # Add training-oriented explanation based on verdict
             if verdict == "Likely Malicious":
-                why_lines.append("This traffic exhibits strong indicators of malware or unauthorized access.")
-                why_lines.append("Review IOC matches, suspicious ports, and unusual traffic patterns below.")
+                why_lines.append("This traffic has multiple strong indicators of malicious activity.")
+                why_lines.append("")
+                why_lines.append("WHAT TO LEARN: When you see several red flags stacking up together")
+                why_lines.append("(unusual ports + known bad IPs + odd traffic patterns), that's how")
+                why_lines.append("real analysts build confidence that something is truly malicious.")
+                why_lines.append("One red flag alone might be a false positive. Multiple together")
+                why_lines.append("paint a clearer picture.")
+                why_lines.append("")
+                why_lines.append("NEXT STEP: Open this PCAP in Wireshark using the filters below")
+                why_lines.append("and try to follow the malicious conversation yourself.")
             elif verdict == "Suspicious (IoC Match)":
-                why_lines.append("This traffic matches known malicious IPs or domains from threat feeds.")
-                why_lines.append("The behavior and connections are flagged as potentially harmful.")
+                why_lines.append("This traffic contacted IP addresses or domains that appear on known")
+                why_lines.append("threat intelligence feeds (blocklists maintained by security researchers).")
+                why_lines.append("")
+                why_lines.append("WHAT TO LEARN: 'IoC' stands for Indicator of Compromise -- specific")
+                why_lines.append("IPs, domains, or file hashes that have been linked to attacks. Checking")
+                why_lines.append("traffic against IoC lists is one of the first things analysts do.")
+                why_lines.append("However, IoC matches aren't always proof of infection -- sometimes")
+                why_lines.append("legitimate services share infrastructure with malicious ones.")
+                why_lines.append("")
+                why_lines.append("NEXT STEP: Research each flagged IP/domain below. Use tools like")
+                why_lines.append("VirusTotal, AbuseIPDB, or Shodan to investigate further.")
             elif verdict == "Suspicious":
-                why_lines.append("This traffic shows unusual patterns that warrant further investigation.")
-                why_lines.append("While not definitively malicious, review the signals below for concerns.")
+                why_lines.append("This traffic has unusual patterns but no definitive proof of malice.")
+                why_lines.append("")
+                why_lines.append("WHAT TO LEARN: This is the gray area analysts deal with daily.")
+                why_lines.append("Not everything suspicious is malicious, and not everything clean-")
+                why_lines.append("looking is safe. Your job is to gather more context: Who owns")
+                why_lines.append("these IPs? Is this traffic expected for this network? Does the")
+                why_lines.append("timing match normal business hours?")
+                why_lines.append("")
+                why_lines.append("NEXT STEP: Review each signal below and ask yourself: 'Can I")
+                why_lines.append("explain this with normal activity?' If not, escalate it.")
             elif verdict == "Likely Safe":
-                why_lines.append("This traffic appears to be normal and benign.")
-                why_lines.append("No significant malicious indicators were detected.")
+                why_lines.append("This traffic appears to be normal network activity.")
+                why_lines.append("")
+                why_lines.append("WHAT TO LEARN: Understanding what NORMAL traffic looks like is just")
+                why_lines.append("as important as spotting malicious traffic. Study the patterns below")
+                why_lines.append("to build your mental baseline: common ports (80, 443, 53), expected")
+                why_lines.append("DNS queries, standard packet sizes. The better you know 'normal,'")
+                why_lines.append("the faster you'll spot 'abnormal' in the future.")
+                why_lines.append("")
+                why_lines.append("NEXT STEP: Compare this capture to a known-malicious one to train")
+                why_lines.append("your eye for the differences.")
             
             why_lines.append("")
-            why_lines.append("Signals that drove the score:")
+            why_lines.append("----------------------------------------")
+            why_lines.append("STEP 2: EXAMINE THE EVIDENCE")
+            why_lines.append("----------------------------------------")
+            why_lines.append("Each item below is a type of check that analysts perform.")
+            why_lines.append("Learn to evaluate each one independently before combining them.")
+            why_lines.append("")
 
+            # --- ML Classifier ---
+            why_lines.append("[A] MACHINE LEARNING PATTERN MATCH")
+            why_lines.append("    What this is: A trained model compares this traffic's statistical")
+            why_lines.append("    fingerprint (packet sizes, timing, ports) against known malware samples.")
             if classifier_result is None:
-                why_lines.append("- Classifier: not enough labeled data")
+                why_lines.append("    Result: Not enough training data yet.")
+                why_lines.append("    TIP: Label more PCAPs as 'safe' or 'malicious' using the buttons")
+                why_lines.append("    below to build up the model. The more examples it has, the better")
+                why_lines.append("    it gets -- just like you will with practice.")
             else:
-                why_lines.append(
-                    f"- Classifier risk: {classifier_result['score']} (closer to malware centroid)")
+                score_val = classifier_result['score']
+                if score_val > 0.7:
+                    why_lines.append(f"    Result: HIGH MATCH (score: {score_val})")
+                    why_lines.append("    This traffic's fingerprint closely matches known malware. A score")
+                    why_lines.append("    above 0.7 means there's strong statistical similarity.")
+                    why_lines.append("    ANALYST TIP: High ML scores are a strong signal but not proof.")
+                    why_lines.append("    Always corroborate with other evidence (IoCs, port analysis, etc.)")
+                elif score_val > 0.4:
+                    why_lines.append(f"    Result: PARTIAL MATCH (score: {score_val})")
+                    why_lines.append("    Some features overlap with malware patterns, but it's not a")
+                    why_lines.append("    strong match. Scores between 0.4-0.7 need human judgment.")
+                    why_lines.append("    ANALYST TIP: Look at the other evidence below to decide if")
+                    why_lines.append("    this is a real threat or just unusual-but-legitimate traffic.")
+                else:
+                    why_lines.append(f"    Result: LOW MATCH (score: {score_val})")
+                    why_lines.append("    This traffic doesn't statistically resemble known malware.")
+                    why_lines.append("    ANALYST TIP: A low ML score doesn't guarantee safety -- new")
+                    why_lines.append("    or targeted malware may not match existing patterns yet.")
+            why_lines.append("")
 
+            # --- Anomaly baseline ---
+            why_lines.append("[B] BASELINE ANOMALY DETECTION")
+            why_lines.append("    What this is: Compares this capture against a 'normal' baseline built")
+            why_lines.append("    from traffic you've labeled as safe. Anything that deviates stands out.")
             if anomaly_result is None:
-                why_lines.append("- Baseline anomaly: no safe baseline available")
+                why_lines.append("    Result: No baseline available.")
+                why_lines.append("    TIP: Capture normal traffic from your network and label it 'Safe.'")
+                why_lines.append("    Over time, this builds a profile of what typical traffic looks like,")
+                why_lines.append("    making it easier to spot anomalies -- a core skill in threat hunting.")
             else:
-                reasons = ", ".join(anomaly_reasons) if anomaly_reasons else "no standout outliers"
-                why_lines.append(f"- Baseline anomaly: {anomaly_result} ({reasons})")
+                reasons = ", ".join(anomaly_reasons) if anomaly_reasons else "nothing unusual stood out"
+                if anomaly_result == "anomalous":
+                    why_lines.append(f"    Result: ANOMALOUS -- deviates from your baseline")
+                    why_lines.append(f"    Reasons: {reasons}")
+                    why_lines.append("    ANALYST TIP: Anomalous doesn't always mean malicious. A software")
+                    why_lines.append("    update or a user streaming video for the first time would also")
+                    why_lines.append("    look anomalous. Ask: 'Is there a legitimate reason for this?'")
+                else:
+                    why_lines.append(f"    Result: NORMAL -- fits within established baseline")
+                    why_lines.append(f"    Details: {reasons}")
+                    why_lines.append("    ANALYST TIP: Sophisticated attackers try to blend in with normal")
+                    why_lines.append("    traffic. 'Normal-looking' is good news, but don't stop here.")
+            why_lines.append("")
 
+            # --- IoC matching ---
+            why_lines.append("[C] INDICATOR OF COMPROMISE (IoC) CHECK")
+            why_lines.append("    What this is: Every IP and domain in the capture is checked against")
+            why_lines.append("    threat intelligence feeds -- databases of known malicious addresses")
+            why_lines.append("    maintained by security researchers worldwide.")
             if ioc_available:
                 if ioc_count:
-                    why_lines.append(
-                        f"- IoC matches: {ioc_count} (domains: {len(ioc_matches['domains'])}, ips: {len(ioc_matches['ips'])})"
-                    )
+                    domain_ct = len(ioc_matches['domains'])
+                    ip_ct = len(ioc_matches['ips'])
+                    why_lines.append(f"    Result: {ioc_count} MATCHES FOUND")
+                    why_lines.append(f"    Breakdown: {domain_ct} domain(s) and {ip_ct} IP address(es) matched")
+                    why_lines.append("    ANALYST TIP: IoC matches are one of the strongest signals. When you")
+                    why_lines.append("    see a match, research it: When was it reported? What campaign was it")
+                    why_lines.append("    part of? Use VirusTotal or AbuseIPDB to learn more. This is exactly")
+                    why_lines.append("    what professional SOC analysts do.")
                 else:
-                    why_lines.append("- IoC matches: none")
+                    why_lines.append("    Result: No matches -- no addresses hit any blocklists.")
+                    why_lines.append("    ANALYST TIP: Clean IoC results are reassuring but not conclusive.")
+                    why_lines.append("    Brand-new malware ('zero-day') won't appear in feeds yet.")
             else:
-                why_lines.append("- IoC feed: not loaded")
+                why_lines.append("    Result: Threat feeds not loaded.")
+                why_lines.append("    TIP: Enable threat intelligence to unlock this check. IoC matching")
+                why_lines.append("    is one of the most commonly used techniques in security operations.")
 
             why_lines.append("")
-            why_lines.append("Traffic clues to review:")
+            why_lines.append("----------------------------------------")
+            why_lines.append("STEP 3: INSPECT THE TRAFFIC DETAILS")
+            why_lines.append("----------------------------------------")
+            why_lines.append("These are the raw clues from the packet data. In a real investigation,")
+            why_lines.append("you would dig into each of these in Wireshark.")
+            why_lines.append("")
 
+            # --- Port analysis ---
+            port_friendly = {
+                22: "SSH (remote terminal access)", 53: "DNS (translates names to IPs)",
+                80: "HTTP (unencrypted web)", 123: "NTP (time synchronization)",
+                443: "HTTPS (encrypted web)", 445: "SMB (Windows file sharing)",
+                3389: "RDP (remote desktop control)", 25: "SMTP (sending email)",
+                110: "POP3 (fetching email)", 143: "IMAP (syncing email)",
+                21: "FTP (file transfers)", 8080: "HTTP-Alt (web proxy/alt web)",
+            }
             top_ports = stats.get("top_ports", [])
             if top_ports:
-                port_text = ", ".join(f"{port} ({count})" for port, count in top_ports)
-                why_lines.append(f"- Top destination ports: {port_text}")
+                why_lines.append("[D] PORT ANALYSIS")
+                why_lines.append("    What ports are: Every network service listens on a numbered 'port.'")
+                why_lines.append("    Web traffic uses port 443 (HTTPS) or 80 (HTTP). Email uses 25, 110,")
+                why_lines.append("    or 143. When you see traffic on unusual ports, it could mean malware")
+                why_lines.append("    is using a non-standard channel to avoid detection.")
+                why_lines.append("")
+                why_lines.append("    Ports seen in this capture:")
                 common_ports = {22, 53, 80, 123, 443, 445, 3389}
-                unusual_ports = [str(port) for port, _ in top_ports if port not in common_ports]
-                if unusual_ports:
-                    why_lines.append(f"  Non-standard ports among top ports: {', '.join(unusual_ports)}")
+                has_unusual = False
+                for port, count in top_ports:
+                    name = port_friendly.get(port, "Unknown service")
+                    marker = "" if port in common_ports else " << UNUSUAL"
+                    if marker:
+                        has_unusual = True
+                    why_lines.append(f"      Port {port}: {name} -- used {count} time(s){marker}")
+                if has_unusual:
+                    why_lines.append("")
+                    why_lines.append("    TRAINING NOTE: Ports marked 'UNUSUAL' aren't in the standard set.")
+                    why_lines.append("    This doesn't always mean trouble -- some legitimate apps use high")
+                    why_lines.append("    ports. But malware often picks random or high-numbered ports to")
+                    why_lines.append("    avoid firewalls. Ask yourself: 'Do I know what software uses this")
+                    why_lines.append("    port?' If not, research it.")
+                else:
+                    why_lines.append("")
+                    why_lines.append("    All ports are well-known services -- this is a normal pattern.")
+                why_lines.append("")
 
             dns_count = stats.get("dns_query_count", 0)
             if dns_count:
+                why_lines.append("[E] DNS ANALYSIS (Domain Name System)")
+                why_lines.append("    What DNS is: Before your computer can visit a website, it asks a DNS")
+                why_lines.append("    server 'What IP address is google.com?' This lookup happens for every")
+                why_lines.append("    website, and it's visible in the traffic even when the rest is encrypted.")
+                why_lines.append("")
                 top_dns = stats.get("top_dns", [])
                 if top_dns:
-                    dns_text = ", ".join(f"{domain} ({count})" for domain, count in top_dns)
-                    why_lines.append(f"- Top DNS queries: {dns_text}")
+                    why_lines.append("    Most frequently queried domains:")
+                    for domain, count in top_dns:
+                        why_lines.append(f"      {domain} -- looked up {count} time(s)")
+                    why_lines.append("")
+                    why_lines.append("    TRAINING NOTE: Look for domains that seem random (e.g.,")
+                    why_lines.append("    'xk3j9f.xyz') -- malware often uses auto-generated domain names")
+                    why_lines.append("    called DGAs (Domain Generation Algorithms). Also watch for")
+                    why_lines.append("    extremely high query counts to one domain -- that can indicate")
+                    why_lines.append("    DNS tunneling, where data is smuggled out inside DNS queries.")
                 else:
-                    why_lines.append(f"- DNS queries observed: {dns_count}")
+                    why_lines.append(f"    Total DNS queries: {dns_count}")
+                why_lines.append("")
 
             http_count = stats.get("http_request_count", 0)
             http_hosts = stats.get("http_hosts", [])
             if http_count:
+                why_lines.append("[F] HTTP TRAFFIC (Unencrypted Web)")
+                why_lines.append("    What this means: HTTP sends data in plain text -- anyone between")
+                why_lines.append("    the sender and receiver can read it. Most legitimate sites use HTTPS")
+                why_lines.append("    (encrypted) instead. Seeing HTTP traffic is worth investigating.")
+                why_lines.append("")
                 if http_hosts:
-                    why_lines.append(f"- HTTP hosts: {', '.join(http_hosts[:5])}")
+                    why_lines.append(f"    Hosts contacted over HTTP: {', '.join(http_hosts[:5])}")
                 else:
-                    why_lines.append(f"- HTTP requests observed: {http_count}")
+                    why_lines.append(f"    Total HTTP requests: {http_count}")
+                why_lines.append("")
+                why_lines.append("    TRAINING NOTE: Malware sometimes uses plain HTTP to send stolen")
+                why_lines.append("    data or receive commands because it's simpler to set up than HTTPS.")
+                why_lines.append("    In Wireshark, filter by 'http' and examine the URLs and payloads --")
+                why_lines.append("    you can often read exactly what was sent.")
+                why_lines.append("")
 
             tls_count = stats.get("tls_packet_count", 0)
             tls_sni = stats.get("tls_sni", [])
             if tls_count:
+                why_lines.append("[G] HTTPS/TLS TRAFFIC (Encrypted Web)")
+                why_lines.append("    What this means: TLS (Transport Layer Security) encrypts the data so")
+                why_lines.append("    you can't read the contents. However, you CAN see the destination")
+                why_lines.append("    server name (called SNI -- Server Name Indication) in the handshake.")
+                why_lines.append("")
                 if tls_sni:
-                    why_lines.append(f"- TLS SNI observed: {', '.join(tls_sni[:5])}")
+                    why_lines.append(f"    Servers contacted (SNI): {', '.join(tls_sni[:5])}")
                 else:
-                    why_lines.append(f"- TLS packets observed: {tls_count}")
+                    why_lines.append(f"    Total TLS packets: {tls_count}")
+                why_lines.append("")
+                why_lines.append("    TRAINING NOTE: Even though you can't read encrypted traffic, the SNI")
+                why_lines.append("    tells you WHERE it's going. Malware increasingly uses HTTPS to blend")
+                why_lines.append("    in. Check SNI values for unusual or suspicious destinations.")
+                why_lines.append("    In Wireshark, use filter: tls.handshake.extensions_server_name")
+                why_lines.append("")
 
             avg_size = stats.get("avg_size", 0.0)
             median_size = stats.get("median_size", 0.0)
-            why_lines.append(f"- Avg packet size: {avg_size:.1f} bytes; median: {median_size:.1f} bytes")
+            why_lines.append("[H] PACKET SIZE ANALYSIS")
+            why_lines.append("    What this tells you: The size of packets reveals what type of activity")
+            why_lines.append("    is happening. Normal web browsing has mixed sizes. Certain attack")
+            why_lines.append("    patterns have distinctive size signatures.")
+            why_lines.append("")
+            why_lines.append(f"    Average packet size: {avg_size:.1f} bytes")
+            why_lines.append(f"    Median packet size:  {median_size:.1f} bytes")
+            why_lines.append("    (Median is often more useful than average -- it isn't skewed by outliers.)")
+            why_lines.append("")
             if median_size and median_size < 120:
-                why_lines.append("  Many small packets can indicate beaconing or C2 check-ins.")
+                why_lines.append("    !! ALERT: Many small packets detected.")
+                why_lines.append("    TRAINING NOTE: Beaconing -- a pattern where malware sends small,")
+                why_lines.append("    regular 'I'm alive' messages to its command server -- typically")
+                why_lines.append("    produces lots of small packets (under ~120 bytes). This is one of")
+                why_lines.append("    the most common indicators of a compromised machine. In Wireshark,")
+                why_lines.append("    try: frame.len < 120 to filter for these.")
             elif avg_size and avg_size > 1200:
-                why_lines.append("  Larger packets can indicate bulk data transfer or exfiltration.")
+                why_lines.append("    !! ALERT: Unusually large packets detected.")
+                why_lines.append("    TRAINING NOTE: Large packets can indicate data exfiltration --")
+                why_lines.append("    when an attacker (or malware) copies files or databases off the")
+                why_lines.append("    network. Look at which hosts are sending these large packets and")
+                why_lines.append("    where they're going. In Wireshark, try: frame.len > 1200")
+            else:
+                why_lines.append("    Packet sizes look normal for mixed web/network traffic.")
+                why_lines.append("    TRAINING NOTE: Normal browsing usually produces a mix of small")
+                why_lines.append("    packets (TCP ACKs, ~54 bytes) and larger ones (data transfers,")
+                why_lines.append("    500-1500 bytes). Very uniform sizes can sometimes be suspicious.")
 
             # Add threat intelligence findings to why
             if threat_intel_findings.get("threat_intel"):
                 intel_data = threat_intel_findings["threat_intel"]
                 if intel_data.get("risky_ips") or intel_data.get("risky_domains"):
                     why_lines.append("")
-                    why_lines.append("Online threat intelligence (public feeds):")
+                    why_lines.append("[I] THREAT INTELLIGENCE MATCHES")
+                    why_lines.append("    What this is: These addresses were checked against public threat")
+                    why_lines.append("    feeds -- databases where security researchers report IPs and domains")
+                    why_lines.append("    involved in attacks, phishing, malware distribution, etc.")
+                    why_lines.append("")
                     if intel_data.get("risky_ips"):
                         for ip_info in intel_data["risky_ips"][:3]:
-                            why_lines.append(f"  - {ip_info['ip']} flagged by threat feeds (risk: {ip_info['risk_score']:.0f}/100)")
+                            risk = ip_info['risk_score']
+                            severity = "HIGH RISK" if risk > 70 else "MEDIUM RISK" if risk > 40 else "LOW RISK"
+                            why_lines.append(f"    IP: {ip_info['ip']} -- Score: {risk:.0f}/100 ({severity})")
                     if intel_data.get("risky_domains"):
                         for domain_info in intel_data["risky_domains"][:3]:
-                            why_lines.append(f"  - {domain_info['domain']} flagged by threat feeds (risk: {domain_info['risk_score']:.0f}/100)")
+                            risk = domain_info['risk_score']
+                            severity = "HIGH RISK" if risk > 70 else "MEDIUM RISK" if risk > 40 else "LOW RISK"
+                            why_lines.append(f"    Domain: {domain_info['domain']} -- Score: {risk:.0f}/100 ({severity})")
+                    why_lines.append("")
+                    why_lines.append("    TRAINING NOTE: When you find a threat intel hit, here's what a")
+                    why_lines.append("    professional analyst would do next:")
+                    why_lines.append("    1. Look up the IP/domain on VirusTotal.com for community reports")
+                    why_lines.append("    2. Check AbuseIPDB.com for abuse history and geolocation")
+                    why_lines.append("    3. Note WHEN the traffic occurred -- was it during business hours?")
+                    why_lines.append("    4. Check if this host communicated with any internal systems")
+                    why_lines.append("    5. Document your findings for an incident report")
 
             why_lines.append("")
-            why_lines.append("Suspicious flows to review:")
+            why_lines.append("----------------------------------------")
+            why_lines.append("STEP 4: REVIEW SUSPICIOUS CONVERSATIONS")
+            why_lines.append("----------------------------------------")
+            why_lines.append("A 'flow' is a conversation between two computers identified by their")
+            why_lines.append("IP addresses. The format is: SourceIP:Port -> DestIP:Port")
+            why_lines.append("")
             if not suspicious_flows:
-                why_lines.append("- None flagged by heuristics.")
+                why_lines.append("No flows were flagged as suspicious.")
+                why_lines.append("TRAINING NOTE: This is a good sign, but remember -- absence of evidence")
+                why_lines.append("is not evidence of absence. Sophisticated malware may produce flows that")
+                why_lines.append("look perfectly normal individually.")
             else:
-                for item in suspicious_flows:
-                    why_lines.append(
-                        f"- {item['flow']} | {item['reason']} | {item['bytes']} | {item['packets']} pkts"
-                    )
+                why_lines.append(f"{len(suspicious_flows)} suspicious flow(s) detected:")
+                why_lines.append("")
+                # Map technical reasons to training-oriented explanations
+                reason_explanations = {
+                    "high_volume": (
+                        "HIGH DATA VOLUME",
+                        "This conversation moved an unusually large amount of data. In an investigation,"
+                        " check: Is this a file download, a backup, or data being stolen (exfiltrated)?"
+                    ),
+                    "long_duration": (
+                        "LONG-LIVED CONNECTION",
+                        "This connection stayed open for an unusually long time. Persistent connections"
+                        " can indicate a backdoor or remote access tool keeping a channel open."
+                    ),
+                    "many_packets": (
+                        "HIGH PACKET COUNT",
+                        "An abnormally high number of messages were exchanged. This could be normal"
+                        " (large file transfer) or could indicate command-and-control chatter."
+                    ),
+                    "small_packets": (
+                        "SMALL PACKET PATTERN",
+                        "Lots of tiny packets exchanged. This is a classic 'beaconing' pattern where"
+                        " malware sends small check-in signals. Look for regular timing intervals."
+                    ),
+                    "large_packets": (
+                        "LARGE PACKET PATTERN",
+                        "Unusually large packets suggest bulk data movement. Ask: Is data leaving the"
+                        " network (outbound) or entering (inbound)? Outbound is more concerning."
+                    ),
+                    "unusual_port": (
+                        "NON-STANDARD PORT",
+                        "This conversation used a port not associated with any common service. Malware"
+                        " often uses random high ports to avoid firewall rules."
+                    ),
+                    "beaconing": (
+                        "BEACONING DETECTED",
+                        "Messages were sent at regular intervals -- a hallmark of malware 'calling"
+                        " home' to its command server. This is one of the strongest malware indicators."
+                    ),
+                    "dns_tunnel": (
+                        "POSSIBLE DNS TUNNELING",
+                        "Data may be hidden inside DNS queries. Attackers use this technique to sneak"
+                        " data out of networks that block most traffic but allow DNS."
+                    ),
+                    "c2": (
+                        "COMMAND & CONTROL (C2) PATTERN",
+                        "This looks like communication between malware and its controller. C2 traffic"
+                        " is how attackers send commands to compromised machines."
+                    ),
+                    "exfiltration": (
+                        "DATA EXFILTRATION PATTERN",
+                        "This pattern suggests data is being copied out of the network. This is often"
+                        " the attacker's ultimate goal -- stealing sensitive information."
+                    ),
+                    "scan": (
+                        "NETWORK SCANNING",
+                        "This looks like port scanning or network reconnaissance. Attackers scan"
+                        " networks to find vulnerable services before launching an attack."
+                    ),
+                }
+                for idx, item in enumerate(suspicious_flows, 1):
+                    raw_reason = item['reason'].lower()
+                    category = "FLAGGED"
+                    explanation = item['reason']
+                    for key, (cat, expl) in reason_explanations.items():
+                        if key in raw_reason:
+                            category = cat
+                            explanation = expl
+                            break
+                    why_lines.append(f"  Flow #{idx}: {item['flow']}")
+                    why_lines.append(f"    Category: {category}")
+                    why_lines.append(f"    Data: {item['bytes']} transferred in {item['packets']} packets")
+                    why_lines.append(f"    What this means: {explanation}")
+                    why_lines.append("")
 
             if wireshark_filters:
                 unique_filters = list(dict.fromkeys(wireshark_filters))
                 self.wireshark_filters = unique_filters
                 why_lines.append("")
-                why_lines.append("Wireshark filters to start with:")
+                why_lines.append("----------------------------------------")
+                why_lines.append("STEP 5: INVESTIGATE IN WIRESHARK")
+                why_lines.append("----------------------------------------")
+                why_lines.append("Copy these filters and paste them into Wireshark's display filter bar")
+                why_lines.append("to isolate the suspicious traffic. Each filter narrows the view to")
+                why_lines.append("just the relevant packets.")
+                why_lines.append("")
+                why_lines.append("HOW TO USE: Open the original PCAP file in Wireshark, then paste")
+                why_lines.append("one filter at a time into the filter bar at the top and press Enter.")
+                why_lines.append("(Or click 'Copy Wireshark Filters' below to copy all of them.)")
+                why_lines.append("")
                 for filt in unique_filters:
-                    why_lines.append(f"- {filt}")
+                    why_lines.append(f"  {filt}")
+                why_lines.append("")
+                why_lines.append("TRAINING NOTE: Learning Wireshark filters is one of the most valuable")
+                why_lines.append("skills for a network analyst. Common ones to memorize:")
+                why_lines.append("  ip.addr == x.x.x.x      Show all traffic to/from an IP")
+                why_lines.append("  tcp.port == 443          Show all HTTPS traffic")
+                why_lines.append("  dns                      Show all DNS queries")
+                why_lines.append("  http.request             Show all HTTP requests")
+                why_lines.append("  tcp.flags.syn == 1       Show connection attempts")
             else:
                 self.wireshark_filters = []
 
@@ -3633,25 +3946,20 @@ class PCAPSentryApp:
             self.result_text.delete("1.0", tk.END)
             self.result_text.insert(tk.END, "\n".join(output_lines))
 
-            print(f"[DEBUG] _analyze: self.packet_table id={id(self.packet_table)} before apply_packet_filters")
+            print(f"[DEBUG] _analyze: self.packet_table id={id(self.packet_table)}")
             # Select Results tab before updating table
             if hasattr(self, 'results_notebook') and hasattr(self, 'results_tab'):
                 try:
                     self.results_notebook.select(self.results_tab)
                     self.results_tab.update_idletasks()
                     self.results_tab.update()
-                    print(f"[DEBUG] Selected results_tab")
-                except Exception as e:
-                    print(f"[DEBUG] Could not switch to results tab: {e}")
-            if self.packet_table is not None:
-                try:
-                    parent = self.packet_table.nametowidget(self.packet_table.winfo_parent())
-                    print(f"[DEBUG] packet_table parent: {parent}")
-                    print(f"[DEBUG] packet_table is mapped: {self.packet_table.winfo_ismapped()}")
-                except Exception as e:
-                    print(f"[DEBUG] Could not get packet_table parent or visibility: {e}")
+                except Exception:
+                    pass
             self._apply_packet_filters()
-            self._update_packet_hints(df, stats)
+
+            # Compute flow stats ONCE and reuse
+            flow_df = compute_flow_stats(df)
+            self._update_packet_hints(df, stats, flow_df=flow_df)
             
             self._set_determinate_progress(100)
             self.status_var.set("Done")
@@ -3661,13 +3969,11 @@ class PCAPSentryApp:
             if hasattr(self, 'results_notebook') and hasattr(self, 'results_tab'):
                 try:
                     self.results_notebook.select(self.results_tab)
-                    print(f"[DEBUG] Selected results_tab for final view")
-                except Exception as e:
-                    print(f"[DEBUG] Could not switch to results tab: {e}")
+                except Exception:
+                    pass
 
             for row in self.flow_table.get_children():
                 self.flow_table.delete(row)
-            flow_df = compute_flow_stats(df)
             for _, row in flow_df.head(25).iterrows():
                 self.flow_table.insert(
                     "",
@@ -3686,7 +3992,7 @@ class PCAPSentryApp:
             self.target_path_var.set("")
             
             t_end = time.time()
-            print(f"[TIMING] Total result processing: {t_end-t_start:.2f}s")
+            print(f"[TIMING] Total result processing: {t_end-t1:.2f}s")
 
         self._run_task(task, done, message="Analyzing PCAP...", progress_label="Analyzing PCAP")
 
