@@ -121,6 +121,7 @@ class UpdateChecker:
 
         except Exception as e:
             print(f"Error fetching latest release: {e}")
+            self._last_error = str(e)
             return False
 
     def download_update(self, destination: str, progress_callback=None) -> bool:
@@ -277,7 +278,8 @@ class BackgroundUpdateChecker(threading.Thread):
                     "release_notes": self.checker.release_notes,
                 }
             else:
-                self.result = {"success": False, "error": "Failed to fetch release info"}
+                error_detail = getattr(self.checker, "_last_error", "Failed to fetch release info")
+                self.result = {"success": False, "error": error_detail}
 
         except Exception as e:
             self.result = {"success": False, "error": str(e)}
