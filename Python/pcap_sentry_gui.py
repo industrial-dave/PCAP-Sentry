@@ -1,3 +1,4 @@
+import base64
 import io
 import ipaddress
 import json
@@ -5,8 +6,10 @@ import math
 import os
 import queue
 import random
+import re
 import shutil
 import statistics
+import struct
 import sys
 import tempfile
 import threading
@@ -924,6 +927,388 @@ def parse_http_payload(payload):
         return "", "", ""
 
 
+def extract_credentials_and_hosts(file_path, use_high_memory=False):
+    """Extract credentials, usernames, passwords, hostnames, MAC addresses from a PCAP file.
+
+    Returns a dict with keys:
+        credentials  - list of dicts {protocol, src, dst, field, value, detail}
+        hosts        - dict mapping IP -> {mac: set, hostnames: set}
+    """
+    DNS, DNSQR, IP, PcapReader, Raw, TCP, UDP = _get_scapy()
+    try:
+        from scapy.layers.l2 import Ether
+    except ImportError:
+        Ether = None
+
+    resolved_path, cleanup, _ = _resolve_pcap_source(file_path)
+
+    credentials = []  # list of dicts
+    hosts = {}  # ip -> {"mac": set(), "hostnames": set()}
+    _seen_creds = set()  # dedup key
+    ftp_state = {}  # src_ip:src_port -> last USER value
+    MAX_CREDS = 5000
+
+    def _add_host(ip, mac=None, hostname=None):
+        if ip not in hosts:
+            hosts[ip] = {"mac": set(), "hostnames": set()}
+        if mac and mac != "00:00:00:00:00:00" and mac != "ff:ff:ff:ff:ff:ff":
+            hosts[ip]["mac"].add(mac)
+        if hostname:
+            hosts[ip]["hostnames"].add(hostname)
+
+    def _add_cred(protocol, src, dst, field, value, detail=""):
+        if len(credentials) >= MAX_CREDS:
+            return
+        key = (protocol, src, dst, field, value)
+        if key in _seen_creds:
+            return
+        _seen_creds.add(key)
+        credentials.append({
+            "protocol": protocol,
+            "src": src,
+            "dst": dst,
+            "field": field,
+            "value": value,
+            "detail": detail,
+        })
+
+    def _try_decode(data):
+        if isinstance(data, bytes):
+            return data.decode("utf-8", errors="replace").strip()
+        return str(data).strip()
+
+    def _parse_http_auth(payload, src, dst):
+        """Extract HTTP Basic/Digest auth, form POST credentials, cookies."""
+        try:
+            text = payload.decode("latin-1", errors="ignore")
+        except Exception:
+            return
+        # Authorization header (Basic)
+        auth_match = re.search(r"(?i)\r\nAuthorization:\s*Basic\s+([A-Za-z0-9+/=]+)", text)
+        if auth_match:
+            try:
+                decoded = base64.b64decode(auth_match.group(1)).decode("utf-8", errors="replace")
+                if ":" in decoded:
+                    user, pw = decoded.split(":", 1)
+                    _add_cred("HTTP-Basic", src, dst, "Username", user)
+                    _add_cred("HTTP-Basic", src, dst, "Password", pw)
+            except Exception:
+                pass
+        # NTLM in HTTP
+        ntlm_match = re.search(r"(?i)\r\nAuthorization:\s*NTLM\s+([A-Za-z0-9+/=]+)", text)
+        if ntlm_match:
+            _add_cred("HTTP-NTLM", src, dst, "NTLM Token", ntlm_match.group(1)[:60] + "...", "NTLM auth exchange")
+        # Form POST with common credential field names
+        if text.startswith(("POST ", "post ")):
+            body_start = text.find("\r\n\r\n")
+            if body_start != -1:
+                body = text[body_start + 4:body_start + 4 + 2000]
+                for pattern in [
+                    r"(?:user(?:name)?|login|email|acct)=([^&\r\n]+)",
+                    r"(?:pass(?:word)?|passwd|pw|secret)=([^&\r\n]+)",
+                ]:
+                    for m in re.finditer(pattern, body, re.IGNORECASE):
+                        field_name = m.group(0).split("=", 1)[0]
+                        _add_cred("HTTP-POST", src, dst, field_name, m.group(1))
+        # Cookie header
+        cookie_match = re.search(r"(?i)\r\nCookie:\s*(.+?)\r\n", text)
+        if cookie_match:
+            cookie_val = cookie_match.group(1).strip()
+            if len(cookie_val) > 120:
+                cookie_val = cookie_val[:120] + "..."
+            _add_cred("HTTP-Cookie", src, dst, "Cookie", cookie_val)
+        # Set-Cookie (server response)
+        set_cookie_match = re.search(r"(?i)\r\nSet-Cookie:\s*(.+?)\r\n", text)
+        if set_cookie_match:
+            sc_val = set_cookie_match.group(1).strip()
+            if len(sc_val) > 120:
+                sc_val = sc_val[:120] + "..."
+            _add_cred("HTTP-SetCookie", dst, src, "Set-Cookie", sc_val, "Server-issued session cookie")
+
+    def _parse_ftp(line, src, dst, sport, dport):
+        """Extract FTP USER/PASS commands."""
+        text = _try_decode(line)
+        upper = text.upper()
+        conn_key = f"{src}:{sport}"
+        if upper.startswith("USER "):
+            user = text[5:].strip()
+            ftp_state[conn_key] = user
+            _add_cred("FTP", src, dst, "Username", user)
+        elif upper.startswith("PASS "):
+            pw = text[5:].strip()
+            user = ftp_state.get(conn_key, "")
+            _add_cred("FTP", src, dst, "Password", pw, f"User: {user}" if user else "")
+
+    def _parse_smtp(line, src, dst):
+        """Extract SMTP AUTH credentials."""
+        text = _try_decode(line)
+        upper = text.upper()
+        if upper.startswith("AUTH LOGIN") or upper.startswith("AUTH PLAIN"):
+            parts = text.split()
+            if len(parts) >= 3 and parts[1].upper() == "PLAIN":
+                try:
+                    decoded = base64.b64decode(parts[2]).decode("utf-8", errors="replace")
+                    # AUTH PLAIN format: \x00user\x00pass
+                    pieces = decoded.split("\x00")
+                    pieces = [p for p in pieces if p]
+                    if len(pieces) >= 2:
+                        _add_cred("SMTP", src, dst, "Username", pieces[0])
+                        _add_cred("SMTP", src, dst, "Password", pieces[1])
+                    elif len(pieces) == 1:
+                        _add_cred("SMTP", src, dst, "Auth-Data", pieces[0])
+                except Exception:
+                    pass
+        elif upper.startswith("EHLO ") or upper.startswith("HELO "):
+            hostname = text.split(None, 1)[1].strip() if len(text.split(None, 1)) > 1 else ""
+            if hostname:
+                _add_host(src, hostname=hostname)
+                _add_cred("SMTP", src, dst, "EHLO/HELO", hostname, "Client hostname announcement")
+        elif upper.startswith("MAIL FROM:"):
+            sender = text[10:].strip().strip("<>")
+            if sender:
+                _add_cred("SMTP", src, dst, "MAIL FROM", sender)
+
+    def _parse_pop3(line, src, dst):
+        """Extract POP3 USER/PASS."""
+        text = _try_decode(line)
+        upper = text.upper()
+        if upper.startswith("USER "):
+            _add_cred("POP3", src, dst, "Username", text[5:].strip())
+        elif upper.startswith("PASS "):
+            _add_cred("POP3", src, dst, "Password", text[5:].strip())
+
+    def _parse_imap(line, src, dst):
+        """Extract IMAP LOGIN credentials."""
+        text = _try_decode(line)
+        # IMAP LOGIN: tag LOGIN user pass
+        login_match = re.match(r"\S+\s+LOGIN\s+(\S+)\s+(\S+)", text, re.IGNORECASE)
+        if login_match:
+            _add_cred("IMAP", src, dst, "Username", login_match.group(1).strip('"'))
+            _add_cred("IMAP", src, dst, "Password", login_match.group(2).strip('"'))
+
+    def _parse_telnet_line(line, src, dst):
+        """Heuristic extraction from telnet-like cleartext sessions."""
+        text = _try_decode(line)
+        lower = text.lower()
+        if "login:" in lower or "username:" in lower:
+            # This is a prompt; the actual username comes in a subsequent packet
+            _add_cred("Telnet", dst, src, "Login Prompt", text.strip(), "Server login prompt")
+        elif "password:" in lower:
+            _add_cred("Telnet", dst, src, "Password Prompt", text.strip(), "Server password prompt")
+
+    def _parse_snmp(payload, src, dst):
+        """Extract SNMP community strings (v1/v2c)."""
+        try:
+            # SNMPv1/v2c community string is in a simple ASN.1 structure
+            # Sequence -> Integer (version) -> OctetString (community)
+            if len(payload) < 10:
+                return
+            if payload[0] != 0x30:  # ASN.1 SEQUENCE
+                return
+            idx = 2
+            if payload[1] & 0x80:  # long form length
+                num_len_bytes = payload[1] & 0x7F
+                idx = 2 + num_len_bytes
+            # Integer (version)
+            if idx >= len(payload) or payload[idx] != 0x02:
+                return
+            idx += 1
+            ver_len = payload[idx]
+            idx += 1 + ver_len
+            # OctetString (community)
+            if idx >= len(payload) or payload[idx] != 0x04:
+                return
+            idx += 1
+            comm_len = payload[idx]
+            idx += 1
+            if idx + comm_len > len(payload):
+                return
+            community = payload[idx:idx + comm_len].decode("utf-8", errors="replace")
+            if community and community not in ("public", ""):
+                _add_cred("SNMP", src, dst, "Community", community)
+            elif community == "public":
+                _add_cred("SNMP", src, dst, "Community", community, "Default/weak community string")
+        except Exception:
+            pass
+
+    def _parse_kerberos(payload, src, dst):
+        """Basic Kerberos principal extraction from AS-REQ."""
+        try:
+            # Look for common Kerberos realm/principal patterns in the payload
+            text = payload.decode("utf-8", errors="ignore")
+            # Kerberos principals often appear as name@REALM
+            krb_match = re.findall(r"([a-zA-Z0-9_.+-]+@[A-Z0-9.\-]+)", text)
+            for principal in krb_match[:3]:
+                _add_cred("Kerberos", src, dst, "Principal", principal)
+        except Exception:
+            pass
+
+    def _check_dhcp_hostname(payload, src, mac):
+        """Extract hostname from DHCP options."""
+        try:
+            if len(payload) < 240:
+                return
+            # DHCP magic cookie at offset 236
+            if payload[236:240] != b"\x63\x82\x53\x63":
+                return
+            idx = 240
+            while idx < len(payload) - 1:
+                opt_type = payload[idx]
+                if opt_type == 0xFF:  # End
+                    break
+                if opt_type == 0:  # Padding
+                    idx += 1
+                    continue
+                opt_len = payload[idx + 1]
+                opt_data = payload[idx + 2:idx + 2 + opt_len]
+                if opt_type == 12:  # Hostname option
+                    hostname = opt_data.decode("utf-8", errors="replace").strip()
+                    if hostname:
+                        _add_host(src if src != "0.0.0.0" else "DHCP-client", mac=mac, hostname=hostname)
+                idx += 2 + opt_len
+        except Exception:
+            pass
+
+    try:
+        if use_high_memory:
+            try:
+                with open(resolved_path, "rb") as handle:
+                    pcap_bytes = handle.read()
+                reader = PcapReader(io.BytesIO(pcap_bytes))
+            except Exception:
+                reader = PcapReader(resolved_path)
+        else:
+            reader = PcapReader(resolved_path)
+
+        with reader as pcap:
+            for pkt in pcap:
+                # Extract MAC addresses from Ethernet layer
+                if Ether is not None and pkt.haslayer(Ether):
+                    ether = pkt.getlayer(Ether)
+                    src_mac = ether.src
+                    dst_mac = ether.dst
+                else:
+                    src_mac = None
+                    dst_mac = None
+
+                ip_layer = pkt.getlayer(IP)
+                if ip_layer is None:
+                    # Check for DHCP on non-IP (rare but possible)
+                    continue
+
+                src_ip = ip_layer.src
+                dst_ip = ip_layer.dst
+
+                # Record MAC -> IP mapping
+                if src_mac:
+                    _add_host(src_ip, mac=src_mac)
+                if dst_mac:
+                    _add_host(dst_ip, mac=dst_mac)
+
+                tcp_layer = pkt.getlayer(TCP)
+                udp_layer = pkt.getlayer(UDP) if tcp_layer is None else None
+                raw_layer = pkt.getlayer(Raw)
+                payload = bytes(raw_layer.load) if raw_layer and raw_layer.load else b""
+
+                if tcp_layer is not None:
+                    sport = int(tcp_layer.sport)
+                    dport = int(tcp_layer.dport)
+
+                    if payload:
+                        # FTP (ports 21, 2121)
+                        if dport in (21, 2121) or sport in (21, 2121):
+                            for line in payload.split(b"\r\n"):
+                                if line:
+                                    _parse_ftp(line, src_ip, dst_ip, sport, dport)
+
+                        # SMTP (ports 25, 465, 587)
+                        elif dport in (25, 465, 587) or sport in (25, 465, 587):
+                            for line in payload.split(b"\r\n"):
+                                if line:
+                                    _parse_smtp(line, src_ip, dst_ip)
+
+                        # POP3 (port 110, 995)
+                        elif dport in (110, 995) or sport in (110, 995):
+                            for line in payload.split(b"\r\n"):
+                                if line:
+                                    _parse_pop3(line, src_ip, dst_ip)
+
+                        # IMAP (port 143, 993)
+                        elif dport in (143, 993) or sport in (143, 993):
+                            for line in payload.split(b"\r\n"):
+                                if line:
+                                    _parse_imap(line, src_ip, dst_ip)
+
+                        # Telnet (port 23)
+                        elif dport == 23 or sport == 23:
+                            for line in payload.split(b"\r\n"):
+                                if line:
+                                    _parse_telnet_line(line, src_ip, dst_ip)
+
+                        # HTTP (ports 80, 8080, 8000, 8888)
+                        elif dport in (80, 8080, 8000, 8888) or sport in (80, 8080, 8000, 8888):
+                            _parse_http_auth(payload, src_ip, dst_ip)
+
+                        # Kerberos (port 88)
+                        elif dport == 88 or sport == 88:
+                            _parse_kerberos(payload, src_ip, dst_ip)
+
+                elif udp_layer is not None:
+                    sport = int(udp_layer.sport)
+                    dport = int(udp_layer.dport)
+
+                    if payload:
+                        # SNMP (port 161, 162)
+                        if dport in (161, 162) or sport in (161, 162):
+                            _parse_snmp(payload, src_ip, dst_ip)
+
+                        # DHCP hostname extraction (ports 67, 68)
+                        elif dport in (67, 68) or sport in (67, 68):
+                            _check_dhcp_hostname(payload, src_ip, src_mac)
+
+                        # Kerberos UDP
+                        elif dport == 88 or sport == 88:
+                            _parse_kerberos(payload, src_ip, dst_ip)
+
+                # DNS hostname extraction (PTR records, etc.) — already parsed elsewhere
+                dns_layer = pkt.getlayer(DNS)
+                if dns_layer is not None:
+                    try:
+                        qd = dns_layer.qd
+                        if isinstance(qd, DNSQR):
+                            qname = qd.qname
+                        elif qd:
+                            qname = qd[0].qname
+                        else:
+                            qname = b""
+                        if isinstance(qname, bytes):
+                            dn = qname.decode("utf-8", errors="ignore").rstrip(".")
+                        elif qname:
+                            dn = str(qname).rstrip(".")
+                        else:
+                            dn = ""
+                        if dn:
+                            _add_host(dst_ip, hostname=dn)
+                    except Exception:
+                        pass
+
+                if len(credentials) >= MAX_CREDS:
+                    break
+
+    finally:
+        cleanup()
+
+    # Convert sets to sorted lists for JSON-friendliness
+    hosts_out = {}
+    for ip, info in hosts.items():
+        hosts_out[ip] = {
+            "mac": sorted(info["mac"]),
+            "hostnames": sorted(info["hostnames"]),
+        }
+
+    return {"credentials": credentials, "hosts": hosts_out}
+
+
 def _maybe_reservoir_append(items, item, limit, seen_count):
     if limit <= 0:
         return
@@ -1408,6 +1793,66 @@ def _add_chart_tab(notebook, title, fig):
     canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
 
+# ── Hover Tooltip ──────────────────────────────────────────
+class _HelpTooltip:
+    """Shows a tooltip popup when the user hovers over a widget."""
+
+    def __init__(self, widget, text, wrap_length=380):
+        self.widget = widget
+        self.text = text
+        self.wrap_length = wrap_length
+        self.tip_window = None
+        self._after_id = None
+        widget.bind("<Enter>", self._schedule_show)
+        widget.bind("<Leave>", self._hide)
+        widget.bind("<ButtonPress>", self._hide)
+
+    def _schedule_show(self, event=None):
+        """Show tooltip after a brief delay to avoid flicker."""
+        self._cancel()
+        self._after_id = self.widget.after(350, self._show)
+
+    def _cancel(self):
+        if self._after_id:
+            self.widget.after_cancel(self._after_id)
+            self._after_id = None
+
+    def _show(self, event=None):
+        if self.tip_window:
+            return
+        x = self.widget.winfo_rootx() + 16
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
+        tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        try:
+            tw.wm_attributes("-topmost", True)
+        except Exception:
+            pass
+        # Outer border frame for clean edge
+        border = tk.Frame(tw, bg="#4b5563", padx=1, pady=1)
+        border.pack(fill=tk.BOTH, expand=True)
+        label = tk.Label(
+            border,
+            text=self.text,
+            justify=tk.LEFT,
+            background="#1e293b",
+            foreground="#e2e8f0",
+            wraplength=self.wrap_length,
+            font=("Segoe UI", 9),
+            padx=10,
+            pady=8,
+        )
+        label.pack()
+        self.tip_window = tw
+
+    def _hide(self, event=None):
+        self._cancel()
+        if self.tip_window:
+            self.tip_window.destroy()
+            self.tip_window = None
+
+
 class PCAPSentryApp:
     def __init__(self, root):
         self.root = root
@@ -1426,7 +1871,7 @@ class PCAPSentryApp:
         self.colors = {}
         self._apply_theme()
 
-        self.font_title = tkfont.Font(family="Segoe UI", size=18, weight="bold")
+        self.font_title = tkfont.Font(family="Segoe UI", size=22, weight="bold")
         self.font_subtitle = tkfont.Font(family="Segoe UI", size=10)
 
         self.max_rows_var = tk.IntVar(value=self.settings.get("max_rows", DEFAULT_MAX_ROWS))
@@ -1463,6 +1908,7 @@ class PCAPSentryApp:
         self.label_mal_button = None
         self.target_drop_area = None
         self.why_text = None
+        self.education_text = None
         self.copy_filters_button = None
         self.wireshark_filters = []
         self.packet_table = None
@@ -1480,6 +1926,13 @@ class PCAPSentryApp:
         self.packet_size_min_var = None
         self.packet_size_max_var = None
         self.packet_dns_http_only_var = None
+
+        # Extracted Info tab state
+        self.cred_table = None
+        self.host_table = None
+        self.cred_count_var = None
+        self.host_count_var = None
+        self.extracted_data = None
 
         # Performance optimization: caching for analysis pipeline
         self.kb_cache = None  # Cache for loaded knowledge base
@@ -1501,6 +1954,38 @@ class PCAPSentryApp:
             return f"{self.base_title} [OFFLINE MODE]"
         else:
             return f"{self.base_title} [ONLINE]"
+
+    def _help_icon(self, parent, text, side=tk.LEFT, padx=(0, 6), **pack_kw):
+        """Create a small '?' label with a hover tooltip explaining a feature."""
+        lbl = tk.Label(
+            parent,
+            text="\u24d8",
+            font=("Segoe UI", 11),
+            fg=self.colors.get("accent", "#2563eb"),
+            bg=self.colors.get("bg", "#f0f2f5"),
+            cursor="question_arrow",
+            padx=1,
+            pady=0,
+        )
+        lbl.pack(side=side, padx=padx, **pack_kw)
+        _HelpTooltip(lbl, text)
+        return lbl
+
+    def _help_icon_grid(self, parent, text, row, column, **grid_kw):
+        """Create a small '?' label placed via grid with a hover tooltip."""
+        lbl = tk.Label(
+            parent,
+            text="\u24d8",
+            font=("Segoe UI", 11),
+            fg=self.colors.get("accent", "#2563eb"),
+            bg=self.colors.get("bg", "#f0f2f5"),
+            cursor="question_arrow",
+            padx=1,
+            pady=0,
+        )
+        lbl.grid(row=row, column=column, padx=(2, 6), **grid_kw)
+        _HelpTooltip(lbl, text)
+        return lbl
 
     def _show_app_data_notice(self):
         window = tk.Toplevel(self.root)
@@ -1546,7 +2031,7 @@ class PCAPSentryApp:
 
     def _build_header(self):
         header = tk.Frame(self.root, bg=self.colors["bg"])
-        header.pack(fill=tk.X, padx=12, pady=(12, 6))
+        header.pack(fill=tk.X, padx=16, pady=(16, 8))
 
         top_row = tk.Frame(header, bg=self.colors["bg"])
         top_row.pack(fill=tk.X)
@@ -1554,50 +2039,83 @@ class PCAPSentryApp:
         title_block = tk.Frame(top_row, bg=self.colors["bg"])
         title_block.pack(side=tk.LEFT)
 
+        # App icon + title on same line
+        title_row = tk.Frame(title_block, bg=self.colors["bg"])
+        title_row.pack(anchor=tk.W)
+
+        # Load the app icon as the brand image
+        self._header_icon_image = None
+        icon_path = _get_app_icon_path()
+        if icon_path:
+            try:
+                from PIL import Image, ImageTk
+                img = Image.open(icon_path)
+                img = img.resize((40, 40), Image.LANCZOS)
+                self._header_icon_image = ImageTk.PhotoImage(img)
+            except Exception:
+                pass
+        if self._header_icon_image:
+            tk.Label(
+                title_row,
+                image=self._header_icon_image,
+                bg=self.colors["bg"],
+            ).pack(side=tk.LEFT, padx=(0, 10))
         tk.Label(
-            title_block,
+            title_row,
             text="PCAP Sentry",
             font=self.font_title,
             fg=self.colors["text"],
             bg=self.colors["bg"],
-        ).pack(anchor=tk.W)
+        ).pack(side=tk.LEFT)
+
+        # Indent subtitle to align with text (past icon)
+        subtitle_padx = (52, 0) if self._header_icon_image else (0, 0)
         tk.Label(
             title_block,
-            text=f"Malware Analysis Console (v{APP_VERSION})",
+            text=f"Malware Analysis Console  \u2022  v{APP_VERSION}",
             font=self.font_subtitle,
             fg=self.colors["muted"],
             bg=self.colors["bg"],
-        ).pack(anchor=tk.W)
+        ).pack(anchor=tk.W, padx=subtitle_padx)
 
-        toolbar = ttk.Frame(header, padding=(0, 10, 0, 0))
+        toolbar = ttk.Frame(header, padding=(0, 12, 0, 0))
         toolbar.pack(fill=tk.X)
 
         ttk.Label(toolbar, text="Max packets for visuals:").pack(side=tk.LEFT)
+        self._help_icon(toolbar, "Limits how many packets are loaded for charts and the packet table. "
+            "Higher values give a more complete picture but use more memory and take longer. "
+            "This does NOT affect the analysis verdict — all packets are always scored.")
         ttk.Spinbox(toolbar, from_=10000, to=500000, increment=10000, textvariable=self.max_rows_var, width=8).pack(
             side=tk.LEFT, padx=6
         )
         ttk.Checkbutton(toolbar, text="Parse HTTP payloads", variable=self.parse_http_var).pack(side=tk.LEFT, padx=6)
+        self._help_icon(toolbar, "When enabled, the parser extracts HTTP request details (method, host, path) "
+            "from unencrypted web traffic. This gives you more information in the Packets tab "
+            "but may slow parsing slightly on very large captures.")
         
         # Add update checker button if available
         if _update_checker_available:
-            ttk.Button(toolbar, text="Check for Updates", command=self._check_for_updates_ui).pack(side=tk.RIGHT, padx=6)
+            ttk.Button(toolbar, text="Check for Updates", style="Secondary.TButton",
+                       command=self._check_for_updates_ui).pack(side=tk.RIGHT, padx=6)
         
-        ttk.Button(toolbar, text="Preferences", command=self._open_preferences).pack(side=tk.RIGHT, padx=6)
+        ttk.Button(toolbar, text="\u2699  Preferences", style="Secondary.TButton",
+                   command=self._open_preferences).pack(side=tk.RIGHT, padx=6)
 
-        accent = tk.Frame(self.root, bg=self.colors["accent_alt"], height=2)
-        accent.pack(fill=tk.X, padx=12, pady=(0, 8))
+        # Accent separator
+        accent = tk.Frame(self.root, bg=self.colors["accent"], height=2)
+        accent.pack(fill=tk.X, padx=16, pady=(0, 6))
 
     def _build_tabs(self):
         notebook = ttk.Notebook(self.root)
-        notebook.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=12, pady=(4, 8))
 
         self.train_tab = ttk.Frame(notebook)
         self.analyze_tab = ttk.Frame(notebook)
         self.kb_tab = ttk.Frame(notebook)
 
-        notebook.add(self.analyze_tab, text="Analyze")
-        notebook.add(self.train_tab, text="Train")
-        notebook.add(self.kb_tab, text="Knowledge Base")
+        notebook.add(self.analyze_tab, text="  \U0001f50d  Analyze  ")
+        notebook.add(self.train_tab, text="  \U0001f9e0  Train  ")
+        notebook.add(self.kb_tab, text="  \U0001f4da  Knowledge Base  ")
 
         self._build_train_tab()
         self._build_analyze_tab()
@@ -1608,25 +2126,27 @@ class PCAPSentryApp:
         notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
 
     def _build_status(self):
-        status = ttk.Frame(self.root, padding=10)
+        # Separator above status
+        ttk.Separator(self.root, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=12)
+        status = ttk.Frame(self.root, padding=(12, 8))
         status.pack(fill=tk.X)
         self.progress = ttk.Progressbar(status, mode="indeterminate", length=180)
-        self.progress.pack(side=tk.LEFT, padx=6)
+        self.progress.pack(side=tk.LEFT, padx=(0, 8))
         ttk.Label(status, textvariable=self.progress_percent_var, style="Hint.TLabel").pack(side=tk.LEFT)
         # Status message
-        status_label = ttk.Label(status, textvariable=self.status_var, font=("TkDefaultFont", 11, "bold"))
+        status_label = ttk.Label(status, textvariable=self.status_var, font=("Segoe UI", 11, "bold"))
         status_label.pack(side=tk.LEFT, padx=12, fill=tk.X, expand=True)
-        ttk.Label(status, textvariable=self.sample_note_var).pack(side=tk.RIGHT)
+        ttk.Label(status, textvariable=self.sample_note_var, style="Hint.TLabel").pack(side=tk.RIGHT)
 
     def _open_preferences(self):
         window = tk.Toplevel(self.root)
         window.title("Preferences")
         window.resizable(False, False)
 
-        frame = ttk.Frame(window, padding=16)
+        frame = ttk.Frame(window, padding=20)
         frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frame, text="Defaults", style="Hint.TLabel").grid(row=0, column=0, sticky="w", columnspan=3)
+        ttk.Label(frame, text="Preferences", style="Heading.TLabel").grid(row=0, column=0, sticky="w", columnspan=3, pady=(0, 12))
 
         ttk.Label(frame, text="Theme:").grid(row=1, column=0, sticky="w", pady=6)
         theme_combo = ttk.Combobox(frame, textvariable=self.theme_var, values=["system", "dark", "light"], width=10)
@@ -1646,10 +2166,16 @@ class PCAPSentryApp:
             width=10,
         )
         max_rows_spin.grid(row=2, column=1, sticky="w", pady=6)
+        self._help_icon_grid(frame, "Controls how many packets are loaded for charts and the packet table. "
+            "Higher values give a more complete picture but use more RAM. "
+            "This does NOT affect the analysis verdict.", row=2, column=2, sticky="w")
 
         ttk.Checkbutton(frame, text="Parse HTTP payloads", variable=self.parse_http_var, style="Quiet.TCheckbutton").grid(
             row=3, column=0, sticky="w", pady=6, columnspan=2
         )
+        self._help_icon_grid(frame, "Extracts HTTP request details (method, host, URL path) from unencrypted "
+            "web traffic. Useful for seeing exactly what URLs were visited. "
+            "May slightly slow parsing on very large captures.", row=3, column=2, sticky="w")
 
         ttk.Checkbutton(
             frame,
@@ -1657,9 +2183,9 @@ class PCAPSentryApp:
             variable=self.use_high_memory_var,
             style="Quiet.TCheckbutton"
         ).grid(row=4, column=0, sticky="w", pady=6, columnspan=2)
-        ttk.Label(frame, text="(best for faster parsing of smaller files)", style="Hint.TLabel").grid(
-            row=4, column=2, sticky="w", pady=6
-        )
+        self._help_icon_grid(frame, "Loads the entire PCAP file into RAM before parsing. "
+            "This is faster for smaller files (under ~500 MB) but uses more memory. "
+            "For very large captures, leave this off to use streaming mode instead.", row=4, column=2, sticky="w")
 
         ttk.Checkbutton(
             frame,
@@ -1667,6 +2193,9 @@ class PCAPSentryApp:
             variable=self.use_local_model_var,
             style="Quiet.TCheckbutton"
         ).grid(row=5, column=0, sticky="w", pady=6, columnspan=2)
+        self._help_icon_grid(frame, "Uses a locally trained machine learning model (scikit-learn) for an additional "
+            "verdict alongside the heuristic/knowledge-base scoring. Requires scikit-learn to be "
+            "installed and at least some labeled training data in the knowledge base.", row=5, column=2, sticky="w")
 
         ttk.Checkbutton(
             frame,
@@ -1674,9 +2203,9 @@ class PCAPSentryApp:
             variable=self.offline_mode_var,
             style="Quiet.TCheckbutton"
         ).grid(row=6, column=0, sticky="w", pady=6, columnspan=2)
-        ttk.Label(frame, text="(faster analysis, no internet required)", style="Hint.TLabel").grid(
-            row=6, column=2, sticky="w", pady=6
-        )
+        self._help_icon_grid(frame, "Disables online threat intelligence lookups (AlienVault OTX, AbuseIPDB, etc.). "
+            "Analysis will be faster and work without an internet connection, but you lose the "
+            "ability to check IPs/domains against live public threat feeds.", row=6, column=2, sticky="w")
 
         # Backup directory row with improved spacing
 
@@ -1686,11 +2215,15 @@ class PCAPSentryApp:
         frame.grid_columnconfigure(1, weight=1)
         button_frame = ttk.Frame(frame)
         button_frame.grid(row=7, column=2, columnspan=4, sticky="e", pady=6)
-        ttk.Button(button_frame, text="X", width=2, command=lambda: self.backup_dir_var.set("")).pack(side=tk.LEFT, padx=0)
-        ttk.Button(button_frame, text="Browse", command=self._browse_backup_dir).pack(side=tk.LEFT, padx=0)
-        ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(side=tk.LEFT, padx=0)
-        ttk.Button(button_frame, text="Cancel", command=window.destroy).pack(side=tk.LEFT, padx=0)
-        ttk.Button(frame, text="Reset to Defaults", command=self._reset_preferences).grid(row=8, column=0, columnspan=6, sticky="e", pady=(10, 0))
+        ttk.Button(button_frame, text="\u2715", width=2, style="Secondary.TButton",
+                   command=lambda: self.backup_dir_var.set("")).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="Browse", style="Secondary.TButton",
+                   command=self._browse_backup_dir).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="Cancel", style="Secondary.TButton",
+                   command=window.destroy).pack(side=tk.LEFT, padx=2)
+        ttk.Button(frame, text="Reset to Defaults", style="Danger.TButton",
+                   command=self._reset_preferences).grid(row=8, column=0, columnspan=6, sticky="e", pady=(10, 0))
 
         window.grab_set()
 
@@ -1741,10 +2274,19 @@ class PCAPSentryApp:
         def show_result(result):
             """Callback after update check completes."""
             if not result.get("success"):
-                messagebox.showerror(
-                    "Check for Updates",
-                    f"Failed to check for updates: {result.get('error', 'Unknown error')}",
-                )
+                error_msg = result.get("error", "Unknown error")
+                if "404" in str(error_msg):
+                    messagebox.showinfo(
+                        "Check for Updates",
+                        "No releases have been published yet.\n\n"
+                        "This is normal for development builds. Once a release\n"
+                        "is published on GitHub, update checking will work.",
+                    )
+                else:
+                    messagebox.showerror(
+                        "Check for Updates",
+                        f"Failed to check for updates:\n{error_msg}",
+                    )
                 return
 
             if result.get("available"):
@@ -1764,7 +2306,7 @@ class PCAPSentryApp:
                 ttk.Label(
                     frame,
                     text=f"A new version is available!",
-                    font=("TkDefaultFont", 12, "bold"),
+                    font=("Segoe UI", 12, "bold"),
                 ).pack(anchor="w", pady=(0, 10))
 
                 ttk.Label(
@@ -1774,7 +2316,7 @@ class PCAPSentryApp:
                     frame, text=f"Available version: {latest}"
                 ).pack(anchor="w", pady=(0, 15))
 
-                ttk.Label(frame, text="Release Notes:", font=("TkDefaultFont", 10, "bold")).pack(anchor="w")
+                ttk.Label(frame, text="Release Notes:", font=("Segoe UI", 10, "bold")).pack(anchor="w")
                 text_frame = ttk.Frame(frame)
                 text_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 15))
 
@@ -1912,49 +2454,54 @@ class PCAPSentryApp:
             self.ioc_path_var.set("")
 
     def _build_train_tab(self):
-        container = ttk.Frame(self.train_tab, padding=10)
+        container = ttk.Frame(self.train_tab, padding=14)
         container.pack(fill=tk.BOTH, expand=True)
 
-        safe_frame = ttk.LabelFrame(container, text="Known Safe PCAP", padding=10)
-        safe_frame.pack(fill=tk.X, pady=8)
+        safe_frame = ttk.LabelFrame(container, text="  Known Safe PCAP  ", padding=12)
+        safe_frame.pack(fill=tk.X, pady=10)
+        self._help_icon(safe_frame, "Add a PCAP file that you KNOW contains only normal, harmless traffic "
+            "(e.g., regular web browsing or office network traffic). The app learns what 'normal' "
+            "looks like so it can spot abnormal patterns in future analyses. The more safe examples "
+            "you add, the smarter the detection becomes.")
 
         self.safe_path_var = tk.StringVar()
         self.safe_entry = ttk.Entry(safe_frame, textvariable=self.safe_path_var, width=90)
         self.safe_entry.pack(side=tk.LEFT, padx=6)
-        ttk.Button(safe_frame, text="X", width=2, command=lambda: self.safe_path_var.set("")).pack(
-            side=tk.LEFT
-        )
-        self.safe_browse = ttk.Button(safe_frame, text="Browse", command=lambda: self._browse_file(self.safe_path_var))
-        self.safe_browse.pack(
-            side=tk.LEFT, padx=6
-        )
+        ttk.Button(safe_frame, text="\u2715", width=2, style="Secondary.TButton",
+                   command=lambda: self.safe_path_var.set("")).pack(side=tk.LEFT)
+        self.safe_browse = ttk.Button(safe_frame, text="Browse", style="Secondary.TButton",
+                                      command=lambda: self._browse_file(self.safe_path_var))
+        self.safe_browse.pack(side=tk.LEFT, padx=6)
         self.safe_add_button = ttk.Button(safe_frame, text="Add to Safe", command=lambda: self._train("safe"))
         self.safe_add_button.pack(side=tk.LEFT, padx=6)
 
-        ttk.Label(container, text="Tip: Drag and drop a .pcap file into the path field.", style="Hint.TLabel").pack(
-            anchor=tk.W, padx=6
-        )
-        ttk.Label(
-            container,
-            text="Note: Large PCAP files can take a few minutes to parse.",
-            style="Hint.TLabel",
-        ).pack(anchor=tk.W, padx=6)
+        tk.Label(container, text="\u2913  You can also drag and drop a .pcap file here",
+                 font=("Segoe UI", 9), fg=self.colors["muted"], bg=self.colors["bg"]
+                 ).pack(anchor=tk.W, padx=16, pady=(0, 4))
 
-        mal_frame = ttk.LabelFrame(container, text="Known Malware PCAP", padding=10)
-        mal_frame.pack(fill=tk.X, pady=8)
+        mal_frame = ttk.LabelFrame(container, text="  Known Malware PCAP  ", padding=12)
+        mal_frame.pack(fill=tk.X, pady=10)
+        self._help_icon(mal_frame, "Add a PCAP file that contains KNOWN malicious traffic "
+            "(e.g., malware samples from malware-traffic-analysis.net). This teaches the app "
+            "what attack patterns look like. You can find free malicious PCAP samples at:\n\n"
+            "  malware-traffic-analysis.net\n"
+            "  netresec.com/?page=PcapFiles\n"
+            "  cyberdefenders.org")
 
         self.mal_path_var = tk.StringVar()
         self.mal_entry = ttk.Entry(mal_frame, textvariable=self.mal_path_var, width=90)
         self.mal_entry.pack(side=tk.LEFT, padx=6)
-        ttk.Button(mal_frame, text="X", width=2, command=lambda: self.mal_path_var.set("")).pack(side=tk.LEFT)
-        self.mal_browse = ttk.Button(mal_frame, text="Browse", command=lambda: self._browse_file(self.mal_path_var))
-        self.mal_browse.pack(
-            side=tk.LEFT, padx=6
-        )
+        ttk.Button(mal_frame, text="\u2715", width=2, style="Secondary.TButton",
+                   command=lambda: self.mal_path_var.set("")).pack(side=tk.LEFT)
+        self.mal_browse = ttk.Button(mal_frame, text="Browse", style="Secondary.TButton",
+                                      command=lambda: self._browse_file(self.mal_path_var))
+        self.mal_browse.pack(side=tk.LEFT, padx=6)
         self.mal_add_button = ttk.Button(mal_frame, text="Add to Malware", command=lambda: self._train("malicious"))
-        self.mal_add_button.pack(
-            side=tk.LEFT, padx=6
-        )
+        self.mal_add_button.pack(side=tk.LEFT, padx=6)
+
+        tk.Label(container, text="\u2913  You can also drag and drop a .pcap file here",
+                 font=("Segoe UI", 9), fg=self.colors["muted"], bg=self.colors["bg"]
+                 ).pack(anchor=tk.W, padx=16, pady=(0, 4))
 
     def _build_analyze_tab(self):
         # Create a scrollable container using Canvas
@@ -1989,38 +2536,36 @@ class PCAPSentryApp:
         # Use scrollable_frame as container
         container = scrollable_frame
 
-        file_frame = ttk.LabelFrame(container, text="Target PCAP", padding=10)
-        file_frame.pack(fill=tk.X, padx=10, pady=4)
+        file_frame = ttk.LabelFrame(container, text="  Target PCAP  ", padding=12)
+        file_frame.pack(fill=tk.X, padx=10, pady=6)
         self.target_drop_area = file_frame
+        self._help_icon(file_frame, "Select the PCAP file you want to analyze. A PCAP (Packet Capture) file "
+            "records network traffic — every message sent between computers on a network. "
+            "You can capture your own with Wireshark, or download samples to practice with.\n\n"
+            "Supported formats: .pcap, .pcapng, and .zip archives containing PCAP files.")
 
         self.target_path_var = tk.StringVar()
         self.target_entry = ttk.Entry(file_frame, textvariable=self.target_path_var, width=90)
         self.target_entry.pack(side=tk.LEFT, padx=6)
-        ttk.Button(file_frame, text="X", width=2, command=lambda: self.target_path_var.set("")).pack(
-            side=tk.LEFT
-        )
-        target_browse = ttk.Button(file_frame, text="Browse", command=lambda: self._browse_file(self.target_path_var))
-        target_browse.pack(
-            side=tk.LEFT, padx=6
-        )
-        self.analyze_button = ttk.Button(file_frame, text="Analyze", command=self._analyze)
+        ttk.Button(file_frame, text="\u2715", width=2, style="Secondary.TButton",
+                   command=lambda: self.target_path_var.set("")).pack(side=tk.LEFT)
+        target_browse = ttk.Button(file_frame, text="Browse", style="Secondary.TButton",
+                                   command=lambda: self._browse_file(self.target_path_var))
+        target_browse.pack(side=tk.LEFT, padx=6)
+        self.analyze_button = ttk.Button(file_frame, text="\U0001f50d  Analyze", command=self._analyze)
         self.analyze_button.pack(side=tk.LEFT, padx=6)
 
-        ttk.Label(container, text="Tip: Drag and drop a .pcap file into the path field.", style="Hint.TLabel").pack(
-            anchor=tk.W, padx=6
-        )
-
-        opts_frame = ttk.Frame(container, padding=(0, 8))
-        opts_frame.pack(fill=tk.X)
-        ttk.Label(
-            opts_frame,
-            text="Heuristic + knowledge base scoring only.",
-            style="Hint.TLabel",
-        ).pack(side=tk.LEFT)
+        tk.Label(container, text="\u2913  You can also drag and drop a .pcap file anywhere on this tab",
+                 font=("Segoe UI", 9), fg=self.colors["muted"], bg=self.colors["bg"]
+                 ).pack(anchor=tk.W, padx=16, pady=(0, 2))
 
         # Label buttons frame - for marking captures
-        label_frame = ttk.LabelFrame(container, text="Label Current Capture", padding=10)
-        label_frame.pack(fill=tk.X, pady=6)
+        label_frame = ttk.LabelFrame(container, text="  Label Current Capture  ", padding=12)
+        label_frame.pack(fill=tk.X, pady=8)
+        self._help_icon(label_frame, "After analyzing a PCAP, you can label it as 'Safe' or 'Malicious' to "
+            "add it to the knowledge base. This is how the app learns from YOUR judgment. "
+            "Over time, this improves detection accuracy for traffic similar to what you've labeled.\n\n"
+            "Tip: Only label captures you're confident about. Mislabeling teaches the app wrong patterns.")
         self.label_safe_button = ttk.Button(
             label_frame,
             text="Mark as Safe",
@@ -2035,36 +2580,68 @@ class PCAPSentryApp:
             state=tk.DISABLED,
         )
         self.label_mal_button.pack(side=tk.LEFT, padx=6)
-        ttk.Label(label_frame, text="Adds this capture to the knowledge base.", style="Hint.TLabel").pack(
-            side=tk.LEFT, padx=6
-        )
 
         self.results_notebook = ttk.Notebook(container)
         self.results_notebook.pack(fill=tk.BOTH, expand=True, pady=8)
 
         self.results_tab = ttk.Frame(self.results_notebook)
         self.why_tab = ttk.Frame(self.results_notebook)
+        self.education_tab = ttk.Frame(self.results_notebook)
         self.packets_tab = ttk.Frame(self.results_notebook)
-        self.results_notebook.add(self.results_tab, text="Results")
-        self.results_notebook.add(self.why_tab, text="Why")
-        self.results_notebook.add(self.packets_tab, text="Packets")
+        self.extracted_tab = ttk.Frame(self.results_notebook)
+        self.results_notebook.add(self.results_tab, text="  Results  ")
+        self.results_notebook.add(self.why_tab, text="  Why  ")
+        self.results_notebook.add(self.education_tab, text="  Education  ")
+        self.results_notebook.add(self.packets_tab, text="  Packets  ")
+        self.results_notebook.add(self.extracted_tab, text="  \U0001f511  Extracted Info  ")
 
-        result_frame = ttk.LabelFrame(self.results_tab, text="Results", padding=10)
+        result_frame = ttk.LabelFrame(self.results_tab, text="  Results  ", padding=12)
         result_frame.pack(fill=tk.BOTH, expand=True)
+        self._help_icon(result_frame, "The analysis results summary showing:\n\n"
+            "  Risk Score: 0-100 rating (higher = more suspicious)\n"
+            "  Verdict: Safe / Suspicious / Malicious\n"
+            "  Signals: Which detection methods fired\n"
+            "  Similarity: How close this traffic matches known samples\n\n"
+            "Check the 'Why' tab for reasoning and 'Education' for learning.")
 
         self.result_text = tk.Text(result_frame, height=12)
         self._style_text(self.result_text)
         self.result_text.pack(fill=tk.BOTH, expand=True)
 
-        why_frame = ttk.LabelFrame(self.why_tab, text="Training Guide: Understanding the Analysis", padding=10)
+        flow_frame = ttk.LabelFrame(self.results_tab, text="  Flow Summary  ", padding=12)
+        flow_frame.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
+        self._help_icon(flow_frame, "A 'flow' is a conversation between two hosts (identified by their IP addresses "
+            "and port numbers) using a specific protocol (TCP/UDP).\n\n"
+            "Each row shows one conversation with:\n"
+            "  Flow: Source IP:Port \u2192 Destination IP:Port (Protocol)\n"
+            "  Packets: How many messages were exchanged\n"
+            "  Bytes: Total data transferred\n"
+            "  Duration: How long the conversation lasted\n\n"
+            "Flows with high byte counts or long durations are worth investigating first.")
+
+        flow_cols = ("Flow", "Packets", "Bytes", "Duration")
+        self.flow_table = ttk.Treeview(flow_frame, columns=flow_cols, show="headings", height=8)
+        for col in flow_cols:
+            self.flow_table.heading(col, text=col)
+            self.flow_table.column(col, width=220 if col == "Flow" else 90, anchor=tk.W)
+        self._make_treeview_sortable(self.flow_table)
+        self.flow_table.pack(fill=tk.BOTH, expand=True)
+
+        why_frame = ttk.LabelFrame(self.why_tab, text="  Why This Verdict Was Reached  ", padding=12)
         why_frame.pack(fill=tk.BOTH, expand=True)
+        self._help_icon(why_frame, "Shows the specific evidence behind the verdict:\n\n"
+            "  [A] ML Pattern Match — Did traffic match known malware patterns?\n"
+            "  [B] Baseline Anomaly — Does it deviate from normal behavior?\n"
+            "  [C] IoC Check — Were known-bad IPs or domains contacted?\n"
+            "  [D-I] Traffic Details — Ports, DNS, HTTP, TLS, packet sizes\n\n"
+            "Use the Wireshark filters at the bottom to investigate further.")
 
         self.why_text = tk.Text(why_frame, height=12)
         self._style_text(self.why_text)
-        self.why_text.insert(tk.END, "Run an analysis on a PCAP file to get a guided walkthrough\n"
-                            "of how to identify malicious vs. safe traffic.\n\n"
-                            "This tab will teach you what to look for and why each\n"
-                            "indicator matters when investigating network captures.")
+        self.why_text.insert(tk.END, "Run an analysis on a PCAP file to see the\n"
+                            "analytical reasoning behind the verdict.\n\n"
+                            "This tab shows the evidence and data points\n"
+                            "that contributed to the risk score.")
         self.why_text.pack(fill=tk.BOTH, expand=True)
 
         why_controls = ttk.Frame(self.why_tab)
@@ -2073,9 +2650,37 @@ class PCAPSentryApp:
             why_controls, text="Copy Wireshark Filters", command=self._copy_wireshark_filters, state=tk.DISABLED
         )
         self.copy_filters_button.pack(side=tk.RIGHT)
+        self._help_icon(why_controls, "Copies all auto-generated Wireshark display filters to your clipboard. "
+            "Open Wireshark, load the same PCAP file, and paste a filter into the display "
+            "filter bar to isolate the suspicious traffic identified by the analysis.", side=tk.RIGHT)
 
-        packet_filters = ttk.LabelFrame(self.packets_tab, text="Packet Filters", padding=10)
-        packet_filters.pack(fill=tk.X, pady=6)
+        edu_frame = ttk.LabelFrame(self.education_tab, text="  Beginner's Guide: Why This Traffic Matters  ", padding=12)
+        edu_frame.pack(fill=tk.BOTH, expand=True)
+        self._help_icon(edu_frame, "A beginner-friendly breakdown of the analysis results. This tab:\n\n"
+            "  - Explains each finding in plain English\n"
+            "  - Points out specific suspicious IPs, ports, and flows\n"
+            "  - Provides Wireshark filters to investigate each flow\n"
+            "  - Includes a glossary of attack patterns\n"
+            "  - Links to free learning resources\n\n"
+            "Content updates automatically each time you analyze a new PCAP.")
+
+        self.education_text = tk.Text(edu_frame, height=12, wrap=tk.WORD)
+        self._style_text(self.education_text)
+        self.education_text.insert(tk.END,
+            "Run an analysis on a PCAP file to see a beginner-friendly\n"
+            "explanation of what was found and why it matters.\n\n"
+            "This tab breaks down each finding in plain English,\n"
+            "explains common attack patterns, and links you to\n"
+            "free online resources to keep learning.")
+        edu_scroll = ttk.Scrollbar(edu_frame, orient=tk.VERTICAL, command=self.education_text.yview)
+        self.education_text.configure(yscrollcommand=edu_scroll.set)
+        edu_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.education_text.pack(fill=tk.BOTH, expand=True)
+
+        self._build_extracted_tab()
+
+        packet_filters = ttk.LabelFrame(self.packets_tab, text="  Packet Filters  ", padding=12)
+        packet_filters.pack(fill=tk.X, pady=8)
 
         self.packet_proto_var = tk.StringVar(value="Any")
         self.packet_src_var = tk.StringVar()
@@ -2145,6 +2750,15 @@ class PCAPSentryApp:
         )
 
         packet_filters.grid_columnconfigure(8, weight=1)
+        self._help_icon_grid(packet_filters, "Filter the packet table to isolate specific traffic. You can filter by:\n\n"
+            "  Protocol: TCP, UDP, or other\n"
+            "  Source/Destination IP: The sending/receiving computer\n"
+            "  Source/Destination Port: The service being used\n"
+            "  Time range: When the traffic occurred\n"
+            "  Packet size: How big each message was\n"
+            "  DNS/HTTP only: Show only name lookups and web requests\n\n"
+            "Tip: Use these filters to zoom in on suspicious flows from the Education tab.",
+            row=0, column=9, sticky="e")
 
 
         # Place the packet table directly in the packets_tab for guaranteed visibility
@@ -2180,6 +2794,7 @@ class PCAPSentryApp:
             heading = self._packet_column_label(col)
             self.packet_table.heading(col, text=heading)
             self.packet_table.column(col, width=90, anchor=tk.W, stretch=False)
+        self._make_treeview_sortable(self.packet_table)
 
         packet_table_frame.columnconfigure(0, weight=1)
         packet_table_frame.rowconfigure(0, weight=1)
@@ -2193,25 +2808,28 @@ class PCAPSentryApp:
         self._init_packet_column_menu()
         self.packet_table.bind("<Button-3>", self._show_packet_column_menu)
 
-        hint_frame = ttk.LabelFrame(self.packets_tab, text="C2 / Exfil Hints", padding=10)
-        hint_frame.pack(fill=tk.BOTH, expand=False, pady=6)
+        hint_frame = ttk.LabelFrame(self.packets_tab, text="  C2 / Exfil Hints  ", padding=12)
+        hint_frame.pack(fill=tk.BOTH, expand=False, pady=8)
+        self._help_icon(hint_frame, "Automated hints about possible Command & Control (C2) or Data Exfiltration patterns:\n\n"
+            "  C2: Malware 'phoning home' to an attacker's server for instructions. "
+            "Look for small, regular outbound messages to uncommon destinations.\n\n"
+            "  Exfiltration: Data being stolen from the network. "
+            "Look for large outbound transfers to unfamiliar external IPs.")
         self.packet_hint_text = tk.Text(hint_frame, height=6)
         self._style_text(self.packet_hint_text)
         self.packet_hint_text.insert(tk.END, "Run analysis to see packet-level hints.")
         self.packet_hint_text.pack(fill=tk.BOTH, expand=True)
 
-        flow_frame = ttk.LabelFrame(container, text="Flow Summary", padding=10)
-        flow_frame.pack(fill=tk.BOTH, expand=True, pady=8)
-
-        columns = ("Flow", "Packets", "Bytes", "Duration")
-        self.flow_table = ttk.Treeview(flow_frame, columns=columns, show="headings", height=8)
-        for col in columns:
-            self.flow_table.heading(col, text=col)
-            self.flow_table.column(col, width=220 if col == "Flow" else 90, anchor=tk.W)
-        self.flow_table.pack(fill=tk.BOTH, expand=True)
-
         self.charts_button = ttk.Button(container, text="Open Charts", command=self._open_charts, state=tk.DISABLED)
-        self.charts_button.pack(anchor=tk.E)
+        self.charts_button.pack(side=tk.RIGHT, anchor=tk.E, pady=10)
+        self._help_icon(container, "Opens visual charts of the analyzed traffic including:\n\n"
+            "  Timeline: When traffic occurred during the capture\n"
+            "  Ports: Which network services were used\n"
+            "  Protocols: TCP vs UDP vs other breakdown\n"
+            "  DNS: Most-queried domain names\n"
+            "  HTTP: Most-visited web hosts\n"
+            "  TLS: Encrypted connection destinations\n"
+            "  Flows: Largest conversations by data volume", side=tk.RIGHT)
 
         widgets = [
             self.safe_browse,
@@ -2228,28 +2846,396 @@ class PCAPSentryApp:
 
         self._setup_drag_drop()
 
+    def _make_treeview_sortable(self, tree):
+        """Make all columns in a Treeview sortable by clicking the header,
+        and add a right-click context menu with alignment options."""
+        for col in tree["columns"]:
+            tree.heading(col, command=lambda _col=col: self._treeview_sort_column(tree, _col, False))
+        # Attach right-click alignment menu
+        tree.bind("<Button-3>", lambda event, t=tree: self._show_column_align_menu(event, t))
+
+    def _show_column_align_menu(self, event, tree):
+        """Show a right-click context menu on column headers with alignment options."""
+        region = tree.identify_region(event.x, event.y)
+        if region != "heading":
+            return
+        col_id = tree.identify_column(event.x)  # returns '#1', '#2', etc.
+        if not col_id or col_id == "#0":
+            return
+        # Convert '#N' to column name
+        col_index = int(col_id.replace("#", "")) - 1
+        columns = list(tree["columns"])
+        if col_index < 0 or col_index >= len(columns):
+            return
+        col_name = columns[col_index]
+
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(label=f"\u2550  Column: {tree.heading(col_name, 'text').rstrip(' \u25b2\u25bc')}",
+                         state=tk.DISABLED)
+        menu.add_separator()
+        menu.add_command(label="\u25c0  Align Left",
+                         command=lambda: self._set_column_align(tree, col_name, tk.W))
+        menu.add_command(label="\u25c6  Align Center",
+                         command=lambda: self._set_column_align(tree, col_name, tk.CENTER))
+        menu.add_command(label="\u25b6  Align Right",
+                         command=lambda: self._set_column_align(tree, col_name, tk.E))
+        menu.add_separator()
+        menu.add_command(label="\u25c0  Align ALL Left",
+                         command=lambda: self._set_all_columns_align(tree, tk.W))
+        menu.add_command(label="\u25c6  Align ALL Center",
+                         command=lambda: self._set_all_columns_align(tree, tk.CENTER))
+        menu.add_command(label="\u25b6  Align ALL Right",
+                         command=lambda: self._set_all_columns_align(tree, tk.E))
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def _set_column_align(self, tree, col_name, anchor):
+        """Set the alignment of a single column."""
+        tree.column(col_name, anchor=anchor)
+
+    def _set_all_columns_align(self, tree, anchor):
+        """Set the alignment of all columns in a Treeview."""
+        for col in tree["columns"]:
+            tree.column(col, anchor=anchor)
+
+    def _treeview_sort_column(self, tree, col, reverse):
+        """Sort a Treeview column. Detects numeric values automatically."""
+        data = []
+        for iid in tree.get_children(""):
+            val = tree.set(iid, col)
+            # Try numeric sort first
+            try:
+                sort_key = float(val.replace(",", ""))
+            except (ValueError, AttributeError):
+                sort_key = val.lower() if isinstance(val, str) else val
+            data.append((sort_key, iid))
+
+        data.sort(key=lambda t: t[0], reverse=reverse)
+
+        for idx, (_, iid) in enumerate(data):
+            tree.move(iid, "", idx)
+
+        # Toggle sort direction on next click; update header with arrow indicator
+        arrow = " \u25bc" if reverse else " \u25b2"
+        # Reset all other column headings (remove arrows)
+        for c in tree["columns"]:
+            heading_text = tree.heading(c, "text")
+            heading_text = heading_text.rstrip(" \u25b2\u25bc")
+            tree.heading(c, text=heading_text,
+                         command=lambda _c=c: self._treeview_sort_column(tree, _c, False))
+        # Set current column heading with arrow
+        current_text = tree.heading(col, "text").rstrip(" \u25b2\u25bc")
+        tree.heading(col, text=current_text + arrow,
+                     command=lambda: self._treeview_sort_column(tree, col, not reverse))
+
+    def _build_extracted_tab(self):
+        """Build the Extracted Info tab for credentials, hosts, and MAC addresses."""
+        container = ttk.Frame(self.extracted_tab, padding=10)
+        container.pack(fill=tk.BOTH, expand=True)
+
+        # -- Key Findings summary panel --
+        summary_frame = ttk.LabelFrame(container, text="  \U0001f6a8  Key Findings  ", padding=10)
+        summary_frame.pack(fill=tk.X, pady=(0, 8))
+
+        self.extracted_summary_text = tk.Text(summary_frame, height=8, wrap=tk.WORD)
+        self._style_text(self.extracted_summary_text)
+        self.extracted_summary_text.insert(tk.END, "Run an analysis to see extracted credentials and host information.")
+        # Configure highlight tags for the summary
+        self.extracted_summary_text.tag_configure("heading", font=("Segoe UI", 11, "bold"))
+        self.extracted_summary_text.tag_configure("username_tag", foreground="#58a6ff", font=("Consolas", 10, "bold"))
+        self.extracted_summary_text.tag_configure("password_tag", foreground="#f85149", font=("Consolas", 10, "bold"))
+        self.extracted_summary_text.tag_configure("hostname_tag", foreground="#3fb950", font=("Consolas", 10, "bold"))
+        self.extracted_summary_text.tag_configure("label_dim", foreground="#8b949e", font=("Segoe UI", 9))
+        self.extracted_summary_text.tag_configure("separator", foreground="#30363d")
+        self.extracted_summary_text.pack(fill=tk.BOTH, expand=True)
+
+        # -- Credentials table --
+        cred_frame = ttk.LabelFrame(container, text="  All Extracted Items  ", padding=8)
+        cred_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 6))
+        self._help_icon(cred_frame,
+            "All credentials and auth tokens found in UNENCRYPTED traffic.\n\n"
+            "Row colors:\n"
+            "  \u2588 Red — Passwords / secrets\n"
+            "  \u2588 Blue — Usernames / accounts\n"
+            "  \u2588 Green — Computer names / hostnames\n"
+            "  \u2588 Yellow — Cookies / tokens\n\n"
+            "Supported: FTP, HTTP, SMTP, POP3, IMAP, Telnet, SNMP, Kerberos")
+
+        cred_cols = ("Type", "Protocol", "Source", "Destination", "Value", "Detail")
+        cred_table_frame = ttk.Frame(cred_frame)
+        cred_table_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.cred_table = ttk.Treeview(
+            cred_table_frame, columns=cred_cols, show="headings", height=10,
+        )
+        col_widths = {"Type": 105, "Protocol": 90, "Source": 130, "Destination": 130,
+                      "Value": 250, "Detail": 160}
+        for col in cred_cols:
+            self.cred_table.heading(col, text=col)
+            self.cred_table.column(col, width=col_widths.get(col, 120), anchor=tk.W, stretch=True)
+
+        # Color tags for credential rows
+        self.cred_table.tag_configure("password", foreground="#f85149", font=("Consolas", 9, "bold"))
+        self.cred_table.tag_configure("username", foreground="#58a6ff", font=("Consolas", 9, "bold"))
+        self.cred_table.tag_configure("hostname", foreground="#3fb950", font=("Consolas", 9))
+        self.cred_table.tag_configure("cookie", foreground="#d29922", font=("Consolas", 9))
+        self.cred_table.tag_configure("other", font=("Consolas", 9))
+        self._make_treeview_sortable(self.cred_table)
+
+        cred_scroll_y = ttk.Scrollbar(cred_table_frame, orient=tk.VERTICAL, command=self.cred_table.yview)
+        cred_scroll_x = ttk.Scrollbar(cred_table_frame, orient=tk.HORIZONTAL, command=self.cred_table.xview)
+        self.cred_table.configure(yscrollcommand=cred_scroll_y.set, xscrollcommand=cred_scroll_x.set)
+
+        self.cred_table.grid(row=0, column=0, sticky="nsew")
+        cred_scroll_y.grid(row=0, column=1, sticky="ns")
+        cred_scroll_x.grid(row=1, column=0, sticky="ew")
+        cred_table_frame.columnconfigure(0, weight=1)
+        cred_table_frame.rowconfigure(0, weight=1)
+
+        cred_controls = ttk.Frame(cred_frame)
+        cred_controls.pack(fill=tk.X, pady=(4, 0))
+        self.cred_count_var = tk.StringVar(value="No credentials extracted yet.")
+        ttk.Label(cred_controls, textvariable=self.cred_count_var, style="Hint.TLabel").pack(side=tk.LEFT)
+        ttk.Button(cred_controls, text="Copy All", style="Secondary.TButton",
+                   command=self._copy_extracted_creds).pack(side=tk.RIGHT, padx=4)
+
+        # -- Hosts / MAC / Hostname section --
+        host_frame = ttk.LabelFrame(container, text="  Hosts \u2014 IP / MAC / Computer Name  ", padding=8)
+        host_frame.pack(fill=tk.BOTH, expand=True, pady=(6, 0))
+        self._help_icon(host_frame,
+            "Every IP address seen in the capture, along with:\n\n"
+            "  MAC address \u2014 The hardware address of the network interface\n"
+            "  Computer Name \u2014 Names learned from DNS, DHCP, SMTP EHLO, NetBIOS\n\n"
+            "MAC addresses are only available for traffic on the same Layer-2\n"
+            "segment as the capture point.")
+
+        host_cols = ("IP Address", "MAC Address(es)", "Computer / Hostname")
+        host_table_frame = ttk.Frame(host_frame)
+        host_table_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.host_table = ttk.Treeview(
+            host_table_frame, columns=host_cols, show="headings", height=8,
+        )
+        host_col_widths = {"IP Address": 150, "MAC Address(es)": 200, "Computer / Hostname": 350}
+        for col in host_cols:
+            self.host_table.heading(col, text=col)
+            self.host_table.column(col, width=host_col_widths.get(col, 150), anchor=tk.W, stretch=True)
+
+        self.host_table.tag_configure("has_name", foreground="#3fb950", font=("Consolas", 9, "bold"))
+        self.host_table.tag_configure("no_name", font=("Consolas", 9))
+        self._make_treeview_sortable(self.host_table)
+
+        host_scroll_y = ttk.Scrollbar(host_table_frame, orient=tk.VERTICAL, command=self.host_table.yview)
+        host_scroll_x = ttk.Scrollbar(host_table_frame, orient=tk.HORIZONTAL, command=self.host_table.xview)
+        self.host_table.configure(yscrollcommand=host_scroll_y.set, xscrollcommand=host_scroll_x.set)
+
+        self.host_table.grid(row=0, column=0, sticky="nsew")
+        host_scroll_y.grid(row=0, column=1, sticky="ns")
+        host_scroll_x.grid(row=1, column=0, sticky="ew")
+        host_table_frame.columnconfigure(0, weight=1)
+        host_table_frame.rowconfigure(0, weight=1)
+
+        host_controls = ttk.Frame(host_frame)
+        host_controls.pack(fill=tk.X, pady=(4, 0))
+        self.host_count_var = tk.StringVar(value="No host data extracted yet.")
+        ttk.Label(host_controls, textvariable=self.host_count_var, style="Hint.TLabel").pack(side=tk.LEFT)
+        ttk.Button(host_controls, text="Copy All", style="Secondary.TButton",
+                   command=self._copy_extracted_hosts).pack(side=tk.RIGHT, padx=4)
+
+    @staticmethod
+    def _classify_cred_field(field_str):
+        """Classify a credential field as username, password, hostname, cookie, or other."""
+        f = field_str.lower()
+        if any(kw in f for kw in ("password", "pass ", "passwd", "secret", "pw")):
+            return "password", "\U0001f534 PASSWORD"
+        if any(kw in f for kw in ("username", "user", "login", "account", "email", "acct",
+                                   "mail from", "principal")):
+            return "username", "\U0001f535 USERNAME"
+        if any(kw in f for kw in ("ehlo", "helo", "hostname", "computer", "host")):
+            return "hostname", "\U0001f7e2 COMPUTER"
+        if any(kw in f for kw in ("cookie", "set-cookie", "token", "ntlm", "auth-data")):
+            return "cookie", "\U0001f7e1 TOKEN"
+        if "community" in f:
+            return "password", "\U0001f534 SECRET"
+        if "prompt" in f:
+            return "other", "\u2753 PROMPT"
+        return "other", "\u2796 OTHER"
+
+    def _populate_extracted_tab(self, extracted_data):
+        """Populate the Extracted Info tab with results from extract_credentials_and_hosts()."""
+        creds = extracted_data.get("credentials", [])
+        hosts = extracted_data.get("hosts", {})
+
+        # ── Build Key Findings summary ──
+        self.extracted_summary_text.delete("1.0", tk.END)
+
+        usernames = []
+        passwords = []
+        computernames = set()
+
+        for cred in creds:
+            cat, _ = self._classify_cred_field(cred.get("field", ""))
+            if cat == "username":
+                usernames.append(cred)
+            elif cat == "password":
+                passwords.append(cred)
+            elif cat == "hostname":
+                name_val = cred.get("value", "")
+                if name_val:
+                    computernames.add(name_val)
+
+        # Also gather hostnames from the host table
+        for ip, info in hosts.items():
+            for h in info.get("hostnames", []):
+                computernames.add(h)
+
+        t = self.extracted_summary_text
+        if not creds and not computernames:
+            t.insert(tk.END, "No credentials or computer names found.\n\n", "label_dim")
+            t.insert(tk.END, "This is normal for captures that only contain encrypted (TLS/SSL) traffic.\n", "label_dim")
+        else:
+            # Usernames
+            t.insert(tk.END, "\U0001f464  USERNAMES FOUND", "heading")
+            if usernames:
+                t.insert(tk.END, f"  ({len(usernames)})\n", "label_dim")
+                for u in usernames:
+                    t.insert(tk.END, f"    {u['value']}", "username_tag")
+                    t.insert(tk.END, f"  ({u['protocol']}  {u['src']} \u2192 {u['dst']})\n", "label_dim")
+            else:
+                t.insert(tk.END, "  \u2014 none \u2014\n", "label_dim")
+
+            t.insert(tk.END, "\n")
+
+            # Passwords
+            t.insert(tk.END, "\U0001f511  PASSWORDS / SECRETS FOUND", "heading")
+            if passwords:
+                t.insert(tk.END, f"  ({len(passwords)})\n", "label_dim")
+                for p in passwords:
+                    t.insert(tk.END, f"    {p['value']}", "password_tag")
+                    detail = p.get("detail", "")
+                    extra = f"  {detail}" if detail else ""
+                    t.insert(tk.END, f"  ({p['protocol']}  {p['src']} \u2192 {p['dst']}{extra})\n", "label_dim")
+            else:
+                t.insert(tk.END, "  \u2014 none \u2014\n", "label_dim")
+
+            t.insert(tk.END, "\n")
+
+            # Computer names
+            t.insert(tk.END, "\U0001f4bb  COMPUTER / HOST NAMES", "heading")
+            sorted_names = sorted(computernames)
+            if sorted_names:
+                t.insert(tk.END, f"  ({len(sorted_names)})\n", "label_dim")
+                for name in sorted_names:
+                    t.insert(tk.END, f"    {name}\n", "hostname_tag")
+            else:
+                t.insert(tk.END, "  \u2014 none \u2014\n", "label_dim")
+
+        # ── Credentials table ──
+        for row in self.cred_table.get_children():
+            self.cred_table.delete(row)
+
+        for cred in creds:
+            cat, type_label = self._classify_cred_field(cred.get("field", ""))
+            self.cred_table.insert("", tk.END, values=(
+                type_label,
+                cred.get("protocol", ""),
+                cred.get("src", ""),
+                cred.get("dst", ""),
+                cred.get("value", ""),
+                cred.get("detail", ""),
+            ), tags=(cat,))
+
+        if creds:
+            n_user = len([c for c in creds if self._classify_cred_field(c.get("field", ""))[0] == "username"])
+            n_pass = len([c for c in creds if self._classify_cred_field(c.get("field", ""))[0] == "password"])
+            self.cred_count_var.set(
+                f"{len(creds)} item(s)  |  {n_user} username(s)  |  {n_pass} password(s)  |  "
+                f"{len(computernames)} computer name(s)")
+        else:
+            self.cred_count_var.set("No credentials or auth data found in cleartext traffic.")
+
+        # ── Host table ──
+        for row in self.host_table.get_children():
+            self.host_table.delete(row)
+
+        def _ip_sort_key(ip_str):
+            try:
+                return ipaddress.ip_address(ip_str).packed
+            except Exception:
+                return ip_str.encode()
+
+        for ip in sorted(hosts.keys(), key=_ip_sort_key):
+            info = hosts[ip]
+            macs = ", ".join(info.get("mac", []))
+            hostnames = ", ".join(info.get("hostnames", []))
+            tag = "has_name" if hostnames else "no_name"
+            self.host_table.insert("", tk.END, values=(ip, macs, hostnames), tags=(tag,))
+
+        self.host_count_var.set(f"{len(hosts)} unique IP(s), "
+                                f"{sum(len(v.get('mac', [])) for v in hosts.values())} MAC(s), "
+                                f"{sum(len(v.get('hostnames', [])) for v in hosts.values())} hostname(s)")
+
+    def _copy_extracted_creds(self):
+        """Copy all extracted credentials to clipboard as tab-separated text."""
+        lines = ["Type\tProtocol\tSource\tDestination\tValue\tDetail"]
+        for item in self.cred_table.get_children():
+            vals = self.cred_table.item(item, "values")
+            lines.append("\t".join(str(v) for v in vals))
+        self.root.clipboard_clear()
+        self.root.clipboard_append("\n".join(lines))
+        self.status_var.set(f"Copied {len(lines) - 1} credential row(s) to clipboard.")
+
+    def _copy_extracted_hosts(self):
+        """Copy all extracted host info to clipboard as tab-separated text."""
+        lines = ["IP Address\tMAC Address(es)\tComputer / Hostname"]
+        for item in self.host_table.get_children():
+            vals = self.host_table.item(item, "values")
+            lines.append("\t".join(str(v) for v in vals))
+        self.root.clipboard_clear()
+        self.root.clipboard_append("\n".join(lines))
+        self.status_var.set(f"Copied {len(lines) - 1} host row(s) to clipboard.")
+
     def _build_kb_tab(self):
-        container = ttk.Frame(self.kb_tab, padding=10)
+        container = ttk.Frame(self.kb_tab, padding=14)
         container.pack(fill=tk.BOTH, expand=True)
 
         header = ttk.Frame(container)
-        header.pack(fill=tk.X)
+        header.pack(fill=tk.X, pady=(0, 8))
         self.kb_summary_var = tk.StringVar(value="")
         ttk.Label(header, textvariable=self.kb_summary_var).pack(side=tk.LEFT)
-        ttk.Button(header, text="Refresh", command=self._refresh_kb).pack(side=tk.RIGHT)
-        ttk.Button(header, text="Reset Knowledge Base", command=self._reset_kb).pack(side=tk.RIGHT, padx=6)
-        ttk.Button(header, text="Restore", command=self._restore_kb).pack(side=tk.RIGHT, padx=6)
-        ttk.Button(header, text="Backup", command=self._backup_kb).pack(side=tk.RIGHT, padx=6)
+        self._help_icon(header, "The Knowledge Base stores patterns from PCAPs you've labeled as safe or malicious. "
+            "It's the app's memory — the more examples you add, the better it detects threats.\n\n"
+            "  Refresh: Reload the KB from disk\n"
+            "  Backup: Save a copy of your KB to a file\n"
+            "  Restore: Load a previously saved KB backup\n"
+            "  Reset: Erase all learned patterns (cannot be undone!)")
+        ttk.Button(header, text="Refresh", style="Secondary.TButton", command=self._refresh_kb).pack(side=tk.RIGHT)
+        ttk.Button(header, text="Reset Knowledge Base", style="Danger.TButton", command=self._reset_kb).pack(side=tk.RIGHT, padx=6)
+        ttk.Button(header, text="Restore", style="Secondary.TButton", command=self._restore_kb).pack(side=tk.RIGHT, padx=6)
+        ttk.Button(header, text="Backup", style="Secondary.TButton", command=self._backup_kb).pack(side=tk.RIGHT, padx=6)
 
-        ioc_frame = ttk.LabelFrame(container, text="IoC Feed", padding=10)
-        ioc_frame.pack(fill=tk.X, pady=6)
+        ioc_frame = ttk.LabelFrame(container, text="  IoC Feed  ", padding=12)
+        ioc_frame.pack(fill=tk.X, pady=8)
+        self._help_icon(ioc_frame, "IoC = Indicator of Compromise. These are lists of known-bad IP addresses, "
+            "domains, and file hashes maintained by security researchers.\n\n"
+            "Import a CSV or text file containing IoCs, and the app will check every analyzed "
+            "PCAP against this list. Any traffic to/from a listed address gets flagged.\n\n"
+            "Free IoC sources:\n"
+            "  AlienVault OTX (otx.alienvault.com)\n"
+            "  Abuse.ch (abuse.ch)\n"
+            "  CIRCL (circl.lu)")
         ttk.Label(ioc_frame, text="IoC file:").pack(side=tk.LEFT)
         ioc_entry = ttk.Entry(ioc_frame, textvariable=self.ioc_path_var, width=70)
         ioc_entry.pack(side=tk.LEFT, padx=6)
-        ttk.Button(ioc_frame, text="X", width=2, command=lambda: self.ioc_path_var.set("")).pack(side=tk.LEFT)
-        ttk.Button(ioc_frame, text="Browse", command=self._browse_ioc).pack(side=tk.LEFT, padx=6)
+        ttk.Button(ioc_frame, text="\u2715", width=2, style="Secondary.TButton",
+                   command=lambda: self.ioc_path_var.set("")).pack(side=tk.LEFT)
+        ttk.Button(ioc_frame, text="Browse", style="Secondary.TButton",
+                   command=self._browse_ioc).pack(side=tk.LEFT, padx=6)
         ttk.Button(ioc_frame, text="Import", command=self._load_ioc_file).pack(side=tk.LEFT, padx=6)
-        ttk.Button(ioc_frame, text="Clear", command=self._clear_iocs).pack(side=tk.LEFT, padx=6)
+        ttk.Button(ioc_frame, text="Clear", style="Secondary.TButton",
+                   command=self._clear_iocs).pack(side=tk.LEFT, padx=6)
 
     def _reset_packet_filters(self):
         if self.packet_proto_var is None:
@@ -2482,6 +3468,38 @@ class PCAPSentryApp:
         if self.packet_table.identify_region(event.x, event.y) != "heading":
             return
         self._rebuild_packet_column_menu()
+
+        # Add alignment options for the clicked column
+        col_id = self.packet_table.identify_column(event.x)
+        if col_id and col_id != "#0":
+            col_index = int(col_id.replace("#", "")) - 1
+            columns = list(self.packet_table["columns"])
+            if 0 <= col_index < len(columns):
+                col_name = columns[col_index]
+                self.packet_column_menu.add_separator()
+                heading_text = self.packet_table.heading(col_name, "text").rstrip(" \u25b2\u25bc")
+                self.packet_column_menu.add_command(
+                    label=f"\u2550  Align: {heading_text}", state=tk.DISABLED)
+                self.packet_column_menu.add_command(
+                    label="\u25c0  Align Left",
+                    command=lambda: self._set_column_align(self.packet_table, col_name, tk.W))
+                self.packet_column_menu.add_command(
+                    label="\u25c6  Align Center",
+                    command=lambda: self._set_column_align(self.packet_table, col_name, tk.CENTER))
+                self.packet_column_menu.add_command(
+                    label="\u25b6  Align Right",
+                    command=lambda: self._set_column_align(self.packet_table, col_name, tk.E))
+                self.packet_column_menu.add_separator()
+                self.packet_column_menu.add_command(
+                    label="\u25c0  Align ALL Left",
+                    command=lambda: self._set_all_columns_align(self.packet_table, tk.W))
+                self.packet_column_menu.add_command(
+                    label="\u25c6  Align ALL Center",
+                    command=lambda: self._set_all_columns_align(self.packet_table, tk.CENTER))
+                self.packet_column_menu.add_command(
+                    label="\u25b6  Align ALL Right",
+                    command=lambda: self._set_all_columns_align(self.packet_table, tk.E))
+
         try:
             self.packet_column_menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -2700,35 +3718,53 @@ class PCAPSentryApp:
         theme = self._resolve_theme()
         if theme == "light":
             self.colors = {
-                "bg": "#f5f7fb",
+                "bg": "#f0f2f5",
                 "panel": "#ffffff",
-                "text": "#12141a",
-                "muted": "#5d6776",
-                "accent": "#2b7cbf",
-                "accent_alt": "#1f5f95",
-                "border": "#d7dbe2",
-                "danger": "#b84a3f",
-                "neon": "#a02f8f",
-                "neon_alt": "#2a88a6",
-                "bg_wave": "#dbe3ef",
-                "bg_node": "#c9d3e3",
-                "bg_hex": "#c2ccdb",
+                "panel_alt": "#f7f8fa",
+                "text": "#1a1d23",
+                "muted": "#6b7280",
+                "accent": "#2563eb",
+                "accent_alt": "#1d4ed8",
+                "accent_hover": "#3b82f6",
+                "accent_subtle": "#dbeafe",
+                "border": "#e2e5ea",
+                "border_light": "#eef0f4",
+                "danger": "#dc2626",
+                "success": "#16a34a",
+                "warning": "#d97706",
+                "neon": "#7c3aed",
+                "neon_alt": "#0891b2",
+                "bg_wave": "#dde4f0",
+                "bg_node": "#c5d0e0",
+                "bg_hex": "#bfc9d8",
+                "tab_selected_fg": "#ffffff",
+                "header_gradient": "#1e3a5f",
+                "shadow": "#00000012",
             }
         else:
             self.colors = {
-                "bg": "#0a0c11",
-                "panel": "#111621",
-                "text": "#e6e6e6",
-                "muted": "#9aa3b2",
-                "accent": "#3fa9f5",
-                "accent_alt": "#2b7cbf",
-                "border": "#222938",
-                "danger": "#e76f51",
-                "neon": "#c235a8",
-                "neon_alt": "#2aa5c9",
+                "bg": "#0d1117",
+                "panel": "#161b22",
+                "panel_alt": "#1c2333",
+                "text": "#e6edf3",
+                "muted": "#8b949e",
+                "accent": "#58a6ff",
+                "accent_alt": "#388bfd",
+                "accent_hover": "#79c0ff",
+                "accent_subtle": "#122d4f",
+                "border": "#21262d",
+                "border_light": "#30363d",
+                "danger": "#f85149",
+                "success": "#3fb950",
+                "warning": "#d29922",
+                "neon": "#bc8cff",
+                "neon_alt": "#39d2c0",
                 "bg_wave": "#1b2a3f",
                 "bg_node": "#223551",
                 "bg_hex": "#142133",
+                "tab_selected_fg": "#ffffff",
+                "header_gradient": "#0d1117",
+                "shadow": "#00000030",
             }
 
         self.root.configure(bg=self.colors["bg"])
@@ -2739,40 +3775,88 @@ class PCAPSentryApp:
             pass
 
         style.configure("TFrame", background=self.colors["bg"])
-        style.configure("TLabel", background=self.colors["bg"], foreground=self.colors["text"])
-        style.configure("Hint.TLabel", background=self.colors["bg"], foreground=self.colors["muted"])
+        style.configure("TLabel", background=self.colors["bg"], foreground=self.colors["text"],
+                        font=("Segoe UI", 10))
+        style.configure("Hint.TLabel", background=self.colors["bg"], foreground=self.colors["muted"],
+                        font=("Segoe UI", 9))
+        style.configure("Heading.TLabel", background=self.colors["bg"], foreground=self.colors["text"],
+                        font=("Segoe UI", 11, "bold"))
+
+        # Primary action button
         style.configure(
             "TButton",
             background=self.colors["accent"],
-            foreground=self.colors["text"],
-            bordercolor=self.colors["border"],
-            focusthickness=1,
-            focuscolor=self.colors["accent_alt"],
-            padding=6,
+            foreground="#ffffff",
+            bordercolor=self.colors["accent_alt"],
+            focusthickness=0,
+            focuscolor=self.colors["accent"],
+            padding=(14, 7),
+            font=("Segoe UI", 10),
         )
         style.map(
             "TButton",
-            background=[("active", self.colors["accent_alt"]), ("disabled", self.colors["border"])],
+            background=[("active", self.colors["accent_hover"]), ("disabled", self.colors["border"])],
+            foreground=[("disabled", self.colors["muted"])],
+            bordercolor=[("active", self.colors["accent_hover"])],
+        )
+
+        # Subtle / secondary button
+        style.configure(
+            "Secondary.TButton",
+            background=self.colors["panel"],
+            foreground=self.colors["text"],
+            bordercolor=self.colors["border"],
+            focusthickness=0,
+            padding=(12, 6),
+            font=("Segoe UI", 10),
+        )
+        style.map(
+            "Secondary.TButton",
+            background=[("active", self.colors["accent_subtle"]), ("disabled", self.colors["border"])],
             foreground=[("disabled", self.colors["muted"])],
         )
 
-        style.configure("TCheckbutton", background=self.colors["bg"], foreground=self.colors["text"])
+        # Danger button
+        style.configure(
+            "Danger.TButton",
+            background=self.colors["danger"],
+            foreground="#ffffff",
+            bordercolor=self.colors["danger"],
+            focusthickness=0,
+            padding=(12, 6),
+            font=("Segoe UI", 10),
+        )
+        style.map(
+            "Danger.TButton",
+            background=[("active", "#b91c1c"), ("disabled", self.colors["border"])],
+            foreground=[("disabled", self.colors["muted"])],
+        )
+
+        style.configure("TCheckbutton", background=self.colors["bg"], foreground=self.colors["text"],
+                        font=("Segoe UI", 10))
         style.map("TCheckbutton", foreground=[("disabled", self.colors["muted"])])
-        style.configure("Quiet.TCheckbutton", background=self.colors["bg"], foreground=self.colors["text"])
+        style.configure("Quiet.TCheckbutton", background=self.colors["bg"], foreground=self.colors["text"],
+                        font=("Segoe UI", 10))
         style.map(
             "Quiet.TCheckbutton",
             background=[("active", self.colors["bg"]), ("focus", self.colors["bg"])],
             foreground=[("active", self.colors["text"]), ("disabled", self.colors["muted"])],
         )
 
-        style.configure("TLabelframe", background=self.colors["bg"], foreground=self.colors["text"])
-        style.configure("TLabelframe.Label", background=self.colors["bg"], foreground=self.colors["text"])
+        style.configure("TLabelframe", background=self.colors["bg"], foreground=self.colors["text"],
+                        bordercolor=self.colors["border_light"])
+        style.configure("TLabelframe.Label", background=self.colors["bg"], foreground=self.colors["accent"],
+                        font=("Segoe UI", 10, "bold"))
 
-        style.configure("TNotebook", background=self.colors["bg"], bordercolor=self.colors["border"])
-        style.configure("TNotebook.Tab", background=self.colors["panel"], foreground=self.colors["text"], padding=6)
+        style.configure("TNotebook", background=self.colors["bg"], bordercolor=self.colors["border"],
+                        tabmargins=[4, 4, 4, 0])
+        style.configure("TNotebook.Tab", background=self.colors["panel"], foreground=self.colors["muted"],
+                        padding=(16, 8), font=("Segoe UI", 10))
         style.map(
             "TNotebook.Tab",
-            background=[("selected", self.colors["accent_alt"]), ("active", self.colors["accent"])]
+            background=[("selected", self.colors["accent"]), ("active", self.colors["accent_subtle"])],
+            foreground=[("selected", self.colors["tab_selected_fg"]), ("active", self.colors["text"])],
+            expand=[("selected", [0, 0, 0, 2])],
         )
 
         style.configure(
@@ -2781,6 +3865,10 @@ class PCAPSentryApp:
             foreground=self.colors["text"],
             bordercolor=self.colors["border"],
             insertcolor=self.colors["text"],
+            padding=4,
+        )
+        style.map("TEntry",
+            bordercolor=[("focus", self.colors["accent"])],
         )
         style.configure(
             "TSpinbox",
@@ -2788,49 +3876,66 @@ class PCAPSentryApp:
             foreground=self.colors["text"],
             bordercolor=self.colors["border"],
             insertcolor=self.colors["text"],
+            padding=4,
         )
 
+        # -- Treeview --
         style.configure(
             "Treeview",
             background=self.colors["panel"],
             fieldbackground=self.colors["panel"],
             foreground=self.colors["text"],
             bordercolor=self.colors["border"],
+            rowheight=28,
+            font=("Segoe UI", 10),
         )
         style.configure(
             "Treeview.Heading",
-            background=self.colors["bg"],
+            background=self.colors["accent_subtle"],
             foreground=self.colors["text"],
-        )
-        style.map(
-            "Treeview",
-            background=[("selected", self.colors["accent_alt"])],
-            foreground=[("selected", self.colors["text"])],
-        )
-        style.configure(
-            "Packet.Treeview",
-            background=self.colors["panel"],
-            fieldbackground=self.colors["panel"],
-            foreground=self.colors["text"],
-            bordercolor=self.colors["border"],
-        )
-        style.configure(
-            "Packet.Treeview.Heading",
-            background=self.colors["bg"],
-            foreground=self.colors["text"],
+            font=("Segoe UI", 10, "bold"),
+            padding=6,
             bordercolor=self.colors["border"],
             relief="flat",
         )
         style.map(
+            "Treeview",
+            background=[("selected", self.colors["accent_subtle"])],
+            foreground=[("selected", self.colors["accent"])],
+        )
+        style.map(
+            "Treeview.Heading",
+            background=[("active", self.colors["accent_subtle"])],
+        )
+
+        style.configure(
             "Packet.Treeview",
-            background=[("selected", self.colors["accent_alt"])],
-            foreground=[("selected", self.colors["text"])],
+            background=self.colors["panel"],
+            fieldbackground=self.colors["panel"],
+            foreground=self.colors["text"],
+            bordercolor=self.colors["border"],
+            rowheight=26,
+            font=("Consolas", 10),
+        )
+        style.configure(
+            "Packet.Treeview.Heading",
+            background=self.colors["accent_subtle"],
+            foreground=self.colors["text"],
+            bordercolor=self.colors["border"],
+            relief="flat",
+            font=("Segoe UI", 9, "bold"),
+            padding=5,
+        )
+        style.map(
+            "Packet.Treeview",
+            background=[("selected", self.colors["accent_subtle"])],
+            foreground=[("selected", self.colors["accent"])],
         )
         style.map(
             "Packet.Treeview.Heading",
-            background=[("active", self.colors["bg"]), ("pressed", self.colors["bg"])],
-            bordercolor=[("active", self.colors["accent_alt"]), ("pressed", self.colors["accent_alt"])],
-            relief=[("active", "solid"), ("pressed", "solid")],
+            background=[("active", self.colors["accent_subtle"]), ("pressed", self.colors["accent_subtle"])],
+            bordercolor=[("active", self.colors["accent"]), ("pressed", self.colors["accent"])],
+            relief=[("active", "flat"), ("pressed", "flat")],
         )
 
         style.configure(
@@ -2838,6 +3943,16 @@ class PCAPSentryApp:
             background=self.colors["accent"],
             troughcolor=self.colors["panel"],
             bordercolor=self.colors["border"],
+            thickness=6,
+        )
+
+        style.configure("TSeparator", background=self.colors["border"])
+
+        style.configure("TCombobox",
+            fieldbackground=self.colors["panel"],
+            foreground=self.colors["text"],
+            bordercolor=self.colors["border"],
+            padding=4,
         )
 
     def _resolve_theme(self):
@@ -2890,64 +4005,69 @@ class PCAPSentryApp:
 
         self.bg_canvas.delete("all")
 
-        # Base gradient
-        steps = 18
-        for i in range(steps):
-            ratio = i / max(steps - 1, 1)
-            r = int(10 + (20 - 10) * ratio)
-            g = int(12 + (16 - 12) * ratio)
-            b = int(18 + (26 - 18) * ratio)
-            color = f"#{r:02x}{g:02x}{b:02x}"
-            y0 = int(h * i / steps)
-            y1 = int(h * (i + 1) / steps)
-            self.bg_canvas.create_rectangle(0, y0, w, y1, fill=color, outline=color)
+        theme = self._resolve_theme()
 
-        # Neon horizon glow
-        glow_y = int(h * 0.65)
-        self.bg_canvas.create_oval(-w * 0.2, glow_y - h * 0.1, w * 1.2, glow_y + h * 0.4,
-                       fill="", outline=self.colors["neon"], width=1)
-        self.bg_canvas.create_oval(-w * 0.1, glow_y - h * 0.05, w * 1.1, glow_y + h * 0.3,
-                       fill="", outline=self.colors["neon_alt"], width=1)
+        if theme == "dark":
+            # Subtle dark gradient
+            steps = 24
+            for i in range(steps):
+                ratio = i / max(steps - 1, 1)
+                r = int(13 + (16 - 13) * ratio)
+                g = int(17 + (22 - 17) * ratio)
+                b = int(23 + (30 - 23) * ratio)
+                color = f"#{r:02x}{g:02x}{b:02x}"
+                y0 = int(h * i / steps)
+                y1 = int(h * (i + 1) / steps)
+                self.bg_canvas.create_rectangle(0, y0, w, y1, fill=color, outline=color)
 
-        # Grid lines
-        grid_color = "#141b26"
-        for x in range(0, w, 60):
-            self.bg_canvas.create_line(x, glow_y, x, h, fill=grid_color)
-        for y in range(glow_y, h, 40):
-            self.bg_canvas.create_line(0, y, w, y, fill=grid_color)
+            # Subtle grid pattern (very faint)
+            grid_color = "#161d28"
+            for x in range(0, w, 80):
+                self.bg_canvas.create_line(x, 0, x, h, fill=grid_color, width=1)
+            for y in range(0, h, 80):
+                self.bg_canvas.create_line(0, y, w, y, fill=grid_color, width=1)
 
-        # Diagonal neon accents
-        self.bg_canvas.create_line(0, glow_y - 80, w, glow_y + 120, fill=self.colors["neon_alt"], width=1)
-        self.bg_canvas.create_line(0, glow_y - 120, w, glow_y + 80, fill=self.colors["neon"], width=1)
+            # Subtle accent glow in bottom-right corner
+            glow_x = int(w * 0.85)
+            glow_y = int(h * 0.75)
+            self.bg_canvas.create_oval(
+                glow_x - 180, glow_y - 120, glow_x + 180, glow_y + 120,
+                fill="", outline="#1a2744", width=2
+            )
+            self.bg_canvas.create_oval(
+                glow_x - 120, glow_y - 80, glow_x + 120, glow_y + 80,
+                fill="", outline="#18253f", width=1
+            )
 
-        # PCAP-style waveform
-        wave_color = self.colors.get("bg_wave", "#1b2a3f")
-        points = []
-        step = max(40, w // 18)
-        amplitude = max(18, h // 22)
-        baseline = int(h * 0.28)
-        for x in range(0, w + step, step):
-            offset = ((x // step) % 2) * 2 - 1
-            y = baseline + offset * amplitude
-            points.extend([x, y])
-        if len(points) >= 4:
-            self.bg_canvas.create_line(*points, fill=wave_color, width=2)
+            # Hex dump motif (very subtle)
+            hex_color = self.colors.get("bg_hex", "#142133")
+            hex_rows = min(4, max(2, h // 180))
+            hex_cols = min(4, max(2, w // 280))
+            hex_text = "4f 52 4f 4c 2d 50 43 41 50"
+            for row in range(hex_rows):
+                for col in range(hex_cols):
+                    x = 60 + col * 240
+                    y = int(h * 0.78) + row * 24
+                    self.bg_canvas.create_text(x, y, anchor="w", text=hex_text,
+                                               fill=hex_color, font=("Consolas", 8))
+        else:
+            # Light theme: clean minimal gradient
+            steps = 16
+            for i in range(steps):
+                ratio = i / max(steps - 1, 1)
+                r = int(240 + (235 - 240) * ratio)
+                g = int(242 + (238 - 242) * ratio)
+                b = int(245 + (242 - 245) * ratio)
+                color = f"#{r:02x}{g:02x}{b:02x}"
+                y0 = int(h * i / steps)
+                y1 = int(h * (i + 1) / steps)
+                self.bg_canvas.create_rectangle(0, y0, w, y1, fill=color, outline=color)
 
-        # Packet nodes
-        node_color = self.colors.get("bg_node", "#223551")
-        for x in range(80, w, 220):
-            self.bg_canvas.create_oval(x, baseline - 6, x + 10, baseline + 4, outline=node_color, width=2)
-
-        # Hex dump motif
-        hex_color = self.colors.get("bg_hex", "#142133")
-        hex_rows = min(6, max(2, h // 140))
-        hex_cols = min(6, max(3, w // 200))
-        hex_text = "4f 52 4f 4c 2d 50 43 41 50"
-        for row in range(hex_rows):
-            for col in range(hex_cols):
-                x = 40 + col * 180
-                y = int(h * 0.72) + row * 22
-                self.bg_canvas.create_text(x, y, anchor="w", text=hex_text, fill=hex_color, font=("Consolas", 9))
+            # Very subtle dot pattern
+            dot_color = "#d8dce3"
+            for x in range(40, w, 60):
+                for y in range(40, h, 60):
+                    self.bg_canvas.create_oval(x, y, x + 2, y + 2, fill=dot_color, outline=dot_color)
 
     def _setup_drag_drop(self):
         if not _check_tkinterdnd2():
@@ -2971,7 +4091,6 @@ class PCAPSentryApp:
             bind_drop(self.target_drop_area, self.target_path_var.set)
         bind_drop(self.analyze_tab, self.target_path_var.set)
         bind_drop(self.result_text, self.target_path_var.set)
-        bind_drop(self.flow_table, self.target_path_var.set)
 
     def _extract_drop_path(self, data):
         if not data:
@@ -3008,10 +4127,16 @@ class PCAPSentryApp:
             background=self.colors["panel"],
             foreground=self.colors["text"],
             insertbackground=self.colors["text"],
-            selectbackground=self.colors["accent_alt"],
+            selectbackground=self.colors["accent_subtle"],
             selectforeground=self.colors["text"],
             borderwidth=1,
-            relief="solid",
+            relief="flat",
+            highlightthickness=1,
+            highlightbackground=self.colors["border"],
+            highlightcolor=self.colors["accent"],
+            font=("Consolas", 10),
+            padx=8,
+            pady=6,
         )
 
     def _show_overlay(self, message):
@@ -3272,6 +4397,745 @@ class PCAPSentryApp:
             _write_error_log(f"Error labeling current capture as {label}", e, sys.exc_info()[2])
             messagebox.showerror("Error", f"Failed to label capture: {str(e)}")
 
+    # ------------------------------------------------------------------
+    # Education tab content builder
+    # ------------------------------------------------------------------
+    def _build_education_content(
+        self, verdict, risk_score, stats, classifier_result,
+        anomaly_result, anomaly_reasons, ioc_matches,
+        ioc_available, ioc_count, suspicious_flows,
+        threat_intel_findings,
+    ):
+        """Build beginner-friendly educational content based on analysis findings."""
+        lines = []
+
+        # ── Header ──
+        lines.append("=" * 60)
+        lines.append("  BEGINNER'S GUIDE: UNDERSTANDING YOUR RESULTS")
+        lines.append("=" * 60)
+        lines.append("")
+        lines.append(f"  Overall Verdict : {verdict}")
+        lines.append(f"  Risk Score      : {risk_score}/100")
+        lines.append("")
+
+        # ── What the verdict means ──
+        lines.append("-" * 60)
+        lines.append("  WHAT DOES THE VERDICT MEAN?")
+        lines.append("-" * 60)
+        lines.append("")
+        if verdict == "Likely Malicious":
+            lines.append(
+                "  The analysis found strong signs that this network traffic is\n"
+                "  related to malicious activity — such as malware communicating\n"
+                "  with a remote server, data being stolen, or a known-bad IP\n"
+                "  address being contacted.\n"
+                "\n"
+                "  Think of it like a smoke alarm going off in several rooms at\n"
+                "  once. One alarm could be a false alarm, but many alarms\n"
+                "  together strongly suggest a real fire."
+            )
+        elif "Suspicious" in verdict:
+            lines.append(
+                "  Something in this traffic looks unusual, but there isn't\n"
+                "  enough evidence to say it's definitely malicious. It's like\n"
+                "  finding an unlocked door — it might be nothing, or it might\n"
+                "  mean someone was there.\n"
+                "\n"
+                "  Analysts call this the 'gray area.' The next step is always\n"
+                "  to gather more context before making a decision."
+            )
+        else:
+            lines.append(
+                "  This traffic looks like normal, everyday network activity —\n"
+                "  web browsing, DNS lookups, email, etc. No red flags were\n"
+                "  detected by any of the checks.\n"
+                "\n"
+                "  Knowing what NORMAL looks like is actually one of the most\n"
+                "  important skills in cybersecurity. The better you understand\n"
+                "  normal patterns, the faster you'll spot something abnormal."
+            )
+        lines.append("")
+
+        # ── Risk Score explained ──
+        lines.append("-" * 60)
+        lines.append("  HOW RISK SCORES WORK")
+        lines.append("-" * 60)
+        lines.append("")
+        lines.append(
+            "  The risk score (0–100) is a weighted combination of several\n"
+            "  independent checks. Each check contributes a portion:\n"
+            "\n"
+            "    Machine Learning Model   ~50% of the score\n"
+            "    Baseline Anomaly Check   ~30% of the score\n"
+            "    Threat Intel (IoC) Match ~20% of the score\n"
+            "\n"
+            "  No single check decides the verdict alone. This layered\n"
+            "  approach is called 'defense in depth' — even if one check\n"
+            "  misses something, another may catch it."
+        )
+        lines.append("")
+
+        # ── What was found — dynamic section ──
+        lines.append("-" * 60)
+        lines.append("  WHAT WAS FOUND IN THIS CAPTURE")
+        lines.append("-" * 60)
+        lines.append("")
+
+        # -- Ports --
+        common_ports = {22, 53, 80, 123, 443, 445, 3389, 25, 110, 143, 21, 8080}
+        port_descriptions = {
+            22:  "SSH — Secure remote terminal access",
+            53:  "DNS — Translates domain names (like google.com) to IP addresses",
+            80:  "HTTP — Unencrypted web traffic (you can read everything in it)",
+            123: "NTP — Time synchronization between computers",
+            443: "HTTPS — Encrypted web traffic (the standard for modern websites)",
+            445: "SMB — Windows file sharing (often targeted by ransomware)",
+            3389:"RDP — Remote Desktop (lets someone control a PC remotely)",
+            25:  "SMTP — Sending email",
+            110: "POP3 — Downloading email from a mail server",
+            143: "IMAP — Syncing email across devices",
+            21:  "FTP — File transfers (sends passwords in plain text!)",
+            8080:"HTTP-Alt — Alternate web port, often used by proxies",
+        }
+        top_ports = stats.get("top_ports", [])
+        unusual_ports = [p for p, _ in top_ports if p not in common_ports] if top_ports else []
+        if top_ports:
+            lines.append("  [PORTS]  What network services were used?")
+            lines.append("")
+            lines.append(
+                "    Every program that talks over a network uses a 'port'\n"
+                "    number.  Standard services use well-known ports (e.g.\n"
+                "    443 for HTTPS).  If traffic appears on a port that\n"
+                "    doesn't match any known service, it could be malware\n"
+                "    trying to fly under the radar."
+            )
+            lines.append("")
+            for port, count in top_ports[:10]:
+                desc = port_descriptions.get(port, "Unknown / non-standard service")
+                flag = "  ** UNUSUAL **" if port not in common_ports else ""
+                lines.append(f"      Port {port:>5} : {desc} ({count} packets){flag}")
+            if unusual_ports:
+                lines.append("")
+                lines.append(
+                    "    Ports marked UNUSUAL are not associated with any common\n"
+                    "    service.  Malware frequently picks random high ports to\n"
+                    "    avoid basic firewall rules.  Ask: 'What program in my\n"
+                    "    network would use this port?'  If you can't answer,\n"
+                    "    investigate further."
+                )
+            lines.append("")
+
+        # -- DNS --
+        dns_count = stats.get("dns_query_count", 0)
+        top_dns = stats.get("top_dns", [])
+        if dns_count:
+            lines.append("  [DNS]  Domain name lookups")
+            lines.append("")
+            lines.append(
+                "    DNS is the Internet's phone book.  Before your computer\n"
+                "    can visit 'example.com' it asks a DNS server 'What IP\n"
+                "    address is example.com?'  Even encrypted traffic exposes\n"
+                "    these lookups, making DNS a goldmine for investigators."
+            )
+            lines.append("")
+            if top_dns:
+                lines.append("    Most-queried domains in this capture:")
+                for domain, count in top_dns[:8]:
+                    lines.append(f"      {domain}  ({count} lookups)")
+                lines.append("")
+                lines.append(
+                    "    Red flags to watch for:\n"
+                    "      - Random-looking names like 'x8k3j.xyz' may be\n"
+                    "        DGA domains (Domain Generation Algorithm) used\n"
+                    "        by malware to find its command server.\n"
+                    "      - One domain queried hundreds of times could mean\n"
+                    "        DNS tunneling — hiding data inside DNS requests."
+                )
+            lines.append("")
+
+        # -- HTTP --
+        http_count = stats.get("http_request_count", 0)
+        http_hosts = stats.get("http_hosts", [])
+        if http_count:
+            lines.append("  [HTTP]  Unencrypted web traffic")
+            lines.append("")
+            lines.append(
+                "    HTTP sends data in plain text — anyone between the\n"
+                "    sender and receiver can read it.  Most modern sites use\n"
+                "    HTTPS instead.  Finding HTTP traffic is always worth\n"
+                "    a closer look."
+            )
+            lines.append("")
+            if http_hosts:
+                lines.append(f"    Hosts contacted via HTTP: {', '.join(http_hosts[:5])}")
+                lines.append("")
+            lines.append(
+                "    Why it matters:\n"
+                "      Malware sometimes uses plain HTTP to send stolen data\n"
+                "      or receive commands because it's simpler to set up.\n"
+                "      In Wireshark, filtering on 'http' lets you read the\n"
+                "      actual URLs and payloads in the clear."
+            )
+            lines.append("")
+
+        # -- TLS/HTTPS --
+        tls_count = stats.get("tls_packet_count", 0)
+        tls_sni = stats.get("tls_sni", [])
+        if tls_count:
+            lines.append("  [HTTPS / TLS]  Encrypted web traffic")
+            lines.append("")
+            lines.append(
+                "    TLS encrypts the content so you can't read it, BUT the\n"
+                "    initial 'handshake' reveals the destination server name\n"
+                "    (called SNI — Server Name Indication).  You can always\n"
+                "    see WHERE encrypted traffic is going, even if you can't\n"
+                "    see WHAT it contains."
+            )
+            if tls_sni:
+                lines.append("")
+                lines.append(f"    Destinations seen (SNI): {', '.join(tls_sni[:5])}")
+            lines.append("")
+
+        # -- Packet sizes --
+        avg_size = stats.get("avg_size", 0.0)
+        median_size = stats.get("median_size", 0.0)
+        lines.append("  [PACKET SIZES]  What the data sizes tell us")
+        lines.append("")
+        lines.append(f"    Average packet size  : {avg_size:.0f} bytes")
+        lines.append(f"    Median packet size   : {median_size:.0f} bytes")
+        lines.append("")
+        if median_size and median_size < 120:
+            lines.append(
+                "    !! Many small packets detected.\n"
+                "    This is a classic 'beaconing' pattern: malware sends\n"
+                "    tiny, regular check-in messages to its controller.\n"
+                "    Think of it like a spy regularly tapping a phone to\n"
+                "    say 'I'm still here.' In Wireshark, try:\n"
+                "      frame.len < 120"
+            )
+        elif avg_size and avg_size > 1200:
+            lines.append(
+                "    !! Unusually large packets detected.\n"
+                "    Large packets can mean data exfiltration — an attacker\n"
+                "    copying files out of the network.  Check which hosts\n"
+                "    are sending the big packets and where they're going.\n"
+                "    In Wireshark, try:\n"
+                "      frame.len > 1200"
+            )
+        else:
+            lines.append(
+                "    Sizes look normal for typical web/network traffic.\n"
+                "    Normal browsing mixes small packets (TCP ACKs, ~54 B)\n"
+                "    with larger data packets (500–1,500 B)."
+            )
+        lines.append("")
+
+        # -- IoC matches --
+        if ioc_available and ioc_count:
+            lines.append("  [THREAT INTEL]  Known-bad addresses contacted")
+            lines.append("")
+            lines.append(
+                "    'IoC' stands for Indicator of Compromise.  Security\n"
+                "    researchers maintain public lists of IP addresses and\n"
+                "    domains that are linked to malware, phishing, botnets,\n"
+                "    and other attacks.  Traffic to/from these addresses is\n"
+                "    a serious red flag."
+            )
+            lines.append("")
+            if ioc_matches.get("domains"):
+                lines.append(f"    Matched domains: {', '.join(ioc_matches['domains'][:5])}")
+            if ioc_matches.get("ips"):
+                lines.append(f"    Matched IPs    : {', '.join(ioc_matches['ips'][:5])}")
+            lines.append("")
+            lines.append(
+                "    What to do next:\n"
+                "      1. Search each address on VirusTotal.com\n"
+                "      2. Check AbuseIPDB.com for abuse reports\n"
+                "      3. Note WHEN the traffic happened (business hours?)\n"
+                "      4. Determine if any internal systems talked to it"
+            )
+            lines.append("")
+
+        # -- Suspicious flows --
+        if suspicious_flows:
+            lines.append("  [SUSPICIOUS FLOWS]  Conversations that stand out")
+            lines.append("")
+            lines.append(
+                "    These are specific network conversations (flows) that\n"
+                "    triggered one or more heuristic red flags. Each flow is\n"
+                "    a pair of hosts communicating over a specific protocol\n"
+                "    and port. Below, every flagged flow is broken down with\n"
+                "    the actual IPs, ports, and the reason it was flagged."
+            )
+            lines.append("")
+
+            # Build a lookup of IoC IPs and domains for cross-referencing
+            ioc_ip_set = set()
+            ioc_domain_set = set()
+            if ioc_matches:
+                ioc_ip_set = set(ioc_matches.get("ips", []))
+                ioc_domain_set = set(ioc_matches.get("domains", []))
+
+            # Build a lookup of threat-intel flagged IPs/domains
+            threat_ip_info = {}
+            threat_domain_info = {}
+            if threat_intel_findings.get("threat_intel"):
+                intel = threat_intel_findings["threat_intel"]
+                for ip_info in intel.get("risky_ips", []):
+                    threat_ip_info[ip_info["ip"]] = ip_info
+                for d_info in intel.get("risky_domains", []):
+                    threat_domain_info[d_info["domain"]] = d_info
+
+            # Build a mapping from IPs to DNS names seen in this capture
+            ip_to_dns = {}
+            top_dns = stats.get("top_dns", [])
+            # Also check http_hosts and tls_sni for associations
+            http_hosts = stats.get("http_hosts", [])
+            tls_sni = stats.get("tls_sni", [])
+
+            common_ports = {22, 53, 80, 123, 443, 445, 3389, 25, 110, 143, 21, 8080}
+            port_descriptions = {
+                22:  "SSH (Secure Shell)",
+                53:  "DNS (Domain Name System)",
+                80:  "HTTP (Unencrypted Web)",
+                123: "NTP (Time Sync)",
+                443: "HTTPS (Encrypted Web)",
+                445: "SMB (Windows File Sharing)",
+                3389:"RDP (Remote Desktop)",
+                25:  "SMTP (Email Sending)",
+                110: "POP3 (Email Download)",
+                143: "IMAP (Email Sync)",
+                21:  "FTP (File Transfer)",
+                8080:"HTTP-Alt (Proxy/Alternate Web)",
+            }
+
+            pattern_education = {
+                "high_volume": (
+                    "HIGH DATA VOLUME",
+                    "A large amount of data was moved in this conversation.\n"
+                    "      This could be a legitimate download, OR it could be\n"
+                    "      data being stolen (exfiltrated) from your network.\n"
+                    "      Key question: Is the data leaving your network\n"
+                    "      (outbound) or entering it (inbound)?  Outbound bulk\n"
+                    "      transfers to unknown hosts are especially concerning.",
+                ),
+                "long_duration": (
+                    "LONG-LIVED CONNECTION",
+                    "This connection stayed open for a very long time.\n"
+                    "      Persistent connections can indicate a backdoor or\n"
+                    "      Remote Access Tool (RAT) keeping a channel open so\n"
+                    "      an attacker can send commands whenever they want.",
+                ),
+                "many_packets": (
+                    "HIGH PACKET COUNT",
+                    "An unusually large number of messages were exchanged.\n"
+                    "      Could be normal (e.g., a video call) or could be\n"
+                    "      Command-and-Control (C2) chatter — an attacker\n"
+                    "      issuing many commands to compromised machines.",
+                ),
+                "small_packets": (
+                    "SMALL PACKET PATTERN (BEACONING)",
+                    "Lots of tiny packets were sent back and forth.\n"
+                    "      This is the hallmark of 'beaconing' — malware\n"
+                    "      sending periodic 'I'm alive' check-ins to its\n"
+                    "      controller.  Look for regular timing intervals\n"
+                    "      between these packets in Wireshark.",
+                ),
+                "large_packets": (
+                    "LARGE PACKET PATTERN",
+                    "Unusually large packets suggest bulk data movement.\n"
+                    "      Is data leaving (outbound) or entering (inbound)?\n"
+                    "      Outbound is more concerning — it could be stolen\n"
+                    "      files, database dumps, or credentials.",
+                ),
+                "unusual_port": (
+                    "NON-STANDARD PORT",
+                    "This conversation used a port not associated with any\n"
+                    "      common service.  Malware often picks random high\n"
+                    "      ports to evade basic firewall rules.",
+                ),
+                "beaconing": (
+                    "BEACONING DETECTED",
+                    "Messages were sent at regular intervals — like a clock.\n"
+                    "      This is one of the strongest malware indicators.\n"
+                    "      Legitimate software rarely sends data with such\n"
+                    "      precise, periodic timing.",
+                ),
+                "dns_tunnel": (
+                    "POSSIBLE DNS TUNNELING",
+                    "Data may be hidden inside DNS queries.  Attackers use\n"
+                    "      this clever technique to sneak data out of networks\n"
+                    "      that block most traffic but allow DNS (since every\n"
+                    "      network needs DNS to function).",
+                ),
+                "c2": (
+                    "COMMAND & CONTROL (C2)",
+                    "This looks like communication between malware and its\n"
+                    "      controller.  C2 traffic is how attackers remotely\n"
+                    "      operate compromised machines — issuing commands to\n"
+                    "      steal data, spread laterally, or launch attacks.",
+                ),
+                "exfiltration": (
+                    "DATA EXFILTRATION",
+                    "This pattern suggests data is being copied out of the\n"
+                    "      network.  This is often the attacker's end goal —\n"
+                    "      stealing intellectual property, customer records,\n"
+                    "      financial data, or credentials.",
+                ),
+                "scan": (
+                    "NETWORK SCANNING",
+                    "This looks like port scanning or network reconnaissance.\n"
+                    "      Attackers scan networks to find vulnerable services\n"
+                    "      before launching a targeted attack.  Think of it as\n"
+                    "      someone rattling every door handle in a building.",
+                ),
+                "ioc": (
+                    "KNOWN MALICIOUS ADDRESS (IoC MATCH)",
+                    "One of the IPs in this flow appears on a threat\n"
+                    "      intelligence blocklist.  This means security\n"
+                    "      researchers have already linked this address to\n"
+                    "      malware, phishing, botnets, or other attacks.",
+                ),
+            }
+
+            for idx, item in enumerate(suspicious_flows, 1):
+                src_ip = item.get("src", "?")
+                dst_ip = item.get("dst", "?")
+                sport = item.get("sport", "?")
+                dport = item.get("dport", "?")
+                proto = item.get("proto", "?")
+
+                lines.append("    " + "~" * 52)
+                lines.append(f"    FLAGGED FLOW #{idx}")
+                lines.append("    " + "~" * 52)
+                lines.append("")
+
+                # -- Specific traffic details --
+                lines.append(f"      Source      : {src_ip}  (port {sport})")
+                lines.append(f"      Destination : {dst_ip}  (port {dport})")
+                lines.append(f"      Protocol    : {proto}")
+                lines.append(f"      Data moved  : {item['bytes']}  in  {item['packets']} packets")
+                lines.append("")
+
+                # -- Describe the destination port --
+                dport_int = int(dport) if str(dport).isdigit() else None
+                if dport_int and dport_int in port_descriptions:
+                    lines.append(f"      Port {dport} is: {port_descriptions[dport_int]}")
+                elif dport_int and dport_int not in common_ports:
+                    lines.append(f"      Port {dport} is NOT a standard service port.")
+                    lines.append(f"      Ask yourself: 'What program would use port {dport}?'")
+                    lines.append(f"      If you can't answer, this is suspicious.")
+                lines.append("")
+
+                # -- Why it was flagged --
+                raw = item["reason"].lower()
+                matched_labels = []
+                matched_explanations = []
+                for key, (lbl, expl) in pattern_education.items():
+                    if key in raw:
+                        matched_labels.append(lbl)
+                        matched_explanations.append(expl)
+                if not matched_labels:
+                    matched_labels.append("FLAGGED BY HEURISTIC ANALYSIS")
+                    matched_explanations.append(
+                        "This flow was flagged by automated analysis.\n"
+                        "      Review it manually in Wireshark for more context."
+                    )
+
+                lines.append(f"      Detection reason(s):")
+                for i, (lbl, expl) in enumerate(zip(matched_labels, matched_explanations)):
+                    lines.append(f"        {i+1}. {lbl}")
+                    lines.append(f"           {expl}")
+                    lines.append("")
+
+                # -- Cross-reference with IoC data --
+                src_is_ioc = src_ip in ioc_ip_set
+                dst_is_ioc = dst_ip in ioc_ip_set
+                if src_is_ioc or dst_is_ioc:
+                    lines.append("      !! IoC BLOCKLIST MATCH:")
+                    if src_is_ioc:
+                        lines.append(f"         Source IP {src_ip} is on a known threat blocklist.")
+                    if dst_is_ioc:
+                        lines.append(f"         Destination IP {dst_ip} is on a known threat blocklist.")
+                    lines.append("         This means security researchers have previously linked")
+                    lines.append("         this address to malicious activity (malware, phishing,")
+                    lines.append("         botnets, etc.).")
+                    lines.append("")
+
+                # -- Cross-reference with online threat intel --
+                for ip_addr in [src_ip, dst_ip]:
+                    if ip_addr in threat_ip_info:
+                        ti = threat_ip_info[ip_addr]
+                        risk = ti.get("risk_score", 0)
+                        sev = "HIGH" if risk > 70 else "MEDIUM" if risk > 40 else "LOW"
+                        lines.append(f"      !! ONLINE THREAT INTEL for {ip_addr}:")
+                        lines.append(f"         Risk score: {risk:.0f}/100 ({sev})")
+                        sources = ti.get("sources", {})
+                        if sources.get("otx", {}).get("pulse_count"):
+                            lines.append(f"         AlienVault OTX: {sources['otx']['pulse_count']} threat pulses")
+                        if sources.get("abuseipdb", {}).get("abuse_confidence_score"):
+                            lines.append(f"         AbuseIPDB confidence: {sources['abuseipdb']['abuse_confidence_score']}%")
+                        lines.append("")
+
+                # -- Wireshark filter to isolate this exact flow --
+                lines.append("      How to investigate this flow in Wireshark:")
+                filter_parts = []
+                if src_ip != "?":
+                    filter_parts.append(f"ip.addr == {src_ip}")
+                if dst_ip != "?":
+                    filter_parts.append(f"ip.addr == {dst_ip}")
+                if filter_parts:
+                    wireshark_filter = " && ".join(filter_parts)
+                    lines.append(f"        Filter: {wireshark_filter}")
+                if dport_int:
+                    proto_filter = "tcp" if proto == "TCP" else "udp" if proto == "UDP" else proto.lower()
+                    lines.append(f"        Or:     {proto_filter}.port == {dport}")
+                lines.append("")
+                lines.append("        Steps:")
+                lines.append("          1. Open the PCAP in Wireshark")
+                lines.append("          2. Paste the filter above into the display filter bar")
+                lines.append("          3. Right-click a packet -> Follow -> TCP/UDP Stream")
+                lines.append("          4. Look at the payload — can you read any text?")
+                lines.append("             Readable text in unexpected places = red flag")
+                lines.append("          5. Check the timing — are packets evenly spaced?")
+                lines.append("             Regular intervals = possible beaconing")
+                lines.append("")
+
+            # -- Summary of all flagged IPs for quick lookup --
+            all_flagged_ips = set()
+            for item in suspicious_flows:
+                all_flagged_ips.add(item.get("src", "?"))
+                all_flagged_ips.add(item.get("dst", "?"))
+            all_flagged_ips.discard("?")
+            if all_flagged_ips:
+                lines.append("    " + "-" * 52)
+                lines.append("    QUICK REFERENCE: ALL FLAGGED IP ADDRESSES")
+                lines.append("    " + "-" * 52)
+                lines.append("")
+                lines.append("    Look up each of these on VirusTotal or AbuseIPDB:")
+                lines.append("")
+                for ip in sorted(all_flagged_ips):
+                    notes = []
+                    if ip in ioc_ip_set:
+                        notes.append("IoC blocklist match")
+                    if ip in threat_ip_info:
+                        risk = threat_ip_info[ip].get("risk_score", 0)
+                        notes.append(f"threat intel risk {risk:.0f}/100")
+                    note_str = f"  ({', '.join(notes)})" if notes else ""
+                    lines.append(f"      {ip}{note_str}")
+                    lines.append(f"        https://www.virustotal.com/gui/ip-address/{ip}")
+                    lines.append(f"        https://www.abuseipdb.com/check/{ip}")
+                    lines.append("")
+
+        # -- Threat intelligence online findings --
+        if threat_intel_findings.get("threat_intel"):
+            intel = threat_intel_findings["threat_intel"]
+            if intel.get("risky_ips") or intel.get("risky_domains"):
+                lines.append("  [ONLINE THREAT INTEL]  What public databases say")
+                lines.append("")
+                lines.append(
+                    "    Multiple free, community-run databases track malicious\n"
+                    "    infrastructure.  When an IP or domain shows up on these\n"
+                    "    lists, it means security researchers have already linked\n"
+                    "    it to attacks."
+                )
+                lines.append("")
+                if intel.get("risky_ips"):
+                    for ip_info in intel["risky_ips"][:5]:
+                        risk = ip_info["risk_score"]
+                        sev = "HIGH" if risk > 70 else "MEDIUM" if risk > 40 else "LOW"
+                        lines.append(f"    IP {ip_info['ip']} — risk {risk:.0f}/100 ({sev})")
+                if intel.get("risky_domains"):
+                    for d_info in intel["risky_domains"][:5]:
+                        risk = d_info["risk_score"]
+                        sev = "HIGH" if risk > 70 else "MEDIUM" if risk > 40 else "LOW"
+                        lines.append(f"    Domain {d_info['domain']} — risk {risk:.0f}/100 ({sev})")
+                lines.append("")
+
+        # ── Common attack patterns glossary ──
+        lines.append("-" * 60)
+        lines.append("  COMMON ATTACK PATTERNS (GLOSSARY)")
+        lines.append("-" * 60)
+        lines.append("")
+        glossary = [
+            ("Beaconing",
+             "Malware sends small messages to its controller at\n"
+             "    regular intervals (e.g., every 60 seconds) to say\n"
+             "    'I'm still alive — send me commands.'  The regular\n"
+             "    timing is the key giveaway."),
+            ("Command & Control (C2)",
+             "After infecting a machine, malware connects back to\n"
+             "    the attacker's server to receive instructions.  This\n"
+             "    two-way channel lets the attacker steal data, move\n"
+             "    laterally, or deploy ransomware — all remotely."),
+            ("Data Exfiltration",
+             "The unauthorized transfer of data out of a network.\n"
+             "    Attackers compress, encrypt, and upload stolen data\n"
+             "    to external servers.  Look for large outbound\n"
+             "    transfers to unfamiliar destinations."),
+            ("DNS Tunneling",
+             "Hiding data inside DNS queries/responses.  Since DNS\n"
+             "    is almost never blocked, attackers abuse it to sneak\n"
+             "    data past firewalls.  Long, random-looking subdomain\n"
+             "    names are a telltale sign."),
+            ("Port Scanning",
+             "An attacker probes a target by connecting to many ports\n"
+             "    in rapid succession to discover which services are\n"
+             "    running.  It's the digital equivalent of checking\n"
+             "    every window and door for an opening."),
+            ("Lateral Movement",
+             "Once inside a network, attackers move from machine to\n"
+             "    machine looking for valuable data.  Watch for unusual\n"
+             "    SMB (port 445) or RDP (port 3389) traffic between\n"
+             "    internal hosts."),
+            ("DGA (Domain Generation Algorithm)",
+             "Malware automatically generates random domain names to\n"
+             "    find its C2 server.  The domains look like nonsense\n"
+             "    (e.g., 'jk8xf2.xyz').  Researchers reverse-engineer\n"
+             "    these algorithms to predict and block them."),
+            ("Man-in-the-Middle (MitM)",
+             "An attacker secretly relays and potentially alters\n"
+             "    communications between two parties.  This is one\n"
+             "    reason HTTPS matters — encryption prevents tampering."),
+        ]
+        for term, desc in glossary:
+            lines.append(f"  {term}")
+            lines.append(f"    {desc}")
+            lines.append("")
+
+        # ── Quick Wireshark tips ──
+        lines.append("-" * 60)
+        lines.append("  WIRESHARK QUICK-START FOR BEGINNERS")
+        lines.append("-" * 60)
+        lines.append("")
+        lines.append(
+            "  Wireshark is a free tool that lets you inspect every\n"
+            "  packet in a capture file.  Here are the most useful\n"
+            "  display filters to get started:\n"
+            "\n"
+            "    ip.addr == 1.2.3.4          Traffic to/from a specific IP\n"
+            "    tcp.port == 443             All HTTPS traffic\n"
+            "    dns                         All DNS queries\n"
+            "    http.request               All HTTP requests (readable!)\n"
+            "    tcp.flags.syn == 1          Connection attempts only\n"
+            "    frame.len < 100            Very small packets (beaconing?)\n"
+            "    frame.len > 1200           Very large packets (exfil?)\n"
+            "    tls.handshake.type == 1    TLS Client Hellos (see SNI)\n"
+            "\n"
+            "  Tip: Right-click any packet -> Follow -> TCP Stream to\n"
+            "  reconstruct the full conversation between two hosts."
+        )
+        lines.append("")
+
+        # ── Free online resources ──
+        lines.append("-" * 60)
+        lines.append("  FREE RESOURCES TO KEEP LEARNING")
+        lines.append("-" * 60)
+        lines.append("")
+        resources = [
+            ("Wireshark Official Docs & Wiki",
+             "https://www.wireshark.org/docs/",
+             "The definitive guide to Wireshark — filters, protocol\n"
+             "    dissectors, capture techniques, and more."),
+            ("SANS Internet Storm Center (ISC)",
+             "https://isc.sans.edu/",
+             "Daily threat diaries written by professional analysts.\n"
+             "    Great for learning what real-world attacks look like."),
+            ("Malware Traffic Analysis",
+             "https://www.malware-traffic-analysis.net/",
+             "Free PCAP samples of real malware traffic with detailed\n"
+             "    write-ups.  Perfect for practicing analysis skills."),
+            ("VirusTotal",
+             "https://www.virustotal.com/",
+             "Upload files, URLs, IPs, or domains to check them\n"
+             "    against 70+ antivirus engines and community reports."),
+            ("AbuseIPDB",
+             "https://www.abuseipdb.com/",
+             "Community database of reported malicious IP addresses.\n"
+             "    Look up any suspicious IP from your captures here."),
+            ("Shodan",
+             "https://www.shodan.io/",
+             "A search engine for Internet-connected devices.  Find\n"
+             "    out what services an IP is running and whether it's\n"
+             "    been flagged as malicious."),
+            ("MITRE ATT&CK Framework",
+             "https://attack.mitre.org/",
+             "A knowledge base of adversary tactics, techniques, and\n"
+             "    procedures.  The industry standard for categorizing\n"
+             "    how attacks work (e.g., T1071 = Application Layer Protocol)."),
+            ("CyberDefenders",
+             "https://cyberdefenders.org/",
+             "Free, hands-on Blue Team challenges including PCAP\n"
+             "    analysis labs.  Great for building practical skills."),
+            ("TryHackMe — Intro to Network Analysis",
+             "https://tryhackme.com/",
+             "Interactive, browser-based cybersecurity training with\n"
+             "    guided rooms on Wireshark and traffic analysis."),
+            ("PCAP Samples from Netresec",
+             "https://www.netresec.com/?page=PcapFiles",
+             "Curated list of publicly available PCAP files for\n"
+             "    practicing with real network captures."),
+            ("AlienVault OTX (Open Threat Exchange)",
+             "https://otx.alienvault.com/",
+             "Free community-driven threat intelligence platform.\n"
+             "    Search for IoCs and subscribe to 'pulses' from\n"
+             "    security researchers around the world."),
+        ]
+        for name, url, desc in resources:
+            lines.append(f"  {name}")
+            lines.append(f"    {url}")
+            lines.append(f"    {desc}")
+            lines.append("")
+
+        # ── Next steps ──
+        lines.append("-" * 60)
+        lines.append("  RECOMMENDED NEXT STEPS")
+        lines.append("-" * 60)
+        lines.append("")
+        if verdict == "Likely Malicious":
+            lines.append(
+                "  1. Open this PCAP in Wireshark and apply the filters from\n"
+                "     the Why tab to isolate the malicious conversations.\n"
+                "  2. Look up every flagged IP/domain on VirusTotal and\n"
+                "     AbuseIPDB to confirm they're truly malicious.\n"
+                "  3. Check MITRE ATT&CK to classify the attack technique.\n"
+                "  4. Document your findings — practice writing a short\n"
+                "     incident summary (who, what, when, where, how).\n"
+                "  5. Label this capture as 'Malicious' in the Train tab so\n"
+                "     the ML model learns from it."
+            )
+        elif "Suspicious" in verdict:
+            lines.append(
+                "  1. Open this PCAP in Wireshark and examine the flagged\n"
+                "     flows manually.\n"
+                "  2. Research any unfamiliar IP addresses or domains using\n"
+                "     VirusTotal, AbuseIPDB, or Shodan.\n"
+                "  3. Consider the context: Is this traffic expected for the\n"
+                "     device or network segment it came from?\n"
+                "  4. If you determine it's safe, label it as such in the\n"
+                "     Train tab to reduce future false positives.\n"
+                "  5. If still unsure, compare it against a known-malicious\n"
+                "     PCAP from malware-traffic-analysis.net."
+            )
+        else:
+            lines.append(
+                "  1. Label this capture as 'Safe' in the Train tab to help\n"
+                "     build a stronger baseline of normal traffic.\n"
+                "  2. Download a malicious PCAP from malware-traffic-\n"
+                "     analysis.net and analyze it to see the difference.\n"
+                "  3. Try the CyberDefenders or TryHackMe challenges to\n"
+                "     practice identifying threats in a guided environment.\n"
+                "  4. Learn 5 Wireshark filters from the list above — they\n"
+                "     cover 80% of real-world analysis tasks."
+            )
+        lines.append("")
+        lines.append("=" * 60)
+        lines.append("  Happy learning!  Cybersecurity is a journey, not a")
+        lines.append("  destination.  Every PCAP you analyze makes you better.")
+        lines.append("=" * 60)
+
+        return "\n".join(lines)
+
     def _analyze(self):
         path = self.target_path_var.get()
         if not path:
@@ -3279,16 +5143,25 @@ class PCAPSentryApp:
             return
 
         def task(progress_cb=None):
-            return parse_pcap_path(
+            parse_result = parse_pcap_path(
                 path,
                 max_rows=self.max_rows_var.get(),
                 parse_http=self.parse_http_var.get(),
                 progress_cb=progress_cb,
                 use_high_memory=self.use_high_memory_var.get(),
             )
+            # Second pass: extract credentials, hosts, MACs
+            try:
+                extracted = extract_credentials_and_hosts(
+                    path, use_high_memory=self.use_high_memory_var.get()
+                )
+            except Exception as e:
+                print(f"[DEBUG] Credential extraction failed: {e}")
+                extracted = {"credentials": [], "hosts": {}}
+            return parse_result, extracted
 
         def done(result):
-            df, stats, sample_info = result
+            (df, stats, sample_info), extracted_data = result
             if stats.get("packet_count", 0) == 0:
                 messagebox.showwarning("No data", "No IP packets found in this capture.")
                 self.label_safe_button.configure(state=tk.DISABLED)
@@ -3504,407 +5377,185 @@ class PCAPSentryApp:
 
             why_lines = [
                 "========================================",
-                "  PCAP ANALYSIS TRAINING WALKTHROUGH",
+                "  WHY THIS VERDICT WAS REACHED",
                 "========================================",
                 "",
                 f"Verdict: {verdict}  |  Risk Score: {risk_score}/100",
                 "",
-                "HOW TO READ THIS: This guide walks you through each piece of",
-                "evidence that led to the verdict above. As a network analyst,",
-                "these are the same clues you would look for manually in Wireshark",
-                "or any packet analysis tool.",
+                "This tab explains the analytical reasoning behind the",
+                "verdict. For definitions, tutorials, and learning resources",
+                "see the Education tab.",
                 "",
                 "----------------------------------------",
-                "STEP 1: UNDERSTAND THE VERDICT",
+                "VERDICT REASONING",
                 "----------------------------------------",
             ]
-            
-            # Add training-oriented explanation based on verdict
+
             if verdict == "Likely Malicious":
-                why_lines.append("This traffic has multiple strong indicators of malicious activity.")
-                why_lines.append("")
-                why_lines.append("WHAT TO LEARN: When you see several red flags stacking up together")
-                why_lines.append("(unusual ports + known bad IPs + odd traffic patterns), that's how")
-                why_lines.append("real analysts build confidence that something is truly malicious.")
-                why_lines.append("One red flag alone might be a false positive. Multiple together")
-                why_lines.append("paint a clearer picture.")
-                why_lines.append("")
-                why_lines.append("NEXT STEP: Open this PCAP in Wireshark using the filters below")
-                why_lines.append("and try to follow the malicious conversation yourself.")
+                why_lines.append("Multiple independent checks flagged this traffic. When several")
+                why_lines.append("signals agree (ML match + IoC hits + unusual patterns), confidence")
+                why_lines.append("in a malicious classification is high.")
             elif verdict == "Suspicious (IoC Match)":
-                why_lines.append("This traffic contacted IP addresses or domains that appear on known")
-                why_lines.append("threat intelligence feeds (blocklists maintained by security researchers).")
-                why_lines.append("")
-                why_lines.append("WHAT TO LEARN: 'IoC' stands for Indicator of Compromise -- specific")
-                why_lines.append("IPs, domains, or file hashes that have been linked to attacks. Checking")
-                why_lines.append("traffic against IoC lists is one of the first things analysts do.")
-                why_lines.append("However, IoC matches aren't always proof of infection -- sometimes")
-                why_lines.append("legitimate services share infrastructure with malicious ones.")
-                why_lines.append("")
-                why_lines.append("NEXT STEP: Research each flagged IP/domain below. Use tools like")
-                why_lines.append("VirusTotal, AbuseIPDB, or Shodan to investigate further.")
+                why_lines.append("Traffic contacted addresses that appear on known threat intelligence")
+                why_lines.append("feeds. IoC matches alone don't prove compromise but warrant immediate")
+                why_lines.append("investigation.")
             elif verdict == "Suspicious":
-                why_lines.append("This traffic has unusual patterns but no definitive proof of malice.")
-                why_lines.append("")
-                why_lines.append("WHAT TO LEARN: This is the gray area analysts deal with daily.")
-                why_lines.append("Not everything suspicious is malicious, and not everything clean-")
-                why_lines.append("looking is safe. Your job is to gather more context: Who owns")
-                why_lines.append("these IPs? Is this traffic expected for this network? Does the")
-                why_lines.append("timing match normal business hours?")
-                why_lines.append("")
-                why_lines.append("NEXT STEP: Review each signal below and ask yourself: 'Can I")
-                why_lines.append("explain this with normal activity?' If not, escalate it.")
+                why_lines.append("Some patterns deviate from normal baselines, but no single check")
+                why_lines.append("produced a definitive result. Manual review is recommended.")
             elif verdict == "Likely Safe":
-                why_lines.append("This traffic appears to be normal network activity.")
-                why_lines.append("")
-                why_lines.append("WHAT TO LEARN: Understanding what NORMAL traffic looks like is just")
-                why_lines.append("as important as spotting malicious traffic. Study the patterns below")
-                why_lines.append("to build your mental baseline: common ports (80, 443, 53), expected")
-                why_lines.append("DNS queries, standard packet sizes. The better you know 'normal,'")
-                why_lines.append("the faster you'll spot 'abnormal' in the future.")
-                why_lines.append("")
-                why_lines.append("NEXT STEP: Compare this capture to a known-malicious one to train")
-                why_lines.append("your eye for the differences.")
-            
+                why_lines.append("All checks returned within normal ranges. No known-bad addresses")
+                why_lines.append("were contacted and traffic patterns match established baselines.")
+
             why_lines.append("")
             why_lines.append("----------------------------------------")
-            why_lines.append("STEP 2: EXAMINE THE EVIDENCE")
+            why_lines.append("EVIDENCE SUMMARY")
             why_lines.append("----------------------------------------")
-            why_lines.append("Each item below is a type of check that analysts perform.")
-            why_lines.append("Learn to evaluate each one independently before combining them.")
             why_lines.append("")
 
             # --- ML Classifier ---
-            why_lines.append("[A] MACHINE LEARNING PATTERN MATCH")
-            why_lines.append("    What this is: A trained model compares this traffic's statistical")
-            why_lines.append("    fingerprint (packet sizes, timing, ports) against known malware samples.")
+            why_lines.append("[A] ML PATTERN MATCH")
             if classifier_result is None:
                 why_lines.append("    Result: Not enough training data yet.")
-                why_lines.append("    TIP: Label more PCAPs as 'safe' or 'malicious' using the buttons")
-                why_lines.append("    below to build up the model. The more examples it has, the better")
-                why_lines.append("    it gets -- just like you will with practice.")
             else:
                 score_val = classifier_result['score']
                 if score_val > 0.7:
                     why_lines.append(f"    Result: HIGH MATCH (score: {score_val})")
-                    why_lines.append("    This traffic's fingerprint closely matches known malware. A score")
-                    why_lines.append("    above 0.7 means there's strong statistical similarity.")
-                    why_lines.append("    ANALYST TIP: High ML scores are a strong signal but not proof.")
-                    why_lines.append("    Always corroborate with other evidence (IoCs, port analysis, etc.)")
                 elif score_val > 0.4:
                     why_lines.append(f"    Result: PARTIAL MATCH (score: {score_val})")
-                    why_lines.append("    Some features overlap with malware patterns, but it's not a")
-                    why_lines.append("    strong match. Scores between 0.4-0.7 need human judgment.")
-                    why_lines.append("    ANALYST TIP: Look at the other evidence below to decide if")
-                    why_lines.append("    this is a real threat or just unusual-but-legitimate traffic.")
                 else:
                     why_lines.append(f"    Result: LOW MATCH (score: {score_val})")
-                    why_lines.append("    This traffic doesn't statistically resemble known malware.")
-                    why_lines.append("    ANALYST TIP: A low ML score doesn't guarantee safety -- new")
-                    why_lines.append("    or targeted malware may not match existing patterns yet.")
             why_lines.append("")
 
             # --- Anomaly baseline ---
             why_lines.append("[B] BASELINE ANOMALY DETECTION")
-            why_lines.append("    What this is: Compares this capture against a 'normal' baseline built")
-            why_lines.append("    from traffic you've labeled as safe. Anything that deviates stands out.")
             if anomaly_result is None:
                 why_lines.append("    Result: No baseline available.")
-                why_lines.append("    TIP: Capture normal traffic from your network and label it 'Safe.'")
-                why_lines.append("    Over time, this builds a profile of what typical traffic looks like,")
-                why_lines.append("    making it easier to spot anomalies -- a core skill in threat hunting.")
             else:
-                reasons = ", ".join(anomaly_reasons) if anomaly_reasons else "nothing unusual stood out"
+                reasons = ", ".join(anomaly_reasons) if anomaly_reasons else "nothing unusual"
                 if anomaly_result == "anomalous":
-                    why_lines.append(f"    Result: ANOMALOUS -- deviates from your baseline")
+                    why_lines.append(f"    Result: ANOMALOUS — deviates from baseline")
                     why_lines.append(f"    Reasons: {reasons}")
-                    why_lines.append("    ANALYST TIP: Anomalous doesn't always mean malicious. A software")
-                    why_lines.append("    update or a user streaming video for the first time would also")
-                    why_lines.append("    look anomalous. Ask: 'Is there a legitimate reason for this?'")
                 else:
-                    why_lines.append(f"    Result: NORMAL -- fits within established baseline")
+                    why_lines.append(f"    Result: NORMAL — fits within baseline")
                     why_lines.append(f"    Details: {reasons}")
-                    why_lines.append("    ANALYST TIP: Sophisticated attackers try to blend in with normal")
-                    why_lines.append("    traffic. 'Normal-looking' is good news, but don't stop here.")
             why_lines.append("")
 
             # --- IoC matching ---
             why_lines.append("[C] INDICATOR OF COMPROMISE (IoC) CHECK")
-            why_lines.append("    What this is: Every IP and domain in the capture is checked against")
-            why_lines.append("    threat intelligence feeds -- databases of known malicious addresses")
-            why_lines.append("    maintained by security researchers worldwide.")
             if ioc_available:
                 if ioc_count:
                     domain_ct = len(ioc_matches['domains'])
                     ip_ct = len(ioc_matches['ips'])
                     why_lines.append(f"    Result: {ioc_count} MATCHES FOUND")
-                    why_lines.append(f"    Breakdown: {domain_ct} domain(s) and {ip_ct} IP address(es) matched")
-                    why_lines.append("    ANALYST TIP: IoC matches are one of the strongest signals. When you")
-                    why_lines.append("    see a match, research it: When was it reported? What campaign was it")
-                    why_lines.append("    part of? Use VirusTotal or AbuseIPDB to learn more. This is exactly")
-                    why_lines.append("    what professional SOC analysts do.")
+                    why_lines.append(f"    Breakdown: {domain_ct} domain(s) and {ip_ct} IP(s) matched")
+                    if ioc_matches['domains']:
+                        why_lines.append(f"    Domains: {', '.join(ioc_matches['domains'][:5])}")
+                    if ioc_matches['ips']:
+                        why_lines.append(f"    IPs: {', '.join(ioc_matches['ips'][:5])}")
                 else:
-                    why_lines.append("    Result: No matches -- no addresses hit any blocklists.")
-                    why_lines.append("    ANALYST TIP: Clean IoC results are reassuring but not conclusive.")
-                    why_lines.append("    Brand-new malware ('zero-day') won't appear in feeds yet.")
+                    why_lines.append("    Result: No matches against any blocklists.")
             else:
                 why_lines.append("    Result: Threat feeds not loaded.")
-                why_lines.append("    TIP: Enable threat intelligence to unlock this check. IoC matching")
-                why_lines.append("    is one of the most commonly used techniques in security operations.")
-
-            why_lines.append("")
-            why_lines.append("----------------------------------------")
-            why_lines.append("STEP 3: INSPECT THE TRAFFIC DETAILS")
-            why_lines.append("----------------------------------------")
-            why_lines.append("These are the raw clues from the packet data. In a real investigation,")
-            why_lines.append("you would dig into each of these in Wireshark.")
             why_lines.append("")
 
-            # --- Port analysis ---
-            port_friendly = {
-                22: "SSH (remote terminal access)", 53: "DNS (translates names to IPs)",
-                80: "HTTP (unencrypted web)", 123: "NTP (time synchronization)",
-                443: "HTTPS (encrypted web)", 445: "SMB (Windows file sharing)",
-                3389: "RDP (remote desktop control)", 25: "SMTP (sending email)",
-                110: "POP3 (fetching email)", 143: "IMAP (syncing email)",
-                21: "FTP (file transfers)", 8080: "HTTP-Alt (web proxy/alt web)",
-            }
+            why_lines.append("----------------------------------------")
+            why_lines.append("TRAFFIC DETAILS")
+            why_lines.append("----------------------------------------")
+            why_lines.append("")
+
+            # --- Port analysis (data only) ---
             top_ports = stats.get("top_ports", [])
             if top_ports:
-                why_lines.append("[D] PORT ANALYSIS")
-                why_lines.append("    What ports are: Every network service listens on a numbered 'port.'")
-                why_lines.append("    Web traffic uses port 443 (HTTPS) or 80 (HTTP). Email uses 25, 110,")
-                why_lines.append("    or 143. When you see traffic on unusual ports, it could mean malware")
-                why_lines.append("    is using a non-standard channel to avoid detection.")
-                why_lines.append("")
-                why_lines.append("    Ports seen in this capture:")
-                common_ports = {22, 53, 80, 123, 443, 445, 3389}
-                has_unusual = False
-                for port, count in top_ports:
-                    name = port_friendly.get(port, "Unknown service")
-                    marker = "" if port in common_ports else " << UNUSUAL"
-                    if marker:
-                        has_unusual = True
-                    why_lines.append(f"      Port {port}: {name} -- used {count} time(s){marker}")
-                if has_unusual:
-                    why_lines.append("")
-                    why_lines.append("    TRAINING NOTE: Ports marked 'UNUSUAL' aren't in the standard set.")
-                    why_lines.append("    This doesn't always mean trouble -- some legitimate apps use high")
-                    why_lines.append("    ports. But malware often picks random or high-numbered ports to")
-                    why_lines.append("    avoid firewalls. Ask yourself: 'Do I know what software uses this")
-                    why_lines.append("    port?' If not, research it.")
-                else:
-                    why_lines.append("")
-                    why_lines.append("    All ports are well-known services -- this is a normal pattern.")
+                common_ports = {22, 53, 80, 123, 443, 445, 3389, 25, 110, 143, 21, 8080}
+                unusual = [(p, c) for p, c in top_ports if p not in common_ports]
+                why_lines.append("[D] PORTS")
+                for port, count in top_ports[:10]:
+                    flag = " << UNUSUAL" if port not in common_ports else ""
+                    why_lines.append(f"      Port {port}: {count} packet(s){flag}")
+                if unusual:
+                    why_lines.append(f"    {len(unusual)} non-standard port(s) detected.")
                 why_lines.append("")
 
+            # --- DNS (data only) ---
             dns_count = stats.get("dns_query_count", 0)
             if dns_count:
-                why_lines.append("[E] DNS ANALYSIS (Domain Name System)")
-                why_lines.append("    What DNS is: Before your computer can visit a website, it asks a DNS")
-                why_lines.append("    server 'What IP address is google.com?' This lookup happens for every")
-                why_lines.append("    website, and it's visible in the traffic even when the rest is encrypted.")
-                why_lines.append("")
+                why_lines.append("[E] DNS")
                 top_dns = stats.get("top_dns", [])
                 if top_dns:
-                    why_lines.append("    Most frequently queried domains:")
-                    for domain, count in top_dns:
-                        why_lines.append(f"      {domain} -- looked up {count} time(s)")
-                    why_lines.append("")
-                    why_lines.append("    TRAINING NOTE: Look for domains that seem random (e.g.,")
-                    why_lines.append("    'xk3j9f.xyz') -- malware often uses auto-generated domain names")
-                    why_lines.append("    called DGAs (Domain Generation Algorithms). Also watch for")
-                    why_lines.append("    extremely high query counts to one domain -- that can indicate")
-                    why_lines.append("    DNS tunneling, where data is smuggled out inside DNS queries.")
+                    for domain, count in top_dns[:8]:
+                        why_lines.append(f"      {domain} — {count} lookup(s)")
                 else:
                     why_lines.append(f"    Total DNS queries: {dns_count}")
                 why_lines.append("")
 
+            # --- HTTP (data only) ---
             http_count = stats.get("http_request_count", 0)
             http_hosts = stats.get("http_hosts", [])
             if http_count:
-                why_lines.append("[F] HTTP TRAFFIC (Unencrypted Web)")
-                why_lines.append("    What this means: HTTP sends data in plain text -- anyone between")
-                why_lines.append("    the sender and receiver can read it. Most legitimate sites use HTTPS")
-                why_lines.append("    (encrypted) instead. Seeing HTTP traffic is worth investigating.")
-                why_lines.append("")
+                why_lines.append("[F] HTTP (unencrypted)")
                 if http_hosts:
-                    why_lines.append(f"    Hosts contacted over HTTP: {', '.join(http_hosts[:5])}")
+                    why_lines.append(f"    Hosts: {', '.join(http_hosts[:5])}")
                 else:
-                    why_lines.append(f"    Total HTTP requests: {http_count}")
-                why_lines.append("")
-                why_lines.append("    TRAINING NOTE: Malware sometimes uses plain HTTP to send stolen")
-                why_lines.append("    data or receive commands because it's simpler to set up than HTTPS.")
-                why_lines.append("    In Wireshark, filter by 'http' and examine the URLs and payloads --")
-                why_lines.append("    you can often read exactly what was sent.")
+                    why_lines.append(f"    Requests: {http_count}")
                 why_lines.append("")
 
+            # --- TLS (data only) ---
             tls_count = stats.get("tls_packet_count", 0)
             tls_sni = stats.get("tls_sni", [])
             if tls_count:
-                why_lines.append("[G] HTTPS/TLS TRAFFIC (Encrypted Web)")
-                why_lines.append("    What this means: TLS (Transport Layer Security) encrypts the data so")
-                why_lines.append("    you can't read the contents. However, you CAN see the destination")
-                why_lines.append("    server name (called SNI -- Server Name Indication) in the handshake.")
-                why_lines.append("")
+                why_lines.append("[G] HTTPS/TLS (encrypted)")
                 if tls_sni:
-                    why_lines.append(f"    Servers contacted (SNI): {', '.join(tls_sni[:5])}")
+                    why_lines.append(f"    SNI destinations: {', '.join(tls_sni[:5])}")
                 else:
-                    why_lines.append(f"    Total TLS packets: {tls_count}")
-                why_lines.append("")
-                why_lines.append("    TRAINING NOTE: Even though you can't read encrypted traffic, the SNI")
-                why_lines.append("    tells you WHERE it's going. Malware increasingly uses HTTPS to blend")
-                why_lines.append("    in. Check SNI values for unusual or suspicious destinations.")
-                why_lines.append("    In Wireshark, use filter: tls.handshake.extensions_server_name")
+                    why_lines.append(f"    TLS packets: {tls_count}")
                 why_lines.append("")
 
+            # --- Packet sizes (data only) ---
             avg_size = stats.get("avg_size", 0.0)
             median_size = stats.get("median_size", 0.0)
-            why_lines.append("[H] PACKET SIZE ANALYSIS")
-            why_lines.append("    What this tells you: The size of packets reveals what type of activity")
-            why_lines.append("    is happening. Normal web browsing has mixed sizes. Certain attack")
-            why_lines.append("    patterns have distinctive size signatures.")
-            why_lines.append("")
-            why_lines.append(f"    Average packet size: {avg_size:.1f} bytes")
-            why_lines.append(f"    Median packet size:  {median_size:.1f} bytes")
-            why_lines.append("    (Median is often more useful than average -- it isn't skewed by outliers.)")
-            why_lines.append("")
+            why_lines.append("[H] PACKET SIZES")
+            why_lines.append(f"    Average: {avg_size:.1f} bytes  |  Median: {median_size:.1f} bytes")
             if median_size and median_size < 120:
-                why_lines.append("    !! ALERT: Many small packets detected.")
-                why_lines.append("    TRAINING NOTE: Beaconing -- a pattern where malware sends small,")
-                why_lines.append("    regular 'I'm alive' messages to its command server -- typically")
-                why_lines.append("    produces lots of small packets (under ~120 bytes). This is one of")
-                why_lines.append("    the most common indicators of a compromised machine. In Wireshark,")
-                why_lines.append("    try: frame.len < 120 to filter for these.")
+                why_lines.append("    !! Many small packets — possible beaconing pattern.")
             elif avg_size and avg_size > 1200:
-                why_lines.append("    !! ALERT: Unusually large packets detected.")
-                why_lines.append("    TRAINING NOTE: Large packets can indicate data exfiltration --")
-                why_lines.append("    when an attacker (or malware) copies files or databases off the")
-                why_lines.append("    network. Look at which hosts are sending these large packets and")
-                why_lines.append("    where they're going. In Wireshark, try: frame.len > 1200")
+                why_lines.append("    !! Unusually large packets — possible data exfiltration.")
             else:
-                why_lines.append("    Packet sizes look normal for mixed web/network traffic.")
-                why_lines.append("    TRAINING NOTE: Normal browsing usually produces a mix of small")
-                why_lines.append("    packets (TCP ACKs, ~54 bytes) and larger ones (data transfers,")
-                why_lines.append("    500-1500 bytes). Very uniform sizes can sometimes be suspicious.")
+                why_lines.append("    Sizes are within normal range.")
+            why_lines.append("")
 
-            # Add threat intelligence findings to why
+            # --- Threat intel (data only) ---
             if threat_intel_findings.get("threat_intel"):
                 intel_data = threat_intel_findings["threat_intel"]
                 if intel_data.get("risky_ips") or intel_data.get("risky_domains"):
-                    why_lines.append("")
-                    why_lines.append("[I] THREAT INTELLIGENCE MATCHES")
-                    why_lines.append("    What this is: These addresses were checked against public threat")
-                    why_lines.append("    feeds -- databases where security researchers report IPs and domains")
-                    why_lines.append("    involved in attacks, phishing, malware distribution, etc.")
-                    why_lines.append("")
+                    why_lines.append("[I] ONLINE THREAT INTELLIGENCE")
                     if intel_data.get("risky_ips"):
                         for ip_info in intel_data["risky_ips"][:3]:
                             risk = ip_info['risk_score']
-                            severity = "HIGH RISK" if risk > 70 else "MEDIUM RISK" if risk > 40 else "LOW RISK"
-                            why_lines.append(f"    IP: {ip_info['ip']} -- Score: {risk:.0f}/100 ({severity})")
+                            why_lines.append(f"    IP: {ip_info['ip']} — {risk:.0f}/100")
                     if intel_data.get("risky_domains"):
                         for domain_info in intel_data["risky_domains"][:3]:
                             risk = domain_info['risk_score']
-                            severity = "HIGH RISK" if risk > 70 else "MEDIUM RISK" if risk > 40 else "LOW RISK"
-                            why_lines.append(f"    Domain: {domain_info['domain']} -- Score: {risk:.0f}/100 ({severity})")
+                            why_lines.append(f"    Domain: {domain_info['domain']} — {risk:.0f}/100")
                     why_lines.append("")
-                    why_lines.append("    TRAINING NOTE: When you find a threat intel hit, here's what a")
-                    why_lines.append("    professional analyst would do next:")
-                    why_lines.append("    1. Look up the IP/domain on VirusTotal.com for community reports")
-                    why_lines.append("    2. Check AbuseIPDB.com for abuse history and geolocation")
-                    why_lines.append("    3. Note WHEN the traffic occurred -- was it during business hours?")
-                    why_lines.append("    4. Check if this host communicated with any internal systems")
-                    why_lines.append("    5. Document your findings for an incident report")
 
-            why_lines.append("")
+            # --- Suspicious flows (concise) ---
             why_lines.append("----------------------------------------")
-            why_lines.append("STEP 4: REVIEW SUSPICIOUS CONVERSATIONS")
+            why_lines.append("SUSPICIOUS FLOWS")
             why_lines.append("----------------------------------------")
-            why_lines.append("A 'flow' is a conversation between two computers identified by their")
-            why_lines.append("IP addresses. The format is: SourceIP:Port -> DestIP:Port")
             why_lines.append("")
             if not suspicious_flows:
                 why_lines.append("No flows were flagged as suspicious.")
-                why_lines.append("TRAINING NOTE: This is a good sign, but remember -- absence of evidence")
-                why_lines.append("is not evidence of absence. Sophisticated malware may produce flows that")
-                why_lines.append("look perfectly normal individually.")
             else:
                 why_lines.append(f"{len(suspicious_flows)} suspicious flow(s) detected:")
                 why_lines.append("")
-                # Map technical reasons to training-oriented explanations
-                reason_explanations = {
-                    "high_volume": (
-                        "HIGH DATA VOLUME",
-                        "This conversation moved an unusually large amount of data. In an investigation,"
-                        " check: Is this a file download, a backup, or data being stolen (exfiltrated)?"
-                    ),
-                    "long_duration": (
-                        "LONG-LIVED CONNECTION",
-                        "This connection stayed open for an unusually long time. Persistent connections"
-                        " can indicate a backdoor or remote access tool keeping a channel open."
-                    ),
-                    "many_packets": (
-                        "HIGH PACKET COUNT",
-                        "An abnormally high number of messages were exchanged. This could be normal"
-                        " (large file transfer) or could indicate command-and-control chatter."
-                    ),
-                    "small_packets": (
-                        "SMALL PACKET PATTERN",
-                        "Lots of tiny packets exchanged. This is a classic 'beaconing' pattern where"
-                        " malware sends small check-in signals. Look for regular timing intervals."
-                    ),
-                    "large_packets": (
-                        "LARGE PACKET PATTERN",
-                        "Unusually large packets suggest bulk data movement. Ask: Is data leaving the"
-                        " network (outbound) or entering (inbound)? Outbound is more concerning."
-                    ),
-                    "unusual_port": (
-                        "NON-STANDARD PORT",
-                        "This conversation used a port not associated with any common service. Malware"
-                        " often uses random high ports to avoid firewall rules."
-                    ),
-                    "beaconing": (
-                        "BEACONING DETECTED",
-                        "Messages were sent at regular intervals -- a hallmark of malware 'calling"
-                        " home' to its command server. This is one of the strongest malware indicators."
-                    ),
-                    "dns_tunnel": (
-                        "POSSIBLE DNS TUNNELING",
-                        "Data may be hidden inside DNS queries. Attackers use this technique to sneak"
-                        " data out of networks that block most traffic but allow DNS."
-                    ),
-                    "c2": (
-                        "COMMAND & CONTROL (C2) PATTERN",
-                        "This looks like communication between malware and its controller. C2 traffic"
-                        " is how attackers send commands to compromised machines."
-                    ),
-                    "exfiltration": (
-                        "DATA EXFILTRATION PATTERN",
-                        "This pattern suggests data is being copied out of the network. This is often"
-                        " the attacker's ultimate goal -- stealing sensitive information."
-                    ),
-                    "scan": (
-                        "NETWORK SCANNING",
-                        "This looks like port scanning or network reconnaissance. Attackers scan"
-                        " networks to find vulnerable services before launching an attack."
-                    ),
-                }
                 for idx, item in enumerate(suspicious_flows, 1):
-                    raw_reason = item['reason'].lower()
-                    category = "FLAGGED"
-                    explanation = item['reason']
-                    for key, (cat, expl) in reason_explanations.items():
-                        if key in raw_reason:
-                            category = cat
-                            explanation = expl
-                            break
-                    why_lines.append(f"  Flow #{idx}: {item['flow']}")
-                    why_lines.append(f"    Category: {category}")
-                    why_lines.append(f"    Data: {item['bytes']} transferred in {item['packets']} packets")
-                    why_lines.append(f"    What this means: {explanation}")
+                    why_lines.append(f"  #{idx}: {item['flow']}")
+                    why_lines.append(f"      Reason: {item['reason']}  |  {item['bytes']}  |  {item['packets']} pkts")
                     why_lines.append("")
+                why_lines.append("See the Education tab for detailed explanations of each pattern.")
+            why_lines.append("")
 
+            # --- Wireshark filters (capture-specific only) ---
             if wireshark_filters:
                 unique_filters = list(dict.fromkeys(wireshark_filters))
                 self.wireshark_filters = unique_filters
@@ -3912,30 +5563,31 @@ class PCAPSentryApp:
                 why_lines.append("----------------------------------------")
                 why_lines.append("STEP 5: INVESTIGATE IN WIRESHARK")
                 why_lines.append("----------------------------------------")
-                why_lines.append("Copy these filters and paste them into Wireshark's display filter bar")
-                why_lines.append("to isolate the suspicious traffic. Each filter narrows the view to")
-                why_lines.append("just the relevant packets.")
                 why_lines.append("")
-                why_lines.append("HOW TO USE: Open the original PCAP file in Wireshark, then paste")
-                why_lines.append("one filter at a time into the filter bar at the top and press Enter.")
+                why_lines.append("Paste into Wireshark's display filter bar to isolate relevant packets.")
                 why_lines.append("(Or click 'Copy Wireshark Filters' below to copy all of them.)")
                 why_lines.append("")
                 for filt in unique_filters:
                     why_lines.append(f"  {filt}")
                 why_lines.append("")
-                why_lines.append("TRAINING NOTE: Learning Wireshark filters is one of the most valuable")
-                why_lines.append("skills for a network analyst. Common ones to memorize:")
-                why_lines.append("  ip.addr == x.x.x.x      Show all traffic to/from an IP")
-                why_lines.append("  tcp.port == 443          Show all HTTPS traffic")
-                why_lines.append("  dns                      Show all DNS queries")
-                why_lines.append("  http.request             Show all HTTP requests")
-                why_lines.append("  tcp.flags.syn == 1       Show connection attempts")
+                why_lines.append("See the Education tab for a full Wireshark filter quick-reference.")
             else:
                 self.wireshark_filters = []
 
             if self.why_text is not None:
                 self.why_text.delete("1.0", tk.END)
                 self.why_text.insert(tk.END, "\n".join(why_lines))
+
+            # Build and populate the Education tab
+            edu_content = self._build_education_content(
+                verdict, risk_score, stats, classifier_result,
+                anomaly_result, anomaly_reasons, ioc_matches,
+                ioc_available, ioc_count, suspicious_flows,
+                threat_intel_findings,
+            )
+            if self.education_text is not None:
+                self.education_text.delete("1.0", tk.END)
+                self.education_text.insert(tk.END, edu_content)
 
             if self.copy_filters_button is not None:
                 if self.wireshark_filters:
@@ -3989,6 +5641,11 @@ class PCAPSentryApp:
             self.charts_button.configure(state=tk.NORMAL)
             self.label_safe_button.configure(state=tk.NORMAL)
             self.label_mal_button.configure(state=tk.NORMAL)
+
+            # Populate Extracted Info tab
+            self.extracted_data = extracted_data
+            self._populate_extracted_tab(extracted_data)
+
             self.target_path_var.set("")
             
             t_end = time.time()
