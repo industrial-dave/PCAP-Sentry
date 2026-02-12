@@ -1,6 +1,18 @@
-# PCAP Sentry — User Manual
+<div align="center">
 
-**Version 2026.02.12** | **Windows Desktop Application**
+<img src="assets/pcap_sentry.ico" alt="PCAP Sentry" width="96" />
+
+# PCAP Sentry
+
+### User Manual
+
+![Version](https://img.shields.io/badge/Version-2026.02.12-58a6ff?style=for-the-badge&labelColor=0d1117)
+![Platform](https://img.shields.io/badge/Platform-Windows-58a6ff?style=for-the-badge&logo=windows&logoColor=white&labelColor=0d1117)
+![License](https://img.shields.io/badge/License-See_LICENSE.txt-58a6ff?style=for-the-badge&labelColor=0d1117)
+
+*Malware Analysis Console for Network Packet Captures*
+
+</div>
 
 ---
 
@@ -26,20 +38,22 @@
 
 ---
 
-## 1. Introduction
+<h2><img src="https://img.shields.io/badge/1-Introduction-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 PCAP Sentry is a malware analysis console for network packet capture (PCAP) files. It parses network captures, summarizes traffic statistics, and provides heuristic signals to help triage suspicious network activity.
 
 ### What PCAP Sentry Does
 
-- **Analyzes PCAP/PCAPNG files** for signs of malicious activity
-- **Scores network traffic** with a risk rating from 0–100
-- **Extracts credentials** from cleartext protocols (FTP, HTTP, Telnet, etc.)
-- **Discovers hosts** including IP addresses, MAC addresses, and hostnames
-- **Detects C2 and exfiltration** patterns automatically
-- **Generates Wireshark filters** for follow-up investigation
-- **Queries threat intelligence feeds** for known-bad indicators
-- **Learns from your data** via a trainable knowledge base and optional ML model
+| | Feature |
+|---|---|
+| 🔍 | **Analyzes PCAP/PCAPNG files** for signs of malicious activity |
+| 📊 | **Scores network traffic** with a risk rating from 0–100 |
+| 🔑 | **Extracts credentials** from cleartext protocols (FTP, HTTP, Telnet, etc.) |
+| 🖧 | **Discovers hosts** including IP addresses, MAC addresses, and hostnames |
+| 🛡️ | **Detects C2 and exfiltration** patterns automatically |
+| 🦈 | **Generates Wireshark filters** for follow-up investigation |
+| 🌐 | **Queries threat intelligence feeds** for known-bad indicators |
+| 🧠 | **Learns from your data** via a trainable knowledge base and optional ML model |
 
 ### Who Is It For?
 
@@ -51,7 +65,7 @@ PCAP Sentry is a malware analysis console for network packet capture (PCAP) file
 
 ---
 
-## 2. System Requirements
+<h2><img src="https://img.shields.io/badge/2-System_Requirements-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
@@ -79,7 +93,7 @@ PCAP Sentry is a malware analysis console for network packet capture (PCAP) file
 
 ---
 
-## 3. Installation
+<h2><img src="https://img.shields.io/badge/3-Installation-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 ### Option 1: Installer (Recommended)
 
@@ -114,7 +128,7 @@ PCAP Sentry is a malware analysis console for network packet capture (PCAP) file
 
 ---
 
-## 4. Getting Started
+<h2><img src="https://img.shields.io/badge/4-Getting_Started-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 ### First Launch
 
@@ -134,17 +148,17 @@ When you launch PCAP Sentry for the first time, the application opens to the **A
 
 ---
 
-## 5. Application Interface
+<h2><img src="https://img.shields.io/badge/5-Application_Interface-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 ### Main Tabs
 
 PCAP Sentry has three primary tabs:
 
-| Tab | Icon | Purpose |
-|-----|------|---------|
-| **Analyze** | 🔍 | Select and analyze PCAP files, view results |
-| **Train** | 🧠 | Add known-safe or known-malware PCAPs to the knowledge base |
-| **Knowledge Base** | 📚 | Manage the KB: refresh, backup, restore, reset, import IoC feeds |
+| Tab | Purpose |
+|-----|--------|
+| 🔍 **Analyze** | Select and analyze PCAP files, view results |
+| 🧠 **Train** | Add known-safe or known-malware PCAPs to the knowledge base |
+| 📚 **Knowledge Base** | Manage the KB: refresh, backup, restore, reset, import IoC feeds |
 
 ### Toolbar
 
@@ -167,7 +181,7 @@ The toolbar appears below the header and contains:
 
 ---
 
-## 6. Analyzing PCAP Files
+<h2><img src="https://img.shields.io/badge/6-Analyzing_PCAP_Files-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 ### Step-by-Step Analysis
 
@@ -210,7 +224,7 @@ PCAP Sentry can directly open `.zip` files. It will automatically extract and an
 
 ---
 
-## 7. Understanding Results
+<h2><img src="https://img.shields.io/badge/7-Understanding_Results-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 Results are displayed across **five sub-tabs** within the Analyze tab:
 
@@ -228,10 +242,10 @@ The primary results view shows:
 ### Risk Score Interpretation
 
 | Score Range | Verdict | Action |
-|-------------|---------|--------|
-| **0–30** | Safe | Likely legitimate traffic; no immediate action needed |
-| **30–70** | Suspicious | Requires further investigation |
-| **70–100** | Malicious | Likely malicious; escalate and investigate |
+|:---:|:---:|---|
+| ![Safe](https://img.shields.io/badge/0--30-Safe-3fb950?style=flat-square&labelColor=0d1117) | ✅ Safe | Likely legitimate traffic; no immediate action needed |
+| ![Suspicious](https://img.shields.io/badge/30--70-Suspicious-d29922?style=flat-square&labelColor=0d1117) | ⚠️ Suspicious | Requires further investigation |
+| ![Malicious](https://img.shields.io/badge/70--100-Malicious-f85149?style=flat-square&labelColor=0d1117) | 🔴 Malicious | Likely malicious; escalate and investigate |
 
 ### 7.2 Why Tab
 
@@ -286,7 +300,7 @@ Network hosts identified from:
 
 ---
 
-## 8. Training the Knowledge Base
+<h2><img src="https://img.shields.io/badge/8-Training_the_Knowledge_Base-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 The **Train** tab allows you to teach PCAP Sentry what safe and malicious traffic looks like, improving its detection accuracy over time.
 
@@ -316,7 +330,7 @@ The **Train** tab allows you to teach PCAP Sentry what safe and malicious traffi
 
 ---
 
-## 9. Managing the Knowledge Base
+<h2><img src="https://img.shields.io/badge/9-Managing_the_Knowledge_Base-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 The **Knowledge Base** tab provides tools for managing your trained data:
 
@@ -345,17 +359,17 @@ This lets you incorporate third-party threat feeds (STIX/TAXII exports, open-sou
 
 ---
 
-## 10. Threat Intelligence
+<h2><img src="https://img.shields.io/badge/10-Threat_Intelligence-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 PCAP Sentry integrates with free, public threat intelligence sources to enhance analysis accuracy.
 
 ### Supported Feeds
 
-| Feed | Data Type | API Key Required |
-|------|-----------|-----------------|
-| **AlienVault OTX** | IP/domain reputation, threat pulses | No |
-| **URLhaus** | Malicious URL database | No |
-| **Public IP/Domain Reputation** | Known-bad indicator lists | No |
+| Feed | Data Type | API Key |
+|------|-----------|---|
+| 👽 **AlienVault OTX** | IP/domain reputation, threat pulses | Not required |
+| 🔗 **URLhaus** | Malicious URL database | Not required |
+| 🌐 **Public IP/Domain Reputation** | Known-bad indicator lists | Not required |
 
 ### How It Works
 
@@ -369,10 +383,10 @@ During analysis, PCAP Sentry:
 ### Threat Intelligence Results
 
 | Risk Score | Interpretation |
-|------------|---------------|
-| **0–30** | Low risk — likely legitimate |
-| **30–70** | Medium risk — requires investigation |
-| **70–100** | High risk — likely malicious |
+|:---:|---|
+| ![Low](https://img.shields.io/badge/0--30-Low_Risk-3fb950?style=flat-square&labelColor=0d1117) | Likely legitimate |
+| ![Medium](https://img.shields.io/badge/30--70-Medium_Risk-d29922?style=flat-square&labelColor=0d1117) | Requires investigation |
+| ![High](https://img.shields.io/badge/70--100-High_Risk-f85149?style=flat-square&labelColor=0d1117) | Likely malicious |
 
 Example output:
 ```
@@ -404,7 +418,7 @@ Threat intelligence lookups will be skipped, and analysis will rely solely on lo
 
 ---
 
-## 11. Machine Learning Model
+<h2><img src="https://img.shields.io/badge/11-Machine_Learning_Model-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 PCAP Sentry includes an optional local machine learning model for supplemental malware detection.
 
@@ -462,7 +476,7 @@ Top 10 most important features:
 
 ---
 
-## 12. Visual Charts
+<h2><img src="https://img.shields.io/badge/12-Visual_Charts-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 PCAP Sentry can generate visual charts for analyzed captures. After analysis completes, click **Open Charts** to view them in a separate window.
 
@@ -488,7 +502,7 @@ PCAP Sentry can generate visual charts for analyzed captures. After analysis com
 
 ---
 
-## 13. Preferences & Settings
+<h2><img src="https://img.shields.io/badge/13-Preferences_&_Settings-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 Open preferences via the **⚙ Preferences** button in the toolbar.
 
@@ -496,15 +510,29 @@ Open preferences via the **⚙ Preferences** button in the toolbar.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| **Theme** | System | Choose `System`, `Dark`, or `Light` appearance. Changes require an app restart. |
-| **Max packets for visuals** | 50,000 | Maximum packets loaded for charts and the packet table. |
-| **Parse HTTP payloads** | On | Extract HTTP method, host, and path from unencrypted traffic. |
-| **High memory mode** | Off | Load entire PCAP into RAM for faster processing. Best for files under 500 MB. |
-| **Turbo parse** | On | Use fast raw-byte parsing. 5–15× faster for files over 50 MB. |
-| **Enable local ML model** | Off | Use the trained scikit-learn model for a supplemental verdict. |
-| **Offline mode** | Off | Disable all online threat intelligence lookups. |
-| **Multithreaded analysis** | On | Use multiple threads for parallel analysis. |
-| **Backup directory** | Default | Directory where KB backups are stored. |
+| 🎨 **Theme** | System | Choose `System`, `Dark`, or `Light` appearance. Changes require an app restart. |
+| 📊 **Max packets for visuals** | 50,000 | Maximum packets loaded for charts and the packet table. |
+| 🌐 **Parse HTTP payloads** | On | Extract HTTP method, host, and path from unencrypted traffic. |
+| 💾 **High memory mode** | Off | Load entire PCAP into RAM for faster processing. Best for files under 500 MB. |
+| ⚡ **Turbo parse** | On | Use fast raw-byte parsing. 5–15× faster for files over 50 MB. |
+| 🧠 **Enable local ML model** | Off | Use the trained scikit-learn model for a supplemental verdict. |
+| ✈️ **Offline mode** | Off | Disable all online threat intelligence lookups. |
+| 🧵 **Multithreaded analysis** | On | Use multiple threads for parallel analysis. |
+| 📁 **Backup directory** | Default | Directory where KB backups are stored. |
+
+> 🎨 **App Color Palette Reference**
+>
+> PCAP Sentry uses a GitHub-inspired dark theme by default:
+>
+> | Role | Dark Mode | Light Mode |
+> |------|-----------|------------|
+> | Background | `#0d1117` | `#f0f2f5` |
+> | Panel | `#161b22` | `#ffffff` |
+> | Accent (primary) | `#58a6ff` | `#2563eb` |
+> | Text | `#e6edf3` | `#1a1d23` |
+> | Success / Safe | `#3fb950` | `#16a34a` |
+> | Warning / Suspicious | `#d29922` | `#d97706` |
+> | Danger / Malicious | `#f85149` | `#dc2626` |
 
 ### Resetting Preferences
 
@@ -519,7 +547,7 @@ All preferences are saved to `settings.json` in the application data directory:
 
 ---
 
-## 14. Updating PCAP Sentry
+<h2><img src="https://img.shields.io/badge/14-Updating_PCAP_Sentry-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 ### Checking for Updates
 
@@ -542,7 +570,7 @@ All preferences are saved to `settings.json` in the application data directory:
 
 ---
 
-## 15. Troubleshooting
+<h2><img src="https://img.shields.io/badge/15-Troubleshooting-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 ### Application Won't Start
 
@@ -607,7 +635,7 @@ This directory contains:
 
 ---
 
-## 16. FAQ
+<h2><img src="https://img.shields.io/badge/16-FAQ-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 **Q: Does PCAP Sentry send my PCAP files anywhere?**
 A: No. All analysis is performed locally on your machine. The only network activity is optional threat intelligence lookups (which send only IP addresses and domain names, not packet contents) and update checks to GitHub.
@@ -635,7 +663,7 @@ A: PCAP Sentry is developed and tested for Windows. While it may run from source
 
 ---
 
-## 17. Appendix
+<h2><img src="https://img.shields.io/badge/17-Appendix-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
 ### A. Keyboard & Mouse Controls
 
@@ -694,4 +722,12 @@ The analysis engine evaluates numerous heuristic signals including:
 
 ---
 
-*PCAP Sentry — Network traffic analysis made accessible.*
+<div align="center">
+
+<img src="assets/pcap_sentry.ico" alt="PCAP Sentry" width="48" />
+
+**PCAP Sentry** — *Network traffic analysis made accessible.*
+
+![GitHub](https://img.shields.io/badge/GitHub-industrial--dave%2FPCAP--Sentry-58a6ff?style=flat-square&logo=github&logoColor=white&labelColor=0d1117)
+
+</div>
