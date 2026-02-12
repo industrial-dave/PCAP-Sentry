@@ -1,4 +1,5 @@
 import base64
+import ctypes
 import io
 import ipaddress
 import json
@@ -145,7 +146,7 @@ def _check_tkinterdnd2():
 SIZE_SAMPLE_LIMIT = 50000
 DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
-APP_VERSION = "2026.02.12-4"
+APP_VERSION = "2026.02.12-5"
 
 
 def _get_pandas():
@@ -373,8 +374,13 @@ def load_settings():
 
 
 def save_settings(settings):
-    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(settings, f, indent=2)
+    try:
+        tmp = SETTINGS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2)
+        os.replace(tmp, SETTINGS_FILE)
+    except Exception:
+        pass
 
 
 def _format_bytes(value):
@@ -1934,6 +1940,10 @@ class PCAPSentryApp:
         self.host_count_var = None
         self.extracted_data = None
 
+        # Undo support for KB labeling
+        self._last_kb_label = None   # "safe" or "malicious"
+        self._last_kb_entry = None   # the entry dict that was appended
+
         # Performance optimization: caching for analysis pipeline
         self.kb_cache = None  # Cache for loaded knowledge base
         self.normalizer_cache = None  # Cache for vector normalizer
@@ -2518,7 +2528,8 @@ class PCAPSentryApp:
         # Bind mousewheel to canvas for scrolling
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        canvas.bind("<Enter>", lambda _: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda _: canvas.unbind_all("<MouseWheel>"))
         
         # Use scrollable_frame as container
         container = scrollable_frame
@@ -2567,6 +2578,15 @@ class PCAPSentryApp:
             state=tk.DISABLED,
         )
         self.label_mal_button.pack(side=tk.LEFT, padx=6)
+
+        self.undo_kb_button = ttk.Button(
+            label_frame,
+            text="Undo Last",
+            style="Secondary.TButton",
+            command=self._undo_last_kb_entry,
+            state=tk.DISABLED,
+        )
+        self.undo_kb_button.pack(side=tk.LEFT, padx=6)
 
         self.results_notebook = ttk.Notebook(container)
         self.results_notebook.pack(fill=tk.BOTH, expand=True, pady=8)
@@ -3636,7 +3656,7 @@ class PCAPSentryApp:
         messagebox.showinfo("Wireshark Filters", "Filters copied to clipboard.")
 
     def _browse_file(self, var):
-        path = filedialog.askopenfilename(filetypes=[("PCAP files", "*.pcap"), ("All files", "*.*")])
+        path = filedialog.askopenfilename(filetypes=[("PCAP files", "*.pcap *.pcapng"), ("ZIP archives", "*.zip"), ("All files", "*.*")])
         if path:
             var.set(path)
 
@@ -4340,8 +4360,12 @@ class PCAPSentryApp:
                 features = build_features(stats)
                 summary = summarize_stats(stats)
                 add_to_knowledge_base(label, stats, features, summary)
+                # Store for undo
+                kb = load_knowledge_base()
+                self._last_kb_label = label
+                self._last_kb_entry = kb[label][-1] if kb[label] else None
+                self.undo_kb_button.config(state=tk.NORMAL)
                 if self.use_local_model_var.get():
-                    kb = load_knowledge_base()
                     model_bundle, err = _train_local_model(kb)
                     if model_bundle is None:
                         messagebox.showinfo("Local Model", err or "Local model training skipped.")
@@ -4371,8 +4395,12 @@ class PCAPSentryApp:
             features = build_features(self.current_stats)
             summary = summarize_stats(self.current_stats)
             add_to_knowledge_base(label, self.current_stats, features, summary)
+            # Store for undo
+            kb = load_knowledge_base()
+            self._last_kb_label = label
+            self._last_kb_entry = kb[label][-1] if kb[label] else None
+            self.undo_kb_button.config(state=tk.NORMAL)
             if self.use_local_model_var.get():
-                kb = load_knowledge_base()
                 model_bundle, err = _train_local_model(kb)
                 if model_bundle is None:
                     messagebox.showinfo("Local Model", err or "Local model training skipped.")
@@ -4383,6 +4411,44 @@ class PCAPSentryApp:
         except Exception as e:
             _write_error_log(f"Error labeling current capture as {label}", e, sys.exc_info()[2])
             messagebox.showerror("Error", f"Failed to label capture: {str(e)}")
+
+    def _undo_last_kb_entry(self):
+        """Remove the most recently added knowledge base entry."""
+        if self._last_kb_label is None or self._last_kb_entry is None:
+            messagebox.showinfo("Undo", "Nothing to undo.")
+            return
+
+        label = self._last_kb_label
+        entry = self._last_kb_entry
+
+        kb = load_knowledge_base()
+        entries = kb.get(label, [])
+
+        # Find and remove the matching entry (compare by timestamp)
+        ts = entry.get("timestamp")
+        removed = False
+        for i in range(len(entries) - 1, -1, -1):
+            if entries[i].get("timestamp") == ts:
+                entries.pop(i)
+                removed = True
+                break
+
+        if removed:
+            save_knowledge_base(kb)
+            # Re-train local model if enabled
+            if self.use_local_model_var.get():
+                model_bundle, err = _train_local_model(kb)
+                if model_bundle is not None:
+                    _save_local_model(model_bundle)
+            self._refresh_kb()
+            messagebox.showinfo("Undo", f"Removed last '{label}' entry from the knowledge base.")
+        else:
+            messagebox.showwarning("Undo", "Could not find the entry to remove. It may have already been deleted.")
+
+        # Clear undo state
+        self._last_kb_label = None
+        self._last_kb_entry = None
+        self.undo_kb_button.config(state=tk.DISABLED)
 
     # ------------------------------------------------------------------
     # Education tab content builder
@@ -5342,7 +5408,8 @@ class PCAPSentryApp:
             self.status_var.set("Detecting suspicious flows...")
             self.root.update_idletasks()
             
-            suspicious_flows = detect_suspicious_flows(df, kb)
+            flow_df_early = compute_flow_stats(df)
+            suspicious_flows = detect_suspicious_flows(df, kb, flow_df=flow_df_early)
             t5 = time.time()
             print(f"[TIMING] Suspicious flows detection: {t5-t4:.2f}s")
             
@@ -5405,9 +5472,9 @@ class PCAPSentryApp:
                 why_lines.append("    Result: Not enough training data yet.")
             else:
                 score_val = classifier_result['score']
-                if score_val > 0.7:
+                if score_val > 70:
                     why_lines.append(f"    Result: HIGH MATCH (score: {score_val})")
-                elif score_val > 0.4:
+                elif score_val > 40:
                     why_lines.append(f"    Result: PARTIAL MATCH (score: {score_val})")
                 else:
                     why_lines.append(f"    Result: LOW MATCH (score: {score_val})")
@@ -5419,11 +5486,14 @@ class PCAPSentryApp:
                 why_lines.append("    Result: No baseline available.")
             else:
                 reasons = ", ".join(anomaly_reasons) if anomaly_reasons else "nothing unusual"
-                if anomaly_result == "anomalous":
-                    why_lines.append(f"    Result: ANOMALOUS — deviates from baseline")
+                if isinstance(anomaly_result, (int, float)) and anomaly_result >= 40:
+                    why_lines.append(f"    Result: ANOMALOUS — deviates from baseline (score: {anomaly_result})")
                     why_lines.append(f"    Reasons: {reasons}")
+                elif isinstance(anomaly_result, (int, float)):
+                    why_lines.append(f"    Result: NORMAL — fits within baseline (score: {anomaly_result})")
+                    why_lines.append(f"    Details: {reasons}")
                 else:
-                    why_lines.append(f"    Result: NORMAL — fits within baseline")
+                    why_lines.append(f"    Result: {anomaly_result}")
                     why_lines.append(f"    Details: {reasons}")
             why_lines.append("")
 
@@ -5596,9 +5666,8 @@ class PCAPSentryApp:
                     pass
             self._apply_packet_filters()
 
-            # Compute flow stats ONCE and reuse
-            flow_df = compute_flow_stats(df)
-            self._update_packet_hints(df, stats, flow_df=flow_df)
+            # Reuse flow stats computed earlier
+            self._update_packet_hints(df, stats, flow_df=flow_df_early)
             
             self._set_determinate_progress(100)
             self.status_var.set("Done")
@@ -5677,8 +5746,7 @@ class PCAPSentryApp:
         ioc = kb.get("ioc", {})
         ioc_counts = f"IoCs: {len(ioc.get('domains', []))} domains, {len(ioc.get('ips', []))} ips"
         self.ioc_summary_var.set(ioc_counts)
-        # Invalidate classifier cache when KB changes
-        self.normalizer_cache = None
+        self._invalidate_caches()
         # Only update kb_text if it exists (may not be initialized in all contexts)
         if hasattr(self, 'kb_text') and self.kb_text:
             self.kb_text.delete("1.0", tk.END)
@@ -5691,7 +5759,51 @@ class PCAPSentryApp:
         self.sample_note_var.set("")
 
 
+def _acquire_single_instance():
+    """Prevent multiple instances using a Windows named mutex.
+
+    Returns the mutex handle if this is the first instance, or ``None``
+    if another instance is already running (brings it to the foreground).
+    """
+    MUTEX_NAME = "Global\\PCAP_Sentry_SingleInstance"
+    ERROR_ALREADY_EXISTS = 183
+
+    try:
+        mutex = ctypes.windll.kernel32.CreateMutexW(None, False, MUTEX_NAME)
+        if ctypes.windll.kernel32.GetLastError() == ERROR_ALREADY_EXISTS:
+            # Another instance exists – try to bring its window forward
+            hwnd = ctypes.windll.user32.FindWindowW(None, None)
+            # Walk windows looking for our title
+            import ctypes.wintypes
+            EnumWindows = ctypes.windll.user32.EnumWindows
+            GetWindowTextW = ctypes.windll.user32.GetWindowTextW
+            SetForegroundWindow = ctypes.windll.user32.SetForegroundWindow
+            ShowWindow = ctypes.windll.user32.ShowWindow
+            SW_RESTORE = 9
+            buf = ctypes.create_unicode_buffer(256)
+
+            @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+            def _enum_cb(hwnd, _lparam):
+                GetWindowTextW(hwnd, buf, 256)
+                if "PCAP Sentry" in buf.value:
+                    ShowWindow(hwnd, SW_RESTORE)
+                    SetForegroundWindow(hwnd)
+                    return False  # stop enumeration
+                return True
+
+            EnumWindows(_enum_cb, 0)
+            return None
+        return mutex
+    except Exception:
+        # Non-Windows or permission issue – allow running
+        return True
+
+
 def main():
+    mutex = _acquire_single_instance()
+    if mutex is None:
+        sys.exit(0)
+
     _init_error_logs()
     sys.excepthook = _handle_exception
     if _check_tkinterdnd2():
