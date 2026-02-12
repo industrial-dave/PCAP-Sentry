@@ -2450,22 +2450,53 @@ class PCAPSentryApp:
             font=self.font_title,
         ).pack(side=tk.LEFT)
 
-        # User Manual link — top-right corner
-        manual_link = tk.Label(
+        # User Manual link — top-right corner, pill-style button
+        _manual_url = "https://github.com/industrial-dave/PCAP-Sentry/blob/main/USER_MANUAL.md"
+        manual_frame = tk.Frame(
             top_row,
-            text="\U0001f4d6  User Manual",
-            font=("Segoe UI", 10, "underline"),
+            bg=self.colors.get("panel", "#161b22"),
+            highlightbackground=self.colors.get("border", "#21262d"),
+            highlightthickness=1,
+            padx=12, pady=5,
+        )
+        manual_frame.pack(side=tk.RIGHT, padx=(0, 4))
+        manual_label = tk.Label(
+            manual_frame,
+            text="User Manual",
+            font=("Segoe UI", 9),
             fg=self.colors.get("accent", "#58a6ff"),
-            bg=self.colors.get("bg", "#0d1117"),
+            bg=self.colors.get("panel", "#161b22"),
             cursor="hand2",
         )
-        manual_link.pack(side=tk.RIGHT, padx=(0, 4))
-        manual_link.bind("<Button-1>", lambda e: __import__("webbrowser").open(
-            "https://github.com/industrial-dave/PCAP-Sentry/blob/main/USER_MANUAL.md"))
-        manual_link.bind("<Enter>", lambda e: manual_link.configure(
-            fg=self.colors.get("accent_hover", "#79c0ff")))
-        manual_link.bind("<Leave>", lambda e: manual_link.configure(
-            fg=self.colors.get("accent", "#58a6ff")))
+        manual_label.pack()
+
+        def _manual_enter(e):
+            manual_frame.configure(
+                bg=self.colors.get("accent_subtle", "#122d4f"),
+                highlightbackground=self.colors.get("accent", "#58a6ff"),
+            )
+            manual_label.configure(
+                bg=self.colors.get("accent_subtle", "#122d4f"),
+                fg=self.colors.get("accent_hover", "#79c0ff"),
+            )
+
+        def _manual_leave(e):
+            manual_frame.configure(
+                bg=self.colors.get("panel", "#161b22"),
+                highlightbackground=self.colors.get("border", "#21262d"),
+            )
+            manual_label.configure(
+                bg=self.colors.get("panel", "#161b22"),
+                fg=self.colors.get("accent", "#58a6ff"),
+            )
+
+        def _manual_click(e):
+            __import__("webbrowser").open(_manual_url)
+
+        for w in (manual_frame, manual_label):
+            w.bind("<Enter>", _manual_enter)
+            w.bind("<Leave>", _manual_leave)
+            w.bind("<Button-1>", _manual_click)
 
         # Indent subtitle to align with text (past icon)
         subtitle_padx = (52, 0) if self._header_icon_image else (0, 0)
