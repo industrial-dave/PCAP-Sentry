@@ -2817,10 +2817,54 @@ class PCAPSentryApp:
             window.grab_set()
         else:
             current = result.get("current", "unknown")
-            messagebox.showinfo(
-                "Check for Updates",
-                f"You are running the latest version ({current}).",
-            )
+            notes = result.get("release_notes", "")
+
+            if notes and notes.strip():
+                # Show a richer dialog with the changelog for the current version
+                window = tk.Toplevel(self.root)
+                window.title("Check for Updates")
+                window.resizable(True, True)
+                window.geometry("550x350")
+                window.configure(bg=self.colors["bg"])
+
+                frame = ttk.Frame(window, padding=16)
+                frame.pack(fill=tk.BOTH, expand=True)
+
+                ttk.Label(
+                    frame,
+                    text=f"You are running the latest version ({current})",
+                    font=("Segoe UI", 11, "bold"),
+                ).pack(anchor="w", pady=(0, 12))
+
+                ttk.Label(
+                    frame,
+                    text="What's in this release:",
+                    font=("Segoe UI", 10, "bold"),
+                ).pack(anchor="w")
+
+                text_frame = ttk.Frame(frame)
+                text_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 15))
+
+                scrollbar = ttk.Scrollbar(text_frame)
+                scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+                text_widget = tk.Text(
+                    text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set, height=10
+                )
+                text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                scrollbar.config(command=text_widget.yview)
+                self._style_text(text_widget)
+
+                text_widget.insert(tk.END, notes)
+                text_widget.config(state=tk.DISABLED)
+
+                ttk.Button(frame, text="OK", command=window.destroy).pack(anchor="e")
+                window.grab_set()
+            else:
+                messagebox.showinfo(
+                    "Check for Updates",
+                    f"You are running the latest version ({current}).",
+                )
 
     def _download_and_install_update(self, version):
         """Download and install the update."""
