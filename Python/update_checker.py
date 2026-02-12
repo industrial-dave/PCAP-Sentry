@@ -22,6 +22,7 @@ class UpdateChecker:
     REPO_OWNER = "industrial-dave"
     REPO_NAME = "PCAP-Sentry"
     RELEASES_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"
+    RELEASES_ALL_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases"
 
     def __init__(self, current_version: str):
         """
@@ -96,24 +97,52 @@ class UpdateChecker:
         """
         Fetch the latest release information from GitHub.
 
+        Queries all releases and picks the one with the highest
+        version number, which is more reliable than /releases/latest
+        (GitHub sorts that by created_at, not by semantic version).
+
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Create SSL context that handles self-signed certs gracefully
             ctx = ssl.create_default_context()
 
-            with urllib.request.urlopen(self.RELEASES_URL, context=ctx, timeout=10) as response:
-                data = json.loads(response.read().decode("utf-8"))
+            # Try fetching all releases first (more reliable)
+            best = None
+            best_ver = (0,)
+            try:
+                req = urllib.request.Request(
+                    self.RELEASES_ALL_URL,
+                    headers={"Accept": "application/vnd.github+json"},
+                )
+                with urllib.request.urlopen(req, context=ctx, timeout=15) as response:
+                    releases = json.loads(response.read().decode("utf-8"))
+                for rel in releases:
+                    if rel.get("draft") or rel.get("prerelease"):
+                        continue
+                    tag = rel.get("tag_name", "").lstrip("v")
+                    parsed = self._parse_version(tag)
+                    if parsed > best_ver:
+                        best_ver = parsed
+                        best = rel
+            except Exception:
+                # Fall back to /releases/latest
+                with urllib.request.urlopen(self.RELEASES_URL, context=ctx, timeout=10) as response:
+                    best = json.loads(response.read().decode("utf-8"))
 
-            self.latest_release = data
-            self.latest_version = data.get("tag_name", "").lstrip("v")
-            self.release_notes = data.get("body", "")
+            if best is None:
+                self._last_error = "No published releases found."
+                return False
+
+            self.latest_release = best
+            self.latest_version = best.get("tag_name", "").lstrip("v")
+            self.release_notes = best.get("body", "")
 
             # Find the Windows EXE asset
-            assets = data.get("assets", [])
+            assets = best.get("assets", [])
             for asset in assets:
-                if asset["name"].endswith(".exe") and "PCAP_Sentry" in asset["name"]:
+                name = asset.get("name", "")
+                if name.endswith(".exe") and "PCAP_Sentry" in name:
                     self.download_url = asset["browser_download_url"]
                     break
 
