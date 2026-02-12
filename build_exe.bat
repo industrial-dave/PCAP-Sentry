@@ -3,6 +3,10 @@ setlocal
 
 REM Build a self-contained EXE using PyInstaller.
 REM Run from repo root after activating your Python environment.
+REM Optional: pass -NoPush to skip git commit/push.
+
+set "NO_PUSH="
+if /I "%~1"=="-NoPush" set "NO_PUSH=1"
 
 set "LOG_DIR=logs"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
@@ -44,23 +48,27 @@ if errorlevel 1 (
 )
 
 echo ==== Build succeeded! ====>> "%LOG_PATH%"
-echo ==== Pushing to GitHub ====>> "%LOG_PATH%"
+echo ==== Push Step ====>> "%LOG_PATH%"
 
 REM Get current version from version_info.txt
 powershell -NoProfile -Command "$c = Get-Content -Path 'version_info.txt' -Raw; if ($c -match 'filevers=\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)') { '{0}.{1}.{2}-{3}' -f $matches[1],$matches[2],$matches[3],$matches[4] }" > "%TEMP%\pcap_version.txt"
 set /p VERSION=<"%TEMP%\pcap_version.txt"
 del "%TEMP%\pcap_version.txt" >nul 2>&1
 
-REM Stage and commit version changes
-git add version_info.txt VERSION_LOG.md installer\PCAP_Sentry.iss Python\pcap_sentry_gui.py >> "%LOG_PATH%" 2>&1
-git commit -m "EXE Build: Version %VERSION%" >> "%LOG_PATH%" 2>&1
-
-REM Push to GitHub
-git push origin main >> "%LOG_PATH%" 2>&1
-if errorlevel 1 (
-	echo Warning: Failed to push to GitHub. See %LOG_PATH% for details.
+if defined NO_PUSH (
+	echo Skipping git commit/push because -NoPush was provided.>> "%LOG_PATH%"
 ) else (
-	echo Pushed version %VERSION% to GitHub
+	REM Stage and commit version changes
+	git add version_info.txt VERSION_LOG.md installer\PCAP_Sentry.iss Python\pcap_sentry_gui.py >> "%LOG_PATH%" 2>&1
+	git commit -m "EXE Build: Version %VERSION%" >> "%LOG_PATH%" 2>&1
+
+	REM Push to GitHub
+	git push origin main >> "%LOG_PATH%" 2>&1
+	if errorlevel 1 (
+		echo Warning: Failed to push to GitHub. See %LOG_PATH% for details.
+	) else (
+		echo Pushed version %VERSION% to GitHub
+	)
 )
 
 endlocal

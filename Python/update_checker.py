@@ -113,7 +113,7 @@ class UpdateChecker:
             # Find the Windows EXE asset
             assets = data.get("assets", [])
             for asset in assets:
-                if asset["name"].endswith(".exe") or "PCAP_Sentry" in asset["name"]:
+                if asset["name"].endswith(".exe") and "PCAP_Sentry" in asset["name"]:
                     self.download_url = asset["browser_download_url"]
                     break
 
