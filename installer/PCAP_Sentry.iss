@@ -1,6 +1,11 @@
+#define VCRedistPath "..\assets\vcredist_x64.exe"
+#if FileExists(VCRedistPath)
+#define IncludeVCRedist
+#endif
+
 [Setup]
 AppName=PCAP Sentry
-AppVersion=2026.02.10-3
+AppVersion=2026.2.11-3
 DefaultDirName={commonpf}\PCAP Sentry
 DefaultGroupName=PCAP Sentry
 OutputDir=dist
@@ -17,6 +22,9 @@ InfoBeforeFile=..\README.txt
 Source: "..\dist\PCAP_Sentry.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+#ifdef IncludeVCRedist
+Source: "{#VCRedistPath}"; DestDir: "{tmp}"; Flags: deleteafterinstall
+#endif
 
 [Icons]
 Name: "{group}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"
@@ -26,4 +34,7 @@ Name: "{commondesktop}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"; Tasks: d
 Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Run]
+#ifdef IncludeVCRedist
+Filename: "{tmp}\vcredist_x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing VC++ Runtime..."; Flags: waituntilterminated skipifsilent
+#endif
 Filename: "{app}\PCAP_Sentry.exe"; Description: "Launch PCAP Sentry"; Flags: nowait postinstall skipifsilent

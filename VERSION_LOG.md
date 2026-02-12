@@ -1,5 +1,32 @@
 # Version Log
 
+
+## 2026.2.11-3 - 2026-02-11
+- Test version update - Performance optimizations deployed
+## 2026.02.11-2 - 2026-02-11
+- Added built-in update system with GitHub Releases integration.
+- Users can now check for and download updates directly from the app.
+- Background update checking with progress feedback.
+- Automatic version comparison and installer launching.
+
+## 2026.02.11-1 - 2026-02-11
+- Added analysis explanations with packet inspection and Wireshark filter suggestions.
+- Improved UI tab order defaults and icon loading across dev/builds.
+- Hardened app startup, parsing timestamps, and dependency metadata.
+
+## 2026.02.10-6 - 2026-02-10
+- Removed optional acceleration support and related packaging.
+
+## 2026.02.10-5 - 2026-02-10
+- Bundled ML runtime into the build and trimmed non-essential modules.
+- Improved local model training/inference handling.
+- Added accelerator availability status in Preferences and defaulted on when available.
+- Updated build scripts to use the workspace venv when present.
+- Added optional VC++ runtime inclusion for the installer.
+
+## 2026.02.10-4 - 2026-02-10
+- Added a git post-commit hook to auto-push changes.
+
 ## 2026.02.10-3 - 2026-02-10
 - Suppressed PyInstaller warnings by using collect_submodules with on_error=ignore.
 
