@@ -212,13 +212,16 @@ class ThreatIntelligence:
 
         if "otx" in sources:
             otx_rep = sources["otx"].get("reputation", 0)
-            # OTX reputation is 0-10, scale to 0-100
+            # OTX reputation may be a dict or numeric
+            if isinstance(otx_rep, dict):
+                otx_rep = otx_rep.get("threat_score", 0) or 0
             if otx_rep:
-                risk_score += otx_rep * 10
+                risk_score += min(float(otx_rep) * 10, 100.0)
 
         if "abuseipdb" in sources:
             abuse_rep = sources["abuseipdb"].get("reputation", 0)
-            risk_score += abuse_rep
+            if isinstance(abuse_rep, (int, float)):
+                risk_score += abuse_rep
 
         # Cap at 100
         return min(100.0, risk_score)
@@ -229,8 +232,10 @@ class ThreatIntelligence:
 
         if "otx" in sources:
             otx_rep = sources["otx"].get("reputation", 0)
+            if isinstance(otx_rep, dict):
+                otx_rep = otx_rep.get("threat_score", 0) or 0
             if otx_rep:
-                risk_score += otx_rep * 10
+                risk_score += min(float(otx_rep) * 10, 100.0)
 
         if "urlhaus" in sources and sources["urlhaus"].get("found"):
             risk_score += 75  # High risk if found in URLhaus

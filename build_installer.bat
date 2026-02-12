@@ -3,6 +3,10 @@ setlocal
 
 REM Builds the installer using Inno Setup.
 REM Run this after building the EXE.
+REM Optional: pass -NoPush to skip git commit/push.
+
+set "NO_PUSH="
+if /I "%~1"=="-NoPush" set "NO_PUSH=1"
 
 set "ISCC_EXE="
 for %%I in (iscc.exe) do set "ISCC_EXE=%%~$PATH:I"
@@ -52,23 +56,27 @@ if errorlevel 1 (
 )
 
 echo ==== Build succeeded! ====>> "%LOG_PATH%"
-echo ==== Uploading to GitHub ====>> "%LOG_PATH%"
+echo ==== Push Step ====>> "%LOG_PATH%"
 
 REM Get current version from version_info.txt
 powershell -NoProfile -Command "$c = Get-Content -Path 'version_info.txt' -Raw; if ($c -match 'filevers=\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)') { '{0}.{1}.{2}-{3}' -f $matches[1],$matches[2],$matches[3],$matches[4] }" > "%TEMP%\pcap_version.txt"
 set /p VERSION=<"%TEMP%\pcap_version.txt"
 del "%TEMP%\pcap_version.txt" >nul 2>&1
 
-REM Stage and commit version changes plus installer
-git add version_info.txt VERSION_LOG.md installer\PCAP_Sentry.iss dist\PCAP_Sentry_Setup.exe >> "%LOG_PATH%" 2>&1
-git commit -m "Installer Build: Version %VERSION%" >> "%LOG_PATH%" 2>&1
-
-REM Push to GitHub
-git push origin main >> "%LOG_PATH%" 2>&1
-if errorlevel 1 (
-	echo Warning: Failed to push to GitHub. See %LOG_PATH% for details.
+if defined NO_PUSH (
+	echo Skipping git commit/push because -NoPush was provided.>> "%LOG_PATH%"
 ) else (
-	echo Pushed version %VERSION% and installer to GitHub
+	REM Stage and commit version changes plus installer
+	git add version_info.txt VERSION_LOG.md installer\PCAP_Sentry.iss dist\PCAP_Sentry_Setup.exe >> "%LOG_PATH%" 2>&1
+	git commit -m "Installer Build: Version %VERSION%" >> "%LOG_PATH%" 2>&1
+
+	REM Push to GitHub
+	git push origin main >> "%LOG_PATH%" 2>&1
+	if errorlevel 1 (
+		echo Warning: Failed to push to GitHub. See %LOG_PATH% for details.
+	) else (
+		echo Pushed version %VERSION% and installer to GitHub
+	)
 )
 
 endlocal
