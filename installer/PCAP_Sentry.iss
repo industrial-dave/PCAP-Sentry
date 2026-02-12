@@ -5,7 +5,7 @@
 
 [Setup]
 AppName=PCAP Sentry
-AppVersion=2026.02.12-1
+AppVersion=2026.02.12-2
 DefaultDirName={commonpf}\PCAP Sentry
 DefaultGroupName=PCAP Sentry
 OutputDir=dist
