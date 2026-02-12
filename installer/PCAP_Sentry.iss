@@ -3,14 +3,14 @@
 #define IncludeVCRedist
 #endif
 
-#define AppVer "2026.02.12-25"
+#define AppVer "2026.02.12-26"
 
 [Setup]
 AppId={{B8A5C2E1-7F3D-4A1B-9C6E-2D8F5A4E3B71}
 AppName=PCAP Sentry
 AppVersion={#AppVer}
 AppVerName=PCAP Sentry {#AppVer}
-VersionInfoVersion=2026.2.12.25
+VersionInfoVersion=2026.2.12.26
 AppPublisher=industrial-dave
 AppSupportURL=https://github.com/industrial-dave/PCAP-Sentry
 DefaultDirName={autopf}\PCAP Sentry
@@ -26,6 +26,8 @@ LicenseFile=..\LICENSE.txt
 InfoBeforeFile=..\README.txt
 UninstallDisplayIcon={app}\PCAP_Sentry.exe
 UninstallDisplayName=PCAP Sentry {#AppVer}
+CloseApplications=yes
+RestartApplications=yes
 MinVersion=10.0
 
 [Files]
