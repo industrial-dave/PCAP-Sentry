@@ -2,8 +2,8 @@
 # File generated for PyInstaller version resource
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(2026, 2, 12, 9),
-    prodvers=(2026, 2, 12, 9),
+    filevers=(2026, 2, 12, 10),
+    prodvers=(2026, 2, 12, 10),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
