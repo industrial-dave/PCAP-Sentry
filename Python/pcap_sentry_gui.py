@@ -2450,6 +2450,23 @@ class PCAPSentryApp:
             font=self.font_title,
         ).pack(side=tk.LEFT)
 
+        # User Manual link — top-right corner
+        manual_link = tk.Label(
+            top_row,
+            text="\U0001f4d6  User Manual",
+            font=("Segoe UI", 10, "underline"),
+            fg=self.colors.get("accent", "#58a6ff"),
+            bg=self.colors.get("bg", "#0d1117"),
+            cursor="hand2",
+        )
+        manual_link.pack(side=tk.RIGHT, padx=(0, 4))
+        manual_link.bind("<Button-1>", lambda e: __import__("webbrowser").open(
+            "https://github.com/industrial-dave/PCAP-Sentry/blob/main/USER_MANUAL.md"))
+        manual_link.bind("<Enter>", lambda e: manual_link.configure(
+            fg=self.colors.get("accent_hover", "#79c0ff")))
+        manual_link.bind("<Leave>", lambda e: manual_link.configure(
+            fg=self.colors.get("accent", "#58a6ff")))
+
         # Indent subtitle to align with text (past icon)
         subtitle_padx = (52, 0) if self._header_icon_image else (0, 0)
         ttk.Label(
