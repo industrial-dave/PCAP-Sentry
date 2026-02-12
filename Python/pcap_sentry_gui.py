@@ -146,7 +146,7 @@ def _check_tkinterdnd2():
 SIZE_SAMPLE_LIMIT = 50000
 DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
-APP_VERSION = "2026.02.12-10"
+APP_VERSION = "2026.02.12-12"
 
 
 def _get_pandas():
@@ -419,6 +419,30 @@ def save_knowledge_base(data):
     os.makedirs(os.path.dirname(KNOWLEDGE_BASE_FILE), exist_ok=True)
     with open(KNOWLEDGE_BASE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+
+
+def _backup_knowledge_base(max_backups=3):
+    """Copy the knowledge base file to a timestamped backup, keeping only the most recent *max_backups* versions."""
+    try:
+        if not os.path.exists(KNOWLEDGE_BASE_FILE):
+            return
+        backup_dir = os.path.join(os.path.dirname(KNOWLEDGE_BASE_FILE), "kb_backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = os.path.join(backup_dir, f"pcap_knowledge_base_{ts}.json")
+        shutil.copy2(KNOWLEDGE_BASE_FILE, backup_path)
+        # Prune old backups – keep only the most recent max_backups files
+        backups = sorted(
+            [f for f in os.listdir(backup_dir) if f.startswith("pcap_knowledge_base_") and f.endswith(".json")],
+        )
+        while len(backups) > max_backups:
+            oldest = backups.pop(0)
+            try:
+                os.remove(os.path.join(backup_dir, oldest))
+            except OSError:
+                pass
+    except Exception:
+        pass  # Best-effort – never block shutdown
 
 
 def _normalize_ioc_item(item):
@@ -1958,6 +1982,14 @@ class PCAPSentryApp:
         if APP_DATA_FALLBACK_NOTICE and not self.settings.get("app_data_notice_shown"):
             self.root.after(200, self._show_app_data_notice)
 
+        # Backup knowledge base on close
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_close(self):
+        """Handle window close – backup KB then destroy."""
+        _backup_knowledge_base()
+        self.root.destroy()
+
     def _get_window_title(self):
         """Generate window title with mode indicator"""
         if self.offline_mode_var.get():
@@ -2282,104 +2314,130 @@ class PCAPSentryApp:
             return
 
         def show_result(result):
-            """Callback after update check completes."""
-            if not result.get("success"):
-                error_msg = result.get("error", "Unknown error")
-                if "404" in str(error_msg):
-                    messagebox.showinfo(
-                        "Check for Updates",
-                        "No releases have been published yet.\n\n"
-                        "This is normal for development builds. Once a release\n"
-                        "is published on GitHub, update checking will work.",
-                    )
-                else:
-                    messagebox.showerror(
-                        "Check for Updates",
-                        f"Failed to check for updates:\n{error_msg}",
-                    )
-                return
-
-            if result.get("available"):
-                latest = result.get("latest", "unknown")
-                current = result.get("current", "unknown")
-                notes = result.get("release_notes", "No release notes available.")
-
-                # Show update available dialog
-                window = tk.Toplevel(self.root)
-                window.title("Update Available")
-                window.resizable(True, True)
-                window.geometry("600x400")
-
-                frame = ttk.Frame(window, padding=16)
-                frame.pack(fill=tk.BOTH, expand=True)
-
-                ttk.Label(
-                    frame,
-                    text=f"A new version is available!",
-                    font=("Segoe UI", 12, "bold"),
-                ).pack(anchor="w", pady=(0, 10))
-
-                ttk.Label(
-                    frame, text=f"Current version: {current}"
-                ).pack(anchor="w", pady=(0, 5))
-                ttk.Label(
-                    frame, text=f"Available version: {latest}"
-                ).pack(anchor="w", pady=(0, 15))
-
-                ttk.Label(frame, text="Release Notes:", font=("Segoe UI", 10, "bold")).pack(anchor="w")
-                text_frame = ttk.Frame(frame)
-                text_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 15))
-
-                scrollbar = ttk.Scrollbar(text_frame)
-                scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-                text_widget = tk.Text(
-                    text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set, height=10
-                )
-                text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-                scrollbar.config(command=text_widget.yview)
-
-                text_widget.insert(tk.END, notes)
-                text_widget.config(state=tk.DISABLED)
-
-                button_frame = ttk.Frame(frame)
-                button_frame.pack(fill=tk.X)
-
-                def on_download():
-                    self._download_and_install_update(latest)
-                    window.destroy()
-
-                ttk.Button(button_frame, text="Download & Update", command=on_download).pack(side=tk.LEFT, padx=6)
-                ttk.Button(button_frame, text="Later", command=window.destroy).pack(side=tk.LEFT)
-
-                window.grab_set()
-            else:
-                current = result.get("current", "unknown")
-                messagebox.showinfo(
-                    "Check for Updates",
-                    f"You are running the latest version ({current}).",
-                )
+            """Callback after update check completes – called from background thread."""
+            # Schedule on main thread so Tkinter calls are safe
+            self.root.after(0, lambda: self._show_update_result(result))
 
         # Run update check in background
         checker_thread = BackgroundUpdateChecker(APP_VERSION, callback=show_result)
         checker_thread.start()
 
+    def _show_update_result(self, result):
+        """Display update check result (always runs on the main thread)."""
+        if not result.get("success"):
+            error_msg = result.get("error", "Unknown error")
+            if "404" in str(error_msg):
+                messagebox.showinfo(
+                    "Check for Updates",
+                    "No releases have been published yet.\n\n"
+                    "This is normal for development builds. Once a release\n"
+                    "is published on GitHub, update checking will work.",
+                )
+            else:
+                messagebox.showerror(
+                    "Check for Updates",
+                    f"Failed to check for updates:\n{error_msg}",
+                )
+            return
+
+        if result.get("available"):
+            latest = result.get("latest", "unknown")
+            current = result.get("current", "unknown")
+            notes = result.get("release_notes", "No release notes available.")
+
+            # Show update available dialog
+            window = tk.Toplevel(self.root)
+            window.title("Update Available")
+            window.resizable(True, True)
+            window.geometry("600x400")
+
+            frame = ttk.Frame(window, padding=16)
+            frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(
+                frame,
+                text="A new version is available!",
+                font=("Segoe UI", 12, "bold"),
+            ).pack(anchor="w", pady=(0, 10))
+
+            ttk.Label(
+                frame, text=f"Current version: {current}"
+            ).pack(anchor="w", pady=(0, 5))
+            ttk.Label(
+                frame, text=f"Available version: {latest}"
+            ).pack(anchor="w", pady=(0, 15))
+
+            ttk.Label(frame, text="Release Notes:", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            text_frame = ttk.Frame(frame)
+            text_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 15))
+
+            scrollbar = ttk.Scrollbar(text_frame)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+            text_widget = tk.Text(
+                text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set, height=10
+            )
+            text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.config(command=text_widget.yview)
+
+            text_widget.insert(tk.END, notes)
+            text_widget.config(state=tk.DISABLED)
+
+            button_frame = ttk.Frame(frame)
+            button_frame.pack(fill=tk.X)
+
+            def on_download():
+                self._download_and_install_update(latest)
+                window.destroy()
+
+            ttk.Button(button_frame, text="Download & Update", command=on_download).pack(side=tk.LEFT, padx=6)
+            ttk.Button(button_frame, text="Later", command=window.destroy).pack(side=tk.LEFT)
+
+            window.grab_set()
+        else:
+            current = result.get("current", "unknown")
+            messagebox.showinfo(
+                "Check for Updates",
+                f"You are running the latest version ({current}).",
+            )
+
     def _download_and_install_update(self, version):
         """Download and install the update."""
+        # Create progress UI on the main thread first
+        progress_window = tk.Toplevel(self.root)
+        progress_window.title("Downloading Update")
+        progress_window.resizable(False, False)
+        progress_window.geometry("400x120")
+
+        frame = ttk.Frame(progress_window, padding=16)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frame, text="Downloading update...").pack(anchor="w", pady=(0, 10))
+        progress_bar = ttk.Progressbar(frame, mode="determinate", length=350)
+        progress_bar.pack(fill=tk.X, pady=(0, 10))
+        status_label = ttk.Label(frame, text="0%")
+        status_label.pack(anchor="w")
+
         def download_in_background():
             try:
                 checker = UpdateChecker(APP_VERSION)
                 if not checker.fetch_latest_release():
-                    messagebox.showerror(
-                        "Download Failed",
-                        "Failed to fetch release information from GitHub.",
-                    )
+                    self.root.after(0, lambda: (
+                        progress_window.destroy(),
+                        messagebox.showerror(
+                            "Download Failed",
+                            "Failed to fetch release information from GitHub.",
+                        ),
+                    ))
                     return
 
                 if not checker.download_url:
-                    messagebox.showerror(
-                        "Download Failed", "No executable found in the latest release."
-                    )
+                    self.root.after(0, lambda: (
+                        progress_window.destroy(),
+                        messagebox.showerror(
+                            "Download Failed", "No executable found in the latest release."
+                        ),
+                    ))
                     return
 
                 update_dir = checker.get_update_dir()
@@ -2387,50 +2445,41 @@ class PCAPSentryApp:
                 exe_name = f"PCAP_Sentry_{version}_{timestamp}.exe"
                 dest_path = os.path.join(update_dir, exe_name)
 
-                # Show progress dialog
-                progress_window = tk.Toplevel(self.root)
-                progress_window.title("Downloading Update")
-                progress_window.resizable(False, False)
-                progress_window.geometry("400x100")
-
-                frame = ttk.Frame(progress_window, padding=16)
-                frame.pack(fill=tk.BOTH, expand=True)
-
-                ttk.Label(frame, text="Downloading update...").pack(anchor="w", pady=(0, 10))
-                progress_bar = ttk.Progressbar(frame, mode="determinate", length=350)
-                progress_bar.pack(fill=tk.X, pady=(0, 10))
-                status_label = ttk.Label(frame, text="0%")
-                status_label.pack(anchor="w")
-
                 def progress_callback(downloaded, total):
                     if total > 0:
                         progress = int((downloaded / total) * 100)
-                        progress_bar["value"] = progress
-                        status_label.config(text=f"{progress}%")
-                        progress_window.update()
+                        self.root.after(0, lambda p=progress: (
+                            progress_bar.configure(value=p),
+                            status_label.config(text=f"{p}%"),
+                        ))
 
                 if checker.download_update(dest_path, progress_callback=progress_callback):
-                    progress_window.destroy()
-
-                    # Close current instance, then launch the new version
-                    if checker.launch_installer(dest_path):
-                        self.root.after(0, self.root.quit)
-                    else:
-                        messagebox.showinfo(
-                            "Download Complete",
-                            f"Update saved to:\n{dest_path}\n\n"
-                            f"Please run it manually to install.",
-                        )
+                    def on_success():
+                        progress_window.destroy()
+                        if checker.launch_installer(dest_path):
+                            self.root.quit()
+                        else:
+                            messagebox.showinfo(
+                                "Download Complete",
+                                f"Update saved to:\n{dest_path}\n\n"
+                                f"Please run it manually to install.",
+                            )
+                    self.root.after(0, on_success)
                 else:
-                    progress_window.destroy()
-                    messagebox.showerror(
-                        "Download Failed", "Failed to download the update."
-                    )
+                    self.root.after(0, lambda: (
+                        progress_window.destroy(),
+                        messagebox.showerror(
+                            "Download Failed", "Failed to download the update."
+                        ),
+                    ))
 
             except Exception as e:
-                messagebox.showerror(
-                    "Update Error", f"An error occurred during update: {str(e)}"
-                )
+                self.root.after(0, lambda: (
+                    progress_window.destroy(),
+                    messagebox.showerror(
+                        "Update Error", f"An error occurred during update: {str(e)}"
+                    ),
+                ))
 
         download_thread = threading.Thread(target=download_in_background, daemon=True)
         download_thread.start()
@@ -2471,6 +2520,10 @@ class PCAPSentryApp:
         self.safe_browse.pack(side=tk.LEFT, padx=6)
         self.safe_add_button = ttk.Button(safe_frame, text="Add to Safe", command=lambda: self._train("safe"))
         self.safe_add_button.pack(side=tk.LEFT, padx=6)
+        self.undo_safe_button = ttk.Button(safe_frame, text="↩ Undo", style="Secondary.TButton",
+                                            command=lambda: self._undo_last_kb_entry("safe"),
+                                            state=tk.DISABLED)
+        self.undo_safe_button.pack(side=tk.LEFT, padx=6)
 
         tk.Label(container, text="\u2913  You can also drag and drop a .pcap file here",
                  font=("Segoe UI", 9), fg=self.colors["muted"], bg=self.colors["bg"]
@@ -2495,6 +2548,10 @@ class PCAPSentryApp:
         self.mal_browse.pack(side=tk.LEFT, padx=6)
         self.mal_add_button = ttk.Button(mal_frame, text="Add to Malware", command=lambda: self._train("malicious"))
         self.mal_add_button.pack(side=tk.LEFT, padx=6)
+        self.undo_mal_button = ttk.Button(mal_frame, text="↩ Undo", style="Secondary.TButton",
+                                           command=lambda: self._undo_last_kb_entry("malicious"),
+                                           state=tk.DISABLED)
+        self.undo_mal_button.pack(side=tk.LEFT, padx=6)
 
         tk.Label(container, text="\u2913  You can also drag and drop a .pcap file here",
                  font=("Segoe UI", 9), fg=self.colors["muted"], bg=self.colors["bg"]
@@ -4364,7 +4421,7 @@ class PCAPSentryApp:
                 kb = load_knowledge_base()
                 self._last_kb_label = label
                 self._last_kb_entry = kb[label][-1] if kb[label] else None
-                self.undo_kb_button.config(state=tk.NORMAL)
+                self._sync_undo_buttons()
                 if self.use_local_model_var.get():
                     model_bundle, err = _train_local_model(kb)
                     if model_bundle is None:
@@ -4399,7 +4456,7 @@ class PCAPSentryApp:
             kb = load_knowledge_base()
             self._last_kb_label = label
             self._last_kb_entry = kb[label][-1] if kb[label] else None
-            self.undo_kb_button.config(state=tk.NORMAL)
+            self._sync_undo_buttons()
             if self.use_local_model_var.get():
                 model_bundle, err = _train_local_model(kb)
                 if model_bundle is None:
@@ -4412,9 +4469,26 @@ class PCAPSentryApp:
             _write_error_log(f"Error labeling current capture as {label}", e, sys.exc_info()[2])
             messagebox.showerror("Error", f"Failed to label capture: {str(e)}")
 
-    def _undo_last_kb_entry(self):
-        """Remove the most recently added knowledge base entry."""
+    def _sync_undo_buttons(self):
+        """Enable or disable all undo buttons based on current undo state."""
+        has_undo = self._last_kb_label is not None and self._last_kb_entry is not None
+        # Analyze tab undo button
+        self.undo_kb_button.config(state=tk.NORMAL if has_undo else tk.DISABLED)
+        # Train tab undo buttons
+        self.undo_safe_button.config(state=tk.NORMAL if has_undo and self._last_kb_label == "safe" else tk.DISABLED)
+        self.undo_mal_button.config(state=tk.NORMAL if has_undo and self._last_kb_label == "malicious" else tk.DISABLED)
+
+    def _undo_last_kb_entry(self, filter_label=None):
+        """Remove the most recently added knowledge base entry.
+        
+        If filter_label is provided, only undo if the last entry matches that label.
+        """
         if self._last_kb_label is None or self._last_kb_entry is None:
+            messagebox.showinfo("Undo", "Nothing to undo.")
+            return
+
+        # If called from a label-specific button, only undo matching entries
+        if filter_label is not None and self._last_kb_label != filter_label:
             messagebox.showinfo("Undo", "Nothing to undo.")
             return
 
@@ -4448,7 +4522,7 @@ class PCAPSentryApp:
         # Clear undo state
         self._last_kb_label = None
         self._last_kb_entry = None
-        self.undo_kb_button.config(state=tk.DISABLED)
+        self._sync_undo_buttons()
 
     # ------------------------------------------------------------------
     # Education tab content builder
