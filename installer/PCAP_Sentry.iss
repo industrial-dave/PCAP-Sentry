@@ -3,7 +3,7 @@
 #define IncludeVCRedist
 #endif
 
-#define AppVer "2026.02.13-13"
+#define AppVer "2026.02.13-14"
 #define CudaInstallerUrl "https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/cuda_12.1.1_531.14_windows.exe"
 
 [Setup]
@@ -11,7 +11,7 @@ AppId={{91EFC8EF-E9F8-42FC-9D82-479C14FBE67D}
 AppName=PCAP Sentry (GPU)
 AppVersion={#AppVer}
 AppVerName=PCAP Sentry (GPU) {#AppVer}
-VersionInfoVersion=2026.2.13.13
+VersionInfoVersion=2026.2.13.14
 AppPublisher=industrial-dave
 AppSupportURL=https://github.com/industrial-dave/PCAP-Sentry
 DefaultDirName={autopf}\PCAP Sentry (GPU)
