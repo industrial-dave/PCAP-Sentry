@@ -43,8 +43,6 @@ except ImportError:
 _sklearn_available = None
 _tkinterdnd2_available = None
 _threat_intel_available = None
-_torch_available = None
-_gpu_enabled = True
 
 
 def _check_threat_intel():
@@ -133,10 +131,10 @@ def _show_startup_error(message, exc=None):
         if tk._default_root is None:
             root = tk.Tk()
             root.withdraw()
-            messagebox.showerror("PCAP Sentry (GPU)", message)
+            messagebox.showerror("PCAP Sentry", message)
             root.destroy()
         else:
-            messagebox.showerror("PCAP Sentry (GPU)", message)
+            messagebox.showerror("PCAP Sentry", message)
     except Exception:
         pass
 
@@ -166,42 +164,6 @@ def _check_tkinterdnd2():
         _tkinterdnd2_available = False
     return _tkinterdnd2_available
 
-
-def _check_torch():
-    global _torch_available
-    if _torch_available is not None:
-        return _torch_available
-    try:
-        import torch
-        _torch_available = True
-    except (ImportError, ModuleNotFoundError):
-        _torch_available = False
-    return _torch_available
-
-
-def _set_gpu_enabled(enabled):
-    global _gpu_enabled
-    _gpu_enabled = bool(enabled)
-
-
-def _is_gpu_enabled():
-    return _gpu_enabled
-
-
-def _get_torch():
-    import torch
-    return torch
-
-
-def _get_torch_device():
-    if not _check_torch():
-        return None
-    if not _is_gpu_enabled():
-        return None
-    torch = _get_torch()
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    return None
 
 SIZE_SAMPLE_LIMIT = 50000
 DEFAULT_MAX_ROWS = 200000
@@ -256,7 +218,7 @@ def _get_scapy():
         return DNS, DNSQR, IP, PcapReader, Raw, TCP, UDP
     except Exception as exc:
         _show_startup_error(
-            "Scapy is required but was not found. Please reinstall PCAP Sentry (GPU) or "
+            "Scapy is required but was not found. Please reinstall PCAP Sentry or "
             "contact support.",
             exc,
         )
@@ -405,7 +367,7 @@ def _get_app_data_dir():
                 fallback_notice = "App data folder in install directory is not writable."
 
     base_dir = os.getenv("LOCALAPPDATA") or os.getenv("APPDATA") or os.path.expanduser("~")
-    data_dir = os.path.join(base_dir, "PCAP_Sentry_GPU")
+    data_dir = os.path.join(base_dir, "PCAP_Sentry")
     os.makedirs(data_dir, exist_ok=True)
     APP_DATA_DIR = data_dir
     if fallback_notice:
@@ -431,7 +393,6 @@ def _default_settings():
         "parse_http": True,
         "use_high_memory": False,
         "use_local_model": False,
-        "use_gpu": True,
         "use_multithreading": True,
         "turbo_parse": True,
         "backup_dir": os.path.dirname(KNOWLEDGE_BASE_FILE),
@@ -659,17 +620,6 @@ def _vector_from_features(features):
 def _compute_normalizer(vectors):
     if not vectors:
         return None
-    device = _get_torch_device()
-    if device and len(vectors) >= 2000:
-        torch = _get_torch()
-        tensor = torch.tensor(vectors, dtype=torch.float32, device=device)
-        means = tensor.mean(dim=0)
-        stds = tensor.std(dim=0, unbiased=False)
-        stds = torch.where(stds == 0, torch.ones_like(stds), stds)
-        return {
-            "mean": [float(value) for value in means.tolist()],
-            "std": [float(value) for value in stds.tolist()],
-        }
     columns = list(zip(*vectors))
     means = [sum(col) / len(col) for col in columns]
     stds = [statistics.pstdev(col) or 1.0 for col in columns]
@@ -728,37 +678,6 @@ def classify_vector(vector, kb, normalizer_cache=None):
     else:
         all_vectors = safe_vectors + mal_vectors
         normalizer = _compute_normalizer(all_vectors)
-
-    device = _get_torch_device()
-    if device and (len(safe_vectors) + len(mal_vectors)) >= 2000:
-        try:
-            torch = _get_torch()
-            mean = torch.tensor(normalizer["mean"], dtype=torch.float32, device=device)
-            std = torch.tensor(normalizer["std"], dtype=torch.float32, device=device)
-            safe_tensor = torch.tensor(safe_vectors, dtype=torch.float32, device=device)
-            mal_tensor = torch.tensor(mal_vectors, dtype=torch.float32, device=device)
-            target_tensor = torch.tensor(vector, dtype=torch.float32, device=device)
-            safe_norm = (safe_tensor - mean) / std
-            mal_norm = (mal_tensor - mean) / std
-            target_norm = (target_tensor - mean) / std
-            safe_centroid = safe_norm.mean(dim=0)
-            mal_centroid = mal_norm.mean(dim=0)
-            dist_safe = torch.linalg.vector_norm(target_norm - safe_centroid).item()
-            dist_mal = torch.linalg.vector_norm(target_norm - mal_centroid).item()
-            if dist_safe + dist_mal == 0:
-                prob_mal = 0.5
-            else:
-                prob_mal = dist_safe / (dist_safe + dist_mal)
-            score = round(prob_mal * 100.0, 1)
-            return {
-                "score": score,
-                "dist_safe": dist_safe,
-                "dist_mal": dist_mal,
-                "normalizer": normalizer,
-                "backend": "gpu",
-            }
-        except Exception:
-            pass
 
     safe_norm = [_normalize_vector(vec, normalizer) for vec in safe_vectors]
     mal_norm = [_normalize_vector(vec, normalizer) for vec in mal_vectors]
@@ -2330,7 +2249,7 @@ class _HelpTooltip:
 class PCAPSentryApp:
     def __init__(self, root):
         self.root = root
-        self.base_title = f"PCAP Sentry (GPU) v{APP_VERSION}"
+        self.base_title = f"PCAP Sentry v{APP_VERSION}"
         
         self.settings = load_settings()
         
@@ -2352,7 +2271,6 @@ class PCAPSentryApp:
         self.parse_http_var = tk.BooleanVar(value=self.settings.get("parse_http", True))
         self.use_high_memory_var = tk.BooleanVar(value=self.settings.get("use_high_memory", False))
         self.use_local_model_var = tk.BooleanVar(value=self.settings.get("use_local_model", False))
-        self.use_gpu_var = tk.BooleanVar(value=self.settings.get("use_gpu", True))
         self.use_multithreading_var = tk.BooleanVar(value=self.settings.get("use_multithreading", True))
         self.turbo_parse_var = tk.BooleanVar(value=self.settings.get("turbo_parse", True))
         self.llm_provider_var = tk.StringVar(value=self.settings.get("llm_provider", "disabled"))
@@ -2446,8 +2364,6 @@ class PCAPSentryApp:
         self.threat_intel_cache_time = 0  # Timestamp for cache validity
 
         self._build_background()
-
-        _set_gpu_enabled(self.use_gpu_var.get())
 
         self._build_header()
         self._build_tabs()
@@ -2583,7 +2499,7 @@ class PCAPSentryApp:
             ).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Label(
             title_row,
-            text="PCAP Sentry (GPU)",
+            text="PCAP Sentry",
             font=self.font_title,
         ).pack(side=tk.LEFT)
 
@@ -2813,15 +2729,6 @@ class PCAPSentryApp:
 
         ttk.Checkbutton(
             frame,
-            text="Enable GPU acceleration (PyTorch/CUDA)",
-            variable=self.use_gpu_var,
-            style="Quiet.TCheckbutton"
-        ).grid(row=7, column=0, sticky="w", pady=6, columnspan=2)
-        self._help_icon_grid(frame, "Uses the GPU for some math-heavy analysis steps when PyTorch and a CUDA-capable "
-            "GPU are available. Falls back to CPU automatically if not available.", row=7, column=2, sticky="w")
-
-        ttk.Checkbutton(
-            frame,
             text="Offline mode (disable threat intelligence)",
             variable=self.offline_mode_var,
             style="Quiet.TCheckbutton"
@@ -2906,12 +2813,12 @@ class PCAPSentryApp:
 
         # Backup directory row with improved spacing
 
-         ttk.Label(frame, text="Backup directory:").grid(row=14, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="Backup directory:").grid(row=14, column=0, sticky="w", pady=6)
         backup_entry = ttk.Entry(frame, textvariable=self.backup_dir_var, width=60)
-         backup_entry.grid(row=14, column=1, sticky="ew", pady=6)
+        backup_entry.grid(row=14, column=1, sticky="ew", pady=6)
         frame.grid_columnconfigure(1, weight=1)
         button_frame = ttk.Frame(frame)
-         button_frame.grid(row=14, column=2, columnspan=4, sticky="e", pady=6)
+        button_frame.grid(row=14, column=2, columnspan=4, sticky="e", pady=6)
         ttk.Button(button_frame, text="\u2715", width=2, style="Secondary.TButton",
                    command=lambda: self.backup_dir_var.set("")).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Browse", style="Secondary.TButton",
@@ -2936,7 +2843,6 @@ class PCAPSentryApp:
             "parse_http": bool(self.parse_http_var.get()),
             "use_high_memory": bool(self.use_high_memory_var.get()),
             "use_local_model": bool(self.use_local_model_var.get()),
-            "use_gpu": bool(self.use_gpu_var.get()),
             "use_multithreading": bool(self.use_multithreading_var.get()),
             "turbo_parse": bool(self.turbo_parse_var.get()),
             "offline_mode": bool(self.offline_mode_var.get()),
@@ -2949,7 +2855,6 @@ class PCAPSentryApp:
         }
         self.settings = settings
         save_settings(settings)
-        _set_gpu_enabled(self.use_gpu_var.get())
         if hasattr(self, "_sync_chat_controls"):
             self._sync_chat_controls()
 
@@ -2966,7 +2871,6 @@ class PCAPSentryApp:
         self.parse_http_var.set(defaults["parse_http"])
         self.use_high_memory_var.set(defaults["use_high_memory"])
         self.use_local_model_var.set(defaults["use_local_model"])
-        self.use_gpu_var.set(defaults.get("use_gpu", True))
         self.use_multithreading_var.set(defaults.get("use_multithreading", True))
         self.turbo_parse_var.set(defaults.get("turbo_parse", True))
         self.offline_mode_var.set(defaults.get("offline_mode", False))
@@ -3167,9 +3071,9 @@ class PCAPSentryApp:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 is_installer = getattr(checker, "download_is_installer", False)
                 if is_installer:
-                    exe_name = f"PCAP_Sentry_GPU_Setup_{version}_{timestamp}.exe"
+                    exe_name = f"PCAP_Sentry_Setup_{version}_{timestamp}.exe"
                 else:
-                    exe_name = f"PCAP_Sentry_GPU_{version}_{timestamp}.exe"
+                    exe_name = f"PCAP_Sentry_{version}_{timestamp}.exe"
                 dest_path = os.path.join(update_dir, exe_name)
 
                 def progress_callback(downloaded, total):
@@ -3191,7 +3095,7 @@ class PCAPSentryApp:
                                 "The installer has been downloaded.\n\n"
                                 "The installer will now launch to update all files\n"
                                 "(executable, documentation, runtime libraries).\n\n"
-                                "PCAP Sentry (GPU) will close so the update can proceed.",
+                                "PCAP Sentry will close so the update can proceed.",
                             )
                             if checker.launch_installer(dest_path):
                                 self.root.quit()
@@ -3208,8 +3112,8 @@ class PCAPSentryApp:
                             if checker.replace_executable(dest_path, current_exe):
                                 messagebox.showinfo(
                                     "Update Ready",
-                                    "The update will be applied after PCAP Sentry (GPU) closes.\n\n"
-                                    "PCAP Sentry (GPU) will now close and restart.",
+                                    "The update will be applied after PCAP Sentry closes.\n\n"
+                                    "PCAP Sentry will now close and restart.",
                                 )
                                 self.root.quit()
                             else:
@@ -3352,7 +3256,7 @@ class PCAPSentryApp:
         if provider == "openai_compat":
             return self._request_openai_compat_chat(
                 [
-                    {"role": "system", "content": "You are a PCAP Sentry (GPU) assistant. Answer clearly and concisely."},
+                    {"role": "system", "content": "You are a PCAP Sentry assistant. Answer clearly and concisely."},
                     {"role": "user", "content": self._build_openai_chat_prompt(user_message)},
                 ]
             )
@@ -3368,7 +3272,7 @@ class PCAPSentryApp:
             {
                 "role": "system",
                 "content": (
-                    "You are a PCAP Sentry (GPU) assistant. Answer clearly and concisely. "
+                    "You are a PCAP Sentry assistant. Answer clearly and concisely. "
                     "If no analysis is loaded, say so and answer in general terms.\n\n"
                     f"Context JSON:\n{json.dumps(context, indent=2)}"
                 ),
@@ -7567,7 +7471,7 @@ def _acquire_single_instance():
     Returns the mutex handle if this is the first instance, or ``None``
     if another instance is already running (brings it to the foreground).
     """
-    MUTEX_NAME = "Global\\PCAP_Sentry_GPU_SingleInstance"
+    MUTEX_NAME = "Global\\PCAP_Sentry_SingleInstance"
     ERROR_ALREADY_EXISTS = 183
 
     try:
@@ -7586,7 +7490,7 @@ def _acquire_single_instance():
             @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
             def _enum_cb(hwnd, _lparam):
                 GetWindowTextW(hwnd, buf, 256)
-                if "PCAP Sentry (GPU)" in buf.value:
+                if "PCAP Sentry" in buf.value:
                     ShowWindow(hwnd, SW_RESTORE)
                     SetForegroundWindow(hwnd)
                     return False  # stop enumeration
