@@ -3,14 +3,14 @@
 #define IncludeVCRedist
 #endif
 
-#define AppVer "2026.02.13-17"
+#define AppVer "2026.02.13-19"
 
 [Setup]
 AppId={{91EFC8EF-E9F8-42FC-9D82-479C14FBE67D}
 AppName=PCAP Sentry
 AppVersion={#AppVer}
 AppVerName=PCAP Sentry {#AppVer}
-VersionInfoVersion=2026.2.13.17
+VersionInfoVersion=2026.2.13.19
 AppPublisher=industrial-dave
 AppSupportURL=https://github.com/industrial-dave/PCAP-Sentry
 DefaultDirName={autopf}\PCAP Sentry
@@ -121,6 +121,8 @@ begin
 end;
 
 procedure SetOllamaInstallProgress(const CaptionText: String; Position, MaxValue: Integer);
+  forward;
+function GetOllamaExePath: String;
   forward;
 
 procedure UpdateOllamaSpaceNote;
