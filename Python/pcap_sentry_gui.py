@@ -2858,7 +2858,7 @@ class PCAPSentryApp:
         llm_provider_combo = ttk.Combobox(
             provider_frame,
             textvariable=self.llm_provider_var,
-            values=["disabled", "ollama", "openai_compat"],
+            values=["disabled", "ollama", "openai_compatible"],
             width=16,
         )
         llm_provider_combo.state(["readonly"])
@@ -3425,7 +3425,7 @@ class PCAPSentryApp:
         provider = self.llm_provider_var.get().strip().lower()
         if provider == "ollama":
             return self._request_ollama_chat(user_message)
-        if provider == "openai_compat":
+        if provider == "openai_compatible":
             return self._request_openai_compat_chat(
                 [
                     {"role": "system", "content": "You are a PCAP Sentry assistant. Answer clearly and concisely."},
@@ -5753,7 +5753,7 @@ class PCAPSentryApp:
         provider = self.llm_provider_var.get().strip().lower()
         if provider == "ollama":
             return self._request_ollama_label(stats, summary)
-        if provider == "openai_compat":
+        if provider == "openai_compatible":
             return self._request_openai_compat_label(stats, summary)
         raise ValueError(f"Unsupported LLM provider: {provider}")
 
@@ -6012,7 +6012,7 @@ class PCAPSentryApp:
             try:
                 if provider == "ollama":
                     return self._list_ollama_models(endpoint)
-                if provider == "openai_compat":
+                if provider == "openai_compatible":
                     return self._list_openai_compat_models(endpoint)
             except Exception:
                 pass
@@ -6220,7 +6220,7 @@ class PCAPSentryApp:
                 except Exception:
                     continue
                 if model_id:
-                    return {"provider": "openai_compat", "endpoint": base, "model": model_id}
+                    return {"provider": "openai_compatible", "endpoint": base, "model": model_id}
             return None
 
         def apply_result(result):
@@ -6311,7 +6311,7 @@ class PCAPSentryApp:
                     messagebox.showerror(
                         "LLM Test",
                         "LLM test failed with 404. The endpoint looks OpenAI-compatible.\n\n"
-                        "Try setting LLM provider to 'openai_compat'.",
+                        "Try setting LLM provider to 'openai_compatible'.",
                     )
                     return
 
