@@ -713,22 +713,22 @@ begin
     False, False);
 
   { Build labels with installed status }
-  OllamaLabel := 'Ollama — CLI-based runtime, best headless ' +
-    'support (' + FormatSizeMB(OllamaRuntimeSizeMB) + ')';
+  OllamaLabel := 'Ollama — Runs headless, no desktop app needed ' +
+    '(' + FormatSizeMB(OllamaRuntimeSizeMB) + ')';
   if IsOllamaInstalled then
     OllamaLabel := OllamaLabel + '   [installed]';
 
-  LMSLabel := 'LM Studio — GUI app with OpenAI-compatible ' +
-    'API (~1.5 GB)';
+  LMSLabel := 'LM Studio — Desktop app required to run server ' +
+    '(~1.5 GB)';
   if IsLMStudioInstalled then
     LMSLabel := LMSLabel + '   [installed]';
 
-  GPT4AllLabel := 'GPT4All — Simple desktop LLM application ' +
+  GPT4AllLabel := 'GPT4All — Desktop app required to run server ' +
     '(~200 MB)';
   if IsGPT4AllInstalled then
     GPT4AllLabel := GPT4AllLabel + '   [installed]';
 
-  JanLabel := 'Jan — Open-source ChatGPT alternative (~400 MB)';
+  JanLabel := 'Jan — Desktop app required to run server (~400 MB)';
   if IsJanInstalled then
     JanLabel := JanLabel + '   [installed]';
 
