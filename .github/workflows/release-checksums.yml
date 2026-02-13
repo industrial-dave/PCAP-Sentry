@@ -39,7 +39,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p release-assets
-          gh release download "${{ steps.tag.outputs.tag }}" --dir release-assets
+          gh release download "${{ steps.tag.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --dir release-assets
 
       - name: Build SHA256SUMS
         shell: bash
@@ -55,4 +55,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ steps.tag.outputs.tag }}" "release-assets/SHA256SUMS.txt" --clobber
+          gh release upload "${{ steps.tag.outputs.tag }}" --repo "$GITHUB_REPOSITORY" "release-assets/SHA256SUMS.txt" --clobber
