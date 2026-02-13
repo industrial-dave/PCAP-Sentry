@@ -52,9 +52,10 @@ PCAP Sentry is a malware analysis console for network packet capture (PCAP) file
 | 🔑 | **Extracts credentials** from cleartext protocols (FTP, HTTP, Telnet, etc.) |
 | 🖧 | **Discovers hosts** including IP addresses, MAC addresses, and hostnames |
 | 🛡️ | **Detects C2 and exfiltration** patterns automatically |
+| 🔬 | **Behavioral anomaly detection** — beaconing, DNS tunneling, port scanning, SYN floods, data exfiltration |
 | 🦈 | **Generates Wireshark filters** for follow-up investigation |
-| 🌐 | **Queries threat intelligence feeds** for known-bad indicators |
-| 🧠 | **Learns from your data** via a trainable knowledge base and optional ML model |
+| 🌐 | **Concurrent threat intelligence** — queries OTX, URLhaus & AbuseIPDB in parallel with connection pooling |
+| 🧠 | **Learns from your data** via a trainable knowledge base and optional ML model (25-feature vector) |
 | 💬 | **Chat interface** powered by a local LLM (Ollama, offline) or OpenAI-compatible endpoint (local or cloud) |
 | ♻️ | **LLM status is saved and restored automatically** across sessions |
 | 🔒 | **Security hardened** with path-traversal guards, input sanitization, model-name validation, and response-size limits |
@@ -76,10 +77,35 @@ PCAP Sentry is a malware analysis console for network packet capture (PCAP) file
 |-------------|---------|-------------|
 | **OS** | Windows 10 (64-bit) | Windows 10/11 (64-bit) |
 | **RAM** | 4 GB | 8 GB or more |
-| **Disk Space** | 200 MB | 500 MB+ (for large KB/models) |
+| **Disk Space** | 200 MB | 1 GB+ (KB backups, ML model, updates, PCAP working copies) |
 | **Display** | 1280×720 | 1920×1080 or higher |
-| **Internet** | Optional | Recommended (for threat intel) |
+| **Internet** | Optional | Broadband (6 concurrent TI lookups, update checks) |
 | **Runtime** | VC++ Redistributable 2015+ | Included with installer |
+
+### Optimal System Requirements
+
+For the best experience — especially with large captures and local LLM:
+
+| Requirement | Optimal | Why |
+|-------------|---------|-----|
+| **OS** | Windows 11 (64-bit) | Best DPI scaling and Win32 support |
+| **CPU** | 4+ cores | Multithreaded analysis, 6 concurrent TI workers, behavioral heuristics |
+| **RAM** | 16 GB | High-memory mode loads full PCAP + pandas DataFrame + matplotlib charts. Large PCAPs (500 MB+) with LLM can peak at 10–12 GB |
+| **Disk** | 1 GB+ | App ~50 MB, but KB backups + ML model + update downloads + PCAP working copies add up |
+| **Display** | 1920×1080 | 4 main tabs + 5 result sub-tabs + charts window; lower res clips the UI |
+| **Network** | Broadband | 6 concurrent TI API calls + update checks + LLM cloud endpoints |
+
+### With Local LLM (Ollama)
+
+If using a local LLM, additional resources are needed on top of the base requirements:
+
+| Resource | Recommended | Notes |
+|----------|-------------|-------|
+| **RAM** | 16–32 GB | 7B models need ~5 GB, 14B models need ~10 GB, on top of app usage |
+| **GPU** | Optional | Ollama uses GPU if available for faster inference; not required |
+| **Disk** | +4–10 GB per model | Each model is downloaded and stored locally |
+
+> **Note:** GPU is **not** needed for PCAP analysis itself — the LogisticRegression classifier is CPU-only and matplotlib renders to bitmap. SSD vs. HDD also makes little difference since parsing is CPU-bound, not I/O-bound.
 
 ### For Running from Source (Developers)
 
@@ -228,9 +254,10 @@ The header bar displays:
 4. **Analysis phases:**
    - **Parsing** — Reads packets using turbo parse (fast raw bytes) or Scapy
    - **Credential extraction** — Scans for cleartext authentication data
-   - **Feature extraction** — Computes network behavior metrics
+   - **Feature extraction** — Computes 25 network behavior metrics
+   - **Behavioral heuristics** — Detects beaconing, DNS tunneling, port scanning, data exfiltration, and SYN floods
    - **Scoring** — Compares against the knowledge base using heuristics
-   - **Threat intelligence** — Queries online feeds (if enabled)
+   - **Threat intelligence** — Concurrent queries against online feeds (if enabled)
    - **ML classification** — Runs the local model (if enabled)
 
 5. **Review results** across the five sub-tabs (see [Understanding Results](#7-understanding-results)).
@@ -280,6 +307,7 @@ Provides the analytical reasoning behind the verdict:
 
 - **Evidence breakdown** — Lists specific indicators that contributed to the score
 - **Heuristic signals** — Details each detection trigger and its weight
+- **Behavioral anomalies** — Summarizes detected patterns (beaconing, DNS tunneling, port scanning, data exfiltration, SYN floods, malware port usage)
 - **Wireshark filter generation** — Auto-generates display filters you can paste directly into Wireshark
 - **Copy Wireshark Filters** button — Copies all generated filters to the clipboard
 
@@ -445,10 +473,11 @@ PCAP Sentry integrates with free, public threat intelligence sources to enhance 
 
 During analysis, PCAP Sentry:
 
-1. **Extracts network indicators** — IPs, domains, and URLs from the capture
-2. **Queries threat feeds** — Checks the top 10 IPs and domains against public databases
-3. **Scores indicators** — Each indicator receives a risk score (0–100)
-4. **Displays findings** — Flagged indicators appear in the Results and Why tabs
+1. **Extracts network indicators** — IPs, domains (DNS, HTTP hosts, and TLS SNI), and URLs from the capture
+2. **Filters out private/bogon IPs** — Skips RFC-1918, loopback, link-local, and multicast addresses that have no public reputation data
+3. **Queries threat feeds concurrently** — Checks up to 20 IPs and 20 domains in parallel using a thread pool (up to 6 workers)
+4. **Scores indicators** — Each indicator receives a risk score (0–100)
+5. **Displays findings** — Flagged indicators appear in the Results and Why tabs
 
 ### Threat Intelligence Results
 
@@ -471,9 +500,13 @@ Flagged Domains (from public threat feeds):
 
 ### Performance Notes
 
+- All IP and domain lookups run concurrently using a thread pool (up to 6 workers)
+- Within each lookup, sub-queries (e.g., OTX + AbuseIPDB) also run in parallel
+- Private/bogon IPs are filtered before any network call, avoiding wasted requests
+- HTTP connection pooling with keep-alive reduces TCP/TLS overhead
 - Results are cached for 1 hour to reduce API calls
-- Individual lookups time out after 5 seconds
-- Only the top 10 IPs and domains are queried per analysis
+- Timeouts: 2-second connect, 3-second read (fast failure on degraded APIs)
+- Up to 20 IPs and 20 domains are queried per analysis
 - Internet connectivity is required (disable via Offline Mode if unavailable)
 
 ### Disabling Threat Intelligence
@@ -508,15 +541,17 @@ PCAP Sentry includes an optional local machine learning model for supplemental m
 
 ### Feature Set
 
-The model trains on 50+ features including:
+The model trains on 25 features across several categories:
 
-| Category | Example Features |
-|----------|-----------------|
-| **Network metrics** | Packet count, average packet size, protocol ratios |
-| **DNS behavior** | Query count, unique domains |
+| Category | Features |
+|----------|----------|
+| **Network metrics** | Packet count, avg packet size, median packet size, protocol ratios (TCP, UDP, other) |
+| **DNS behavior** | Query count, unique domains, DNS-per-packet ratio |
 | **HTTP behavior** | Request count, unique hosts |
-| **Port usage** | Top destination ports |
-| **Threat intel** | Flagged IP/domain counts, average risk scores |
+| **TLS behavior** | TLS packet count, unique TLS SNI names |
+| **Host diversity** | Unique source IPs, unique destination IPs, bytes per unique destination |
+| **Port usage** | Malware/C2 port hits (4444, 5555, 1337, 31337, etc.) |
+| **Threat intel** | Flagged IP/domain counts, avg IP/domain risk scores |
 
 ### ML Verdict Output
 
@@ -901,13 +936,18 @@ PCAP Sentry can detect and analyze traffic involving:
 The analysis engine evaluates numerous heuristic signals including:
 
 - Unusual protocol distributions (e.g., high ratio of non-standard protocols)
-- Connections to known-bad ports (e.g., 4444, 1337, 31337)
+- Connections to known malware/C2 ports (e.g., 4444, 5555, 6666–6669, 1337, 31337, 8443, 9001–9003)
 - Excessive DNS queries or DNS to unusual TLDs
+- **DNS tunneling** detection (high unique-query-to-packet ratios)
 - High outbound data volume relative to inbound
+- **Data exfiltration** detection (10:1+ outbound-to-inbound byte ratio)
 - Connections to many unique external hosts
-- Beaconing patterns (regular-interval connections)
+- **Beaconing** patterns (regular-interval connections with coefficient of variation < 0.25)
+- **Port scanning** detection (20+ destination ports from a single source)
+- **SYN flood/scan** detection (high SYN count with low established connections)
 - Large file transfers to external IPs
 - Cleartext credential transmission
+- Beacon-like flows (high packet count with small average payload)
 
 ### D. File Locations Reference
 

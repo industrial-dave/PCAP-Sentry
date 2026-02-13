@@ -1,6 +1,40 @@
 # Version Log
 
 
+## 2026.02.13-30 - 2026-02-13
+
+### Detection Accuracy Improvements
+- Expanded ML feature vector from 13 to 25 dimensions (median size, TLS metrics, host diversity, malware port hits, DNS-per-packet ratio, bytes-per-unique-dest)
+- Added `MALWARE_PORTS` constant (~30 known C2/backdoor ports: 4444, 5555, 6666–6669, 1337, 31337, etc.)
+- New `detect_behavioral_anomalies()` engine: beaconing (CV < 0.25), DNS tunneling, port scanning (20+ dst ports), data exfiltration (10:1 ratio), SYN flood/scan detection
+- `detect_suspicious_flows()` now flags malware/C2 ports and beacon-like patterns (high pkt count + small payload)
+- Rebalanced risk scoring weights (classifier 0.35, IoC 0.25, anomaly 0.20, behavioral 0.20) with hard escalation floors
+- Behavioral findings displayed in Results and Why tabs under new "[D] BEHAVIORAL HEURISTICS" section
+- Wireshark filter generation prioritizes malware port filters
+- Packet hints flag known malware/C2 ports with ⚠ marker
+- Updated `enhanced_ml_trainer.py` vectorizer to match expanded 25-feature set
+
+### Threat Intelligence Speed Optimization
+- All IP and domain lookups now run concurrently via ThreadPoolExecutor (up to 6 workers)
+- Sub-queries within each lookup (OTX + AbuseIPDB, OTX + URLhaus) also run in parallel
+- Added HTTP connection pooling with keep-alive (requests.Session, pool_connections=8, pool_maxsize=12)
+- Shortened timeouts from 5s flat to 2s connect + 3s read for faster failure on degraded APIs
+- Private/bogon IPs filtered before any network call via `_is_routable_ip()` (ipaddress.is_global)
+- TLS SNI domains now included in threat intelligence domain checks
+- Increased IP/domain query limits from 10 to 20 each (feasible due to concurrency)
+- Added timing diagnostics (`[TIMING]` log line with elapsed time and worker count)
+
+### Cleanup
+- Removed unused directories: build/, logs/, logo_previews/, __pycache__/
+- Removed duplicate README.txt
+- Added logo_previews/ to .gitignore
+
+### Documentation
+- Updated README.md, USER_MANUAL.md, and VERSION_LOG.md to reflect all changes
+- Updated feature descriptions, analysis phase list, threat intelligence performance notes
+- Updated ML feature set documentation (50+ → 25 specific features)
+- Expanded heuristic signals appendix with behavioral detection details
+
 ## 2026.02.13-29 - 2026-02-13
 
 ### Installer – Ollama Progress Overhaul
