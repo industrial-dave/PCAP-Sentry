@@ -184,9 +184,8 @@ class EnhancedMLTrainer:
         """Verify the HMAC-SHA256 signature of the model file."""
         hmac_file = self._hmac_path(model_path)
         if not os.path.exists(hmac_file):
-            # No HMAC file = legacy model; allow first load but re-sign
-            print("[SECURITY] No HMAC file found for model — allowing legacy load and re-signing.")
-            return True
+            print("[SECURITY] No HMAC file found for model — refusing to load. Please retrain.")
+            return False
         try:
             with open(hmac_file, "r", encoding="utf-8") as f:
                 expected = f.read().strip().lower()

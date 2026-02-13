@@ -1,6 +1,26 @@
 # Version Log
 
 
+## 2026.02.13-31 - 2026-02-13
+
+### Installer Fixes
+- **Fixed "invalid string length" runtime error** — Installer log file could grow unbounded during long Ollama model pulls; `LoadStringFromFile` now checks file size (2 MB cap), parses only the tail 2 KB for progress, and wraps reads in try-except
+- **Prevented Ollama desktop app from auto-launching** — Both winget and direct-download install paths now kill the desktop app immediately after install, remove the `Startup\Ollama.lnk` shortcut, and delete the registry Run key
+- **Added `StopOllamaHeadless` cleanup** — The headless `ollama.exe serve` process spawned for model pulls is now terminated after pulls complete
+- **Guaranteed post-install Ollama cleanup** — A final cleanup block always runs when Ollama was installed, regardless of whether models were selected
+
+### Application Exit Behavior
+- **LLM server shutdown prompt on close** — When closing PCAP Sentry with a local LLM server configured (Ollama, LM Studio, GPT4All, Jan, LocalAI, KoboldCpp), a dialog asks whether to stop the server; defaults to No to prevent accidental termination
+
+### Security Hardening
+- **HMAC integrity for GUI model loader** — `_save_local_model()` and `_load_local_model()` now sign and verify models with HMAC-SHA256 (matching `EnhancedMLTrainer` pattern); unsigned models are rejected
+- **Removed HMAC legacy bypass** — `EnhancedMLTrainer._verify_hmac()` no longer allows loading models with a missing `.hmac` file; users must retrain
+- **API key over HTTP blocked** — `_llm_http_request()` refuses to send API keys over plain `http://` to non-localhost endpoints with a clear error message
+- **Temp directory cleanup** — Downloaded installer temp directories are now cleaned up in `finally` blocks (`shutil.rmtree`) for both generic and Ollama installer paths
+
+### Documentation
+- Updated VERSION_LOG.md, README.md, README.txt, and USER_MANUAL.md
+
 
 ## 2025-06-19 — Security Hardening
 
