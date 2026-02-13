@@ -89,7 +89,7 @@ Description:
 1. **Check Phase**: App connects to GitHub via HTTPS
 2. **Version Comparison**: Current version vs. latest available
 3. **Download Phase**: If newer version exists, download to app data directory:
-   - Default location: `%APPDATA%\PCAP Sentry\updates\`
+   - Default location: `%LOCALAPPDATA%\PCAP_Sentry\updates\`
 4. **Installation Phase**: Launch the downloaded installer
 5. **Completion**: User completes installer wizard
 6. **Cleanup**: Keeps 3 most recent update files automatically
@@ -115,7 +115,7 @@ All errors are reported to the user with helpful messages.
 
 ## Update Directory Management
 
-Updates are stored in: `%APPDATA%\PCAP Sentry\updates\`
+Updates are stored in: `%LOCALAPPDATA%\PCAP_Sentry\updates\`
 
 Files are named with timestamp: `PCAP_Sentry_{version}_{timestamp}.exe`
 
@@ -170,7 +170,7 @@ When preparing a release:
 - Check that the installer is actually being launched (check Windows Task Manager)
 
 ### Can't find downloaded update
-- Check: `%APPDATA%\PCAP Sentry\updates\`
+- Check: `%LOCALAPPDATA%\PCAP_Sentry\updates\`
 - Files are named with timestamp
 
 ## Future Enhancements
