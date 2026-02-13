@@ -80,6 +80,7 @@ var
   SavedNextEnabled: Boolean;
   SavedCancelEnabled: Boolean;
   SavedWizardEnabled: Boolean;
+  CRLF: String;
 
 { ── Win32 API imports ────────────────────────────────────────── }
 
@@ -544,9 +545,9 @@ begin
 
   { No reliable direct download URL - show manual message }
   MsgBox(
-    'LM Studio could not be installed automatically.' + #13#10 +
-    #13#10 + 'Please download it manually from:' + #13#10 +
-    'https://lmstudio.ai/download' + #13#10 + #13#10 +
+    'LM Studio could not be installed automatically.' + CRLF +
+    CRLF + 'Please download it manually from:' + CRLF +
+    'https://lmstudio.ai/download' + CRLF + CRLF +
     'After installing, open LM Studio to download models' +
     ' and start the server.',
     mbInformation, MB_OK);
@@ -609,9 +610,9 @@ begin
 
   { No reliable direct download URL - show manual message }
   MsgBox(
-    'Jan could not be installed automatically.' + #13#10 +
-    #13#10 + 'Please download it manually from:' + #13#10 +
-    'https://jan.ai/download' + #13#10 + #13#10 +
+    'Jan could not be installed automatically.' + CRLF +
+    CRLF + 'Please download it manually from:' + CRLF +
+    'https://jan.ai/download' + CRLF + CRLF +
     'After installing, open Jan to download models and' +
     ' start the API server.',
     mbInformation, MB_OK);
@@ -701,13 +702,14 @@ var
   OllamaLabel, LMSLabel, GPT4AllLabel, JanLabel: String;
   ModelsLink: TNewStaticText;
 begin
+  CRLF := Chr(13) + Chr(10);
   { ── LLM Server Selection Page ─── }
   LLMServerPage := CreateInputOptionPage(
     wpSelectTasks,
     'LLM Server Setup (Optional)',
     'Install local LLM servers for AI-powered packet analysis',
     'Select servers to install. PCAP Sentry can use any of these ' +
-    'for AI-powered analysis.' + #13#10 +
+    'for AI-powered analysis.' + CRLF +
     'All selections are optional — servers can also be ' +
     'installed later.',
     False, False);
@@ -743,7 +745,7 @@ begin
     'Ollama Models',
     'Select Ollama models to download',
     'Choose one or more models to pull after Ollama is installed.' +
-    #13#10 + 'You can also download models later using: ' +
+    CRLF + 'You can also download models later using: ' +
     'ollama pull <model>',
     False, False);
 
@@ -812,9 +814,9 @@ begin
     begin
       if MsgBox(
           'No models selected. Ollama will be installed ' +
-          'without models.' + #13#10 +
+          'without models.' + CRLF +
           'You can download models later using: ' +
-          'ollama pull <model>' + #13#10 + #13#10 +
+          'ollama pull <model>' + CRLF + CRLF +
           'Continue without selecting models?',
           mbConfirmation, MB_YESNO) = IDNO then
       begin
@@ -834,10 +836,10 @@ begin
       begin
         MsgBox(
           'Not enough free space for Ollama and ' +
-          'selected models.' + #13#10 +
-          'Required: ' + FormatSizeMB(RequiredMB) + #13#10 +
+          'selected models.' + CRLF +
+          'Required: ' + FormatSizeMB(RequiredMB) + CRLF +
           'Free: ' + FormatSizeMB(
-            Round(FreeBytes / 1024 / 1024)) + #13#10 +
+            Round(FreeBytes / 1024 / 1024)) + CRLF +
           'Please free up space or deselect some models.',
           mbError, MB_OK);
         Result := False;
@@ -896,7 +898,7 @@ begin
           '/' + IntToStr(TotalSteps) + ') ...',
           CurrentStep - 1, TotalSteps);
         if not InstallOllamaServer(CurrentStep, TotalSteps) then
-          ServersFailed := ServersFailed + '  - Ollama' + #13#10;
+          ServersFailed := ServersFailed + '  - Ollama' + CRLF;
         CurrentStep := CurrentStep + 1;
       end;
 
@@ -909,7 +911,7 @@ begin
         if not InstallLMStudioServer(
             CurrentStep, TotalSteps) then
           ServersFailed := ServersFailed +
-            '  - LM Studio' + #13#10;
+            '  - LM Studio' + CRLF;
         CurrentStep := CurrentStep + 1;
       end;
 
@@ -922,7 +924,7 @@ begin
         if not InstallGPT4AllServer(
             CurrentStep, TotalSteps) then
           ServersFailed := ServersFailed +
-            '  - GPT4All' + #13#10;
+            '  - GPT4All' + CRLF;
         CurrentStep := CurrentStep + 1;
       end;
 
@@ -934,7 +936,7 @@ begin
           CurrentStep - 1, TotalSteps);
         if not InstallJanServer(CurrentStep, TotalSteps) then
           ServersFailed := ServersFailed +
-            '  - Jan' + #13#10;
+            '  - Jan' + CRLF;
         CurrentStep := CurrentStep + 1;
       end;
 
@@ -952,7 +954,7 @@ begin
         begin
           MsgBox(
             'One or more Ollama model downloads failed.' +
-            #13#10 +
+            CRLF +
             'You can retry later: ollama pull <model>',
             mbError, MB_OK);
         end;
@@ -968,21 +970,21 @@ begin
          IsLMStudioInstalled then
         Guidance := Guidance +
           'LM Studio: Open app > Search for a model > ' +
-          'Download > Start Server' + #13#10 + #13#10;
+          'Download > Start Server' + CRLF + CRLF;
       if LLMServerPage.Values[IDX_GPT4ALL] and
          IsGPT4AllInstalled then
         Guidance := Guidance +
           'GPT4All: Open app > Models tab > Download ' +
-          'a model > Enable API Server' + #13#10 + #13#10;
+          'a model > Enable API Server' + CRLF + CRLF;
       if LLMServerPage.Values[IDX_JAN] and
          IsJanInstalled then
         Guidance := Guidance +
           'Jan: Open app > Hub > Download a model > ' +
-          'Start Local API Server' + #13#10 + #13#10;
+          'Start Local API Server' + CRLF + CRLF;
       if Guidance <> '' then
         MsgBox(
           'To use the installed servers, download models ' +
-          'through their apps:' + #13#10 + #13#10 +
+          'through their apps:' + CRLF + CRLF +
           Guidance +
           'Then select the server in PCAP Sentry ' +
           'Preferences.',
@@ -992,7 +994,7 @@ begin
       if ServersFailed <> '' then
         MsgBox(
           'The following servers could not be installed:' +
-          #13#10 + ServersFailed + #13#10 +
+          CRLF + ServersFailed + CRLF +
           'You can install them manually later.',
           mbInformation, MB_OK);
 
@@ -1021,7 +1023,7 @@ begin
   if LLMInProgress then
   begin
     if MsgBox(
-        'Cancel LLM server setup?' + #13#10 +
+        'Cancel LLM server setup?' + CRLF +
         'Downloads will be stopped and installations ' +
         'may be incomplete.',
         mbConfirmation, MB_YESNO) = IDYES then
@@ -1068,10 +1070,10 @@ begin
     begin
       KeepKB := MsgBox(
         'Do you want to keep your trained Knowledge ' +
-        'Base data?' + #13#10 + #13#10 +
+        'Base data?' + CRLF + CRLF +
         'If you plan to reinstall later, choosing Yes ' +
         'will preserve your training data so you do not ' +
-        'have to retrain.' + #13#10 + #13#10 +
+        'have to retrain.' + CRLF + CRLF +
         'Choose No to remove ALL application data.',
         mbConfirmation, MB_YESNO);
 
