@@ -97,9 +97,13 @@ Description:
 ## Security Considerations
 
 - **HTTPS Only**: All GitHub API calls use HTTPS with SSL verification
+- **SHA-256 Verification**: Downloaded executables are verified against the release's `SHA256SUMS.txt` before execution; mismatches abort the update
+- **Download Size Limit**: Downloads are capped at 500 MB and API responses at 5 MB to prevent disk-fill or memory-exhaustion attacks
+- **URL Domain Validation**: Only download URLs from `github.com` / `*.github.com` domains are accepted
+- **CMD Path Sanitization**: Paths embedded in the update batch script are sanitized to prevent command injection via special characters
 - **No Auto-Update**: Updates require user confirmation (no silent updates)
 - **Installer Trust**: Updates are launched as installers when available
-- **Backup**: Before replacing executables, a `.backup` file is created
+- **Backup**: Before replacing executables, a `.backup` file is created; the knowledge base is also backed up automatically
 - **Sandboxed Download**: Updates are downloaded to app data directory, not system paths
 
 ## Error Handling

@@ -18,7 +18,7 @@ Features
 - Concurrent threat intelligence lookups (AlienVault OTX, URLhaus, AbuseIPDB)
 - Trainable knowledge base and optional ML model (25-feature vector)
 - Chat interface powered by a local LLM (Ollama) or OpenAI-compatible endpoint
-- Security hardened with input sanitization and response-size limits
+- Security hardened with SHA-256 download verification, HMAC model integrity, OS credential storage, input sanitization, and response-size limits
 
 System Requirements
 -------------------
