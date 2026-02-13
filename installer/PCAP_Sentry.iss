@@ -45,7 +45,7 @@ Name: "{commondesktop}\PCAP Sentry (GPU)"; Filename: "{app}\PCAP_Sentry_GPU.exe"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
-Name: "installollama"; Description: "Install Ollama (local LLM runtime) (~1.5 GB + models)"; GroupDescription: "Optional LLM setup:"; Flags: unchecked
+Name: "installollama"; Description: "Install/manage Ollama (local LLM runtime + models)"; GroupDescription: "Optional LLM setup:"; Flags: unchecked
 Name: "installcuda"; Description: "Install NVIDIA CUDA toolkit (for GPU acceleration)"; GroupDescription: "Optional GPU setup:"; Flags: unchecked
 
 [Run]
@@ -72,6 +72,7 @@ var
   OllamaSpaceNote: TNewStaticText;
   OllamaModelsHint: TNewStaticText;
   CudaSpaceNote: TNewStaticText;
+  OllamaRemoveModeCheck: TNewCheckBox;
   TasksClickHandlerSet: Boolean;
 
 function GetDiskFreeSpaceEx(lpDirectoryName: string; var FreeBytesAvailableToCaller, TotalNumberOfBytes, TotalNumberOfFreeBytes: Int64): Boolean;
@@ -122,6 +123,11 @@ begin
   end;
 end;
 
+function IsOllamaRemoveMode: Boolean;
+begin
+  Result := (OllamaRemoveModeCheck <> nil) and OllamaRemoveModeCheck.Checked;
+end;
+
 procedure UpdateOllamaSpaceNote;
 var
   RequiredMB: Integer;
@@ -133,6 +139,12 @@ begin
   if not WizardIsTaskSelected('installollama') then
   begin
     OllamaSpaceNote.Caption := 'Additional space for Ollama and models: not selected.';
+    exit;
+  end;
+
+  if IsOllamaRemoveMode then
+  begin
+    OllamaSpaceNote.Caption := 'Model action: remove selected models (this can free disk space).';
     exit;
   end;
 
@@ -185,9 +197,9 @@ begin
   OllamaModelsPage := CreateInputOptionPage(
     wpSelectTasks,
     'Ollama Models',
-    'Select models to download',
-    'Choose one or more Ollama models to download after installation.' + #13#10 +
-    'Sizes are approximate and require an internet connection.',
+    'Select models to install/update or remove',
+    'Choose one or more Ollama models.' + #13#10 +
+    'Default action installs/updates selected models; enable remove mode to uninstall selected models instead.',
     True,
     False
   );
@@ -224,7 +236,16 @@ begin
   OllamaModelsHint.Left := ScaleX(0);
   OllamaModelsHint.Top := ScaleY(0);
   OllamaModelsHint.Width := OllamaModelsPage.SurfaceWidth;
-  OllamaModelsHint.Caption := 'Models will be downloaded to your local app data folder.';
+  OllamaModelsHint.Caption := 'Selected models will be installed/updated unless remove mode is checked.';
+
+  OllamaRemoveModeCheck := TNewCheckBox.Create(WizardForm);
+  OllamaRemoveModeCheck.Parent := OllamaModelsPage.Surface;
+  OllamaRemoveModeCheck.Left := ScaleX(0);
+  OllamaRemoveModeCheck.Top := ScaleY(18);
+  OllamaRemoveModeCheck.Width := OllamaModelsPage.SurfaceWidth;
+  OllamaRemoveModeCheck.Caption := 'Remove selected models instead of install/update';
+  OllamaRemoveModeCheck.Checked := False;
+  OllamaRemoveModeCheck.OnClick := @HandleSelectionChange;
 
   UpdateOllamaSpaceNote;
   UpdateCudaSpaceNote;
@@ -274,6 +295,16 @@ begin
 
   if (OllamaModelsPage <> nil) and (CurPageID = OllamaModelsPage.ID) then
   begin
+    if not AnyOllamaModelSelected then
+    begin
+      MsgBox('Select at least one model, or uncheck the Ollama setup task.', mbError, MB_OK);
+      Result := False;
+      exit;
+    end;
+
+    if IsOllamaRemoveMode then
+      exit;
+
     RequiredMB := OllamaRuntimeSizeMB + GetSelectedOllamaModelsSizeMB;
     FreeBytes := GetFreeSpaceBytes(ExpandConstant('{localappdata}'));
     if (RequiredMB > 0) and (FreeBytes > 0) and (FreeBytes < Int64(RequiredMB) * 1024 * 1024) then
@@ -322,45 +353,183 @@ begin
   Result := Script;
 end;
 
-function BuildOllamaSetupScript: String;
+function CountSelectedOllamaModels: Integer;
 var
-  Script: String;
-  ModelsArray: String;
   I: Integer;
 begin
-  ModelsArray := '@()';
-  if AnyOllamaModelSelected then
+  Result := 0;
+  if OllamaModelsPage = nil then
+    exit;
+  for I := 0 to GetArrayLength(OllamaModelIds) - 1 do
   begin
-    ModelsArray := '@(';
-    for I := 0 to GetArrayLength(OllamaModelIds) - 1 do
-    begin
-      if OllamaModelsPage.Values[I] then
-      begin
-        if ModelsArray <> '@(' then
-          ModelsArray := ModelsArray + ', ';
-        ModelsArray := ModelsArray + '''' + OllamaModelIds[I] + '''';
-      end;
-    end;
-    ModelsArray := ModelsArray + ')';
+    if OllamaModelsPage.Values[I] then
+      Result := Result + 1;
+  end;
+end;
+
+function IsOllamaAvailable: Boolean;
+var
+  ResultCode: Integer;
+begin
+  if FileExists(ExpandConstant('{localappdata}\Programs\Ollama\ollama.exe')) then
+  begin
+    Result := True;
+    exit;
   end;
 
-  Script := '$ErrorActionPreference = ''Stop''' + #13#10 +
-    '$ollamaExe = Join-Path $env:LOCALAPPDATA ''Programs\Ollama\ollama.exe''' + #13#10 +
-    'if (-not (Test-Path $ollamaExe)) { $ollamaExe = ''ollama.exe'' }' + #13#10 +
-    'if (-not (Get-Command $ollamaExe -ErrorAction SilentlyContinue)) {' + #13#10 +
-    '  if (Get-Command winget -ErrorAction SilentlyContinue) {' + #13#10 +
-    '    winget install -e --id Ollama.Ollama -h | Out-Null' + #13#10 +
-    '  } else {' + #13#10 +
-    '    $installer = Join-Path $env:TEMP ''OllamaSetup.exe''' + #13#10 +
-    '    Invoke-WebRequest -Uri https://ollama.com/download/OllamaSetup.exe -OutFile $installer' + #13#10 +
-    '    Start-Process -Wait -FilePath $installer -ArgumentList ''/S''' + #13#10 +
-    '  }' + #13#10 +
-    '}' + #13#10 +
-    '$models = ' + ModelsArray + #13#10 +
-    'if ($models.Count -gt 0) {' + #13#10 +
-    '  foreach ($m in $models) { & $ollamaExe pull $m }' + #13#10 +
-    '}' + #13#10;
-  Result := Script;
+  if FileExists(ExpandConstant('{pf}\Ollama\ollama.exe')) then
+  begin
+    Result := True;
+    exit;
+  end;
+
+  Result :=
+    Exec(
+      ExpandConstant('{cmd}'),
+      '/C where ollama >nul 2>nul',
+      '',
+      SW_HIDE,
+      ewWaitUntilTerminated,
+      ResultCode
+    ) and (ResultCode = 0);
+end;
+
+procedure SetOllamaInstallProgress(const CaptionText: String; Position, MaxValue: Integer);
+begin
+  WizardForm.StatusLabel.Caption := CaptionText;
+  if MaxValue > 0 then
+  begin
+    WizardForm.ProgressGauge.Max := MaxValue;
+    if Position < 0 then
+      Position := 0;
+    if Position > MaxValue then
+      Position := MaxValue;
+    WizardForm.ProgressGauge.Position := Position;
+  end;
+  WizardForm.Update;
+end;
+
+function InstallOllamaRuntime: Boolean;
+var
+  ResultCode: Integer;
+  InstallerPath: String;
+begin
+  Result := True;
+  if IsOllamaAvailable then
+    exit;
+
+  if Exec(
+      'winget.exe',
+      'install -e --id Ollama.Ollama --accept-package-agreements --accept-source-agreements -h',
+      '',
+      SW_HIDE,
+      ewWaitUntilTerminated,
+      ResultCode
+    ) and (ResultCode = 0) then
+  begin
+    if IsOllamaAvailable then
+      exit;
+  end;
+
+  InstallerPath := ExpandConstant('{tmp}\OllamaSetup.exe');
+  if not Exec(
+      'powershell.exe',
+      '-NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri ''https://ollama.com/download/OllamaSetup.exe'' -OutFile ''' + InstallerPath + '''"',
+      '',
+      SW_HIDE,
+      ewWaitUntilTerminated,
+      ResultCode
+    ) then
+  begin
+    Result := False;
+    exit;
+  end;
+
+  if not Exec(
+      InstallerPath,
+      '/S',
+      '',
+      SW_HIDE,
+      ewWaitUntilTerminated,
+      ResultCode
+    ) or (ResultCode <> 0) then
+  begin
+    Result := False;
+    exit;
+  end;
+
+  Result := IsOllamaAvailable;
+end;
+
+function ApplySelectedOllamaModels(TotalSteps: Integer; RemoveMode: Boolean): Boolean;
+var
+  I: Integer;
+  ResultCode: Integer;
+  OllamaExe: String;
+  CurrentStep: Integer;
+  SelectedIndex: Integer;
+  SelectedCount: Integer;
+  ActionVerb: String;
+  ActionDoneVerb: String;
+  OllamaArgs: String;
+begin
+  Result := True;
+  if not AnyOllamaModelSelected then
+    exit;
+
+  OllamaExe := GetOllamaExePath;
+  CurrentStep := 1;
+  SelectedIndex := 0;
+  SelectedCount := CountSelectedOllamaModels;
+
+  if RemoveMode then
+  begin
+    ActionVerb := 'Removing';
+    ActionDoneVerb := 'Removed';
+  end
+  else
+  begin
+    ActionVerb := 'Downloading';
+    ActionDoneVerb := 'Downloaded';
+  end;
+
+  for I := 0 to GetArrayLength(OllamaModelIds) - 1 do
+  begin
+    if not OllamaModelsPage.Values[I] then
+      continue;
+
+    SelectedIndex := SelectedIndex + 1;
+    SetOllamaInstallProgress(
+      ActionVerb + ' Ollama model ' + IntToStr(SelectedIndex) + '/' + IntToStr(SelectedCount) + ': ' + OllamaModelIds[I] + ' ...',
+      CurrentStep,
+      TotalSteps
+    );
+
+    if RemoveMode then
+      OllamaArgs := 'rm ' + OllamaModelIds[I]
+    else
+      OllamaArgs := 'pull ' + OllamaModelIds[I];
+
+    if not Exec(
+        OllamaExe,
+        OllamaArgs,
+        '',
+        SW_HIDE,
+        ewWaitUntilTerminated,
+        ResultCode
+      ) or (ResultCode <> 0) then
+    begin
+      Result := False;
+      exit;
+    end;
+
+    CurrentStep := CurrentStep + 1;
+    SetOllamaInstallProgress(
+      ActionDoneVerb + ' Ollama model: ' + OllamaModelIds[I],
+      CurrentStep,
+      TotalSteps
+    );
+  end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
@@ -412,20 +581,95 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  ScriptPath: String;
-  ResultCode: Integer;
+  TotalSteps: Integer;
+  SelectedModels: Integer;
+  RemoveMode: Boolean;
 begin
   if CurStep = ssPostInstall then
   begin
     if WizardIsTaskSelected('installollama') then
     begin
-      ScriptPath := ExpandConstant('{tmp}\pcap_ollama_setup.ps1');
-      SaveStringToFile(ScriptPath, BuildOllamaSetupScript, False);
-      MsgBox(
-        'Ollama and selected models will install/download in the background after setup closes.' + #13#10 +
-        'You can continue using the installer while this runs.',
-        mbInformation, MB_OK);
-      Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -File "' + ScriptPath + '"', '', SW_HIDE, ewNoWait, ResultCode);
+      SelectedModels := CountSelectedOllamaModels;
+      TotalSteps := 1 + SelectedModels;
+      RemoveMode := IsOllamaRemoveMode;
+
+      if SelectedModels = 0 then
+        exit;
+
+      if RemoveMode then
+      begin
+        if not IsOllamaAvailable then
+        begin
+          MsgBox(
+            'Cannot remove models because Ollama is not installed.',
+            mbError,
+            MB_OK
+          );
+          exit;
+        end;
+
+        SetOllamaInstallProgress(
+          'Removing selected Ollama models ...',
+          0,
+          TotalSteps
+        );
+
+        SetOllamaInstallProgress(
+          'Ollama runtime ready (1/' + IntToStr(TotalSteps) + ')',
+          1,
+          TotalSteps
+        );
+
+        if not ApplySelectedOllamaModels(TotalSteps, True) then
+        begin
+          MsgBox(
+            'One or more model removals failed.' + #13#10 +
+            'You can retry manually in a terminal, for example: ollama rm llama3.2',
+            mbError,
+            MB_OK
+          );
+          exit;
+        end;
+
+        SetOllamaInstallProgress('Ollama model removal complete.', TotalSteps, TotalSteps);
+        exit;
+      end;
+
+      SetOllamaInstallProgress(
+        'Installing Ollama runtime (1/' + IntToStr(TotalSteps) + ') ...',
+        0,
+        TotalSteps
+      );
+
+      if not InstallOllamaRuntime then
+      begin
+        MsgBox(
+          'Ollama installation failed.' + #13#10 +
+          'You can install it later from https://ollama.com/download and then run model pulls manually.',
+          mbError,
+          MB_OK
+        );
+        exit;
+      end;
+
+      SetOllamaInstallProgress(
+        'Ollama runtime installed (1/' + IntToStr(TotalSteps) + ')',
+        1,
+        TotalSteps
+      );
+
+      if not ApplySelectedOllamaModels(TotalSteps, False) then
+      begin
+        MsgBox(
+          'One or more Ollama model downloads failed.' + #13#10 +
+          'You can retry manually in a terminal, for example: ollama pull llama3.2',
+          mbError,
+          MB_OK
+        );
+        exit;
+      end;
+
+      SetOllamaInstallProgress('Ollama setup complete.', TotalSteps, TotalSteps);
     end;
     if WizardIsTaskSelected('installcuda') then
     begin

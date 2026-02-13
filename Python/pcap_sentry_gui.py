@@ -3203,30 +3203,23 @@ class PCAPSentryApp:
                                 )
                         else:
                             # Standalone EXE – replace the currently running
-                            # executable in the program directory, then
-                            # relaunch from the correct location.
+                            # executable after app exit, then relaunch.
                             current_exe = sys.executable
                             if checker.replace_executable(dest_path, current_exe):
                                 messagebox.showinfo(
-                                    "Update Installed",
-                                    "The update has been installed successfully.\n\n"
-                                    "PCAP Sentry (GPU) will now restart.",
+                                    "Update Ready",
+                                    "The update will be applied after PCAP Sentry (GPU) closes.\n\n"
+                                    "PCAP Sentry (GPU) will now close and restart.",
                                 )
-                                try:
-                                    subprocess.Popen([current_exe])
-                                except Exception:
-                                    messagebox.showinfo(
-                                        "Restart",
-                                        f"Could not restart automatically.\n"
-                                        f"Please relaunch from:\n{current_exe}",
-                                    )
                                 self.root.quit()
                             else:
+                                reason = getattr(checker, "_last_error", None)
+                                reason_text = f"\nReason: {reason}\n" if reason else "\n"
                                 messagebox.showinfo(
                                     "Download Complete",
-                                    f"Could not replace the running executable.\n\n"
+                                    f"Could not apply the update automatically.{reason_text}\n"
                                     f"Update saved to:\n{dest_path}\n\n"
-                                    f"Please copy it manually to:\n{current_exe}",
+                                    f"Please install it manually.",
                                 )
                     self.root.after(0, on_success)
                 else:

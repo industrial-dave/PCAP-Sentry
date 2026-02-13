@@ -272,26 +272,63 @@ class UpdateChecker:
             current_exe_path = sys.executable
 
         try:
+            self._last_error = None
+
+            current_name = os.path.basename(current_exe_path).lower()
+            if (not getattr(sys, "frozen", False)) or current_name.startswith("python"):
+                self._last_error = (
+                    "Automatic replacement is unavailable when running from source/venv. "
+                    "Use the installer build for in-app updates."
+                )
+                return False
+
+            if not os.path.exists(new_exe_path):
+                self._last_error = f"Downloaded update not found: {new_exe_path}"
+                return False
+
             # Back up the knowledge base so user data is preserved
             self._backup_knowledge_base_before_update()
 
-            # Create a backup
             backup_path = current_exe_path + ".backup"
-            if os.path.exists(current_exe_path):
-                shutil.copy2(current_exe_path, backup_path)
+            script_path = os.path.join(self.get_update_dir(), "apply_update.cmd")
+            script_lines = [
+                "@echo off",
+                "setlocal",
+                f'set "NEW_EXE={new_exe_path}"',
+                f'set "CUR_EXE={current_exe_path}"',
+                f'set "BACKUP_EXE={backup_path}"',
+                "set RETRIES=30",
+                "",
+                ":retry",
+                "copy /Y \"%CUR_EXE%\" \"%BACKUP_EXE%\" >nul 2>&1",
+                "move /Y \"%NEW_EXE%\" \"%CUR_EXE%\" >nul 2>&1",
+                "if errorlevel 1 (",
+                "  set /a RETRIES-=1",
+                "  if %RETRIES% LEQ 0 goto fail",
+                "  timeout /t 1 /nobreak >nul",
+                "  goto retry",
+                ")",
+                "start \"\" \"%CUR_EXE%\"",
+                "del \"%~f0\"",
+                "exit /b 0",
+                "",
+                ":fail",
+                "exit /b 1",
+            ]
 
-            # Replace the executable
-            shutil.move(new_exe_path, current_exe_path)
+            with open(script_path, "w", encoding="utf-8", newline="\r\n") as f:
+                f.write("\r\n".join(script_lines) + "\r\n")
+
+            creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            subprocess.Popen(
+                ["cmd", "/c", script_path],
+                creationflags=creation_flags,
+            )
             return True
 
         except Exception as e:
+            self._last_error = str(e)
             print(f"Error replacing executable: {e}")
-            # Attempt to restore from backup
-            try:
-                if os.path.exists(backup_path) and not os.path.exists(current_exe_path):
-                    shutil.copy2(backup_path, current_exe_path)
-            except Exception as restore_err:
-                print(f"Error restoring backup: {restore_err}")
             return False
 
     def cleanup_old_updates(self, keep_count: int = 0) -> None:

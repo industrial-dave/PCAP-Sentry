@@ -10,11 +10,11 @@
 
 
 
-
-
-
 ## 2026.02.13-14 - 2026-02-13
-- Minor tweaks and improvements
+- Added deferred in-app standalone update replacement with clearer failure reasons.
+- Added installer progress for Ollama runtime install and per-model actions.
+- Added installer model management mode to install/update or remove selected Ollama models.
+- Updated updater and user manuals for new update and model-management behavior.
 ## 2026.02.13-13 - 2026-02-13
 - Minor tweaks and improvements
 ## 2026.02.13-12 - 2026-02-13
