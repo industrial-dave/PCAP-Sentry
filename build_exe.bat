@@ -4,16 +4,23 @@ setlocal enabledelayedexpansion
 REM Build a self-contained EXE using PyInstaller.
 REM Run from repo root after activating your Python environment.
 REM Optional: pass -NoPush to skip git commit/push.
+REM Optional: pass -NoBump to skip version update (use current version).
 REM Optional: pass -Notes "your notes here" to set release notes / What's New.
 REM   If omitted, defaults to "Minor tweaks and improvements".
 
 set "NO_PUSH="
+set "NO_BUMP="
 set "BUILD_NOTES=Minor tweaks and improvements"
 
 :parse_args
 if "%~1"=="" goto :args_done
 if /I "%~1"=="-NoPush" (
 	set "NO_PUSH=1"
+	shift
+	goto :parse_args
+)
+if /I "%~1"=="-NoBump" (
+	set "NO_BUMP=1"
 	shift
 	goto :parse_args
 )
@@ -36,13 +43,17 @@ set "PYTHONWARNINGS=ignore:Core Pydantic V1 functionality isn't compatible with 
 echo.>> "%LOG_PATH%"
 echo ==== Build started %DATE% %TIME% ====>> "%LOG_PATH%"
 
-REM Update version before build
-echo ==== Updating Version ====>> "%LOG_PATH%"
-echo Build Notes: !BUILD_NOTES!>> "%LOG_PATH%"
-powershell -NoProfile -ExecutionPolicy Bypass -File "update_version.ps1" -BuildNotes "!BUILD_NOTES!" >> "%LOG_PATH%" 2>&1
-if errorlevel 1 (
-	echo Failed to update version. See %LOG_PATH% for details.
-	exit /b 1
+REM Update version before build (unless -NoBump is set)
+if defined NO_BUMP (
+	echo ==== Skipping Version Update (-NoBump) ====>> "%LOG_PATH%"
+) else (
+	echo ==== Updating Version ====>> "%LOG_PATH%"
+	echo Build Notes: !BUILD_NOTES!>> "%LOG_PATH%"
+	powershell -NoProfile -ExecutionPolicy Bypass -File "update_version.ps1" -BuildNotes "!BUILD_NOTES!" >> "%LOG_PATH%" 2>&1
+	if errorlevel 1 (
+		echo Failed to update version. See %LOG_PATH% for details.
+		exit /b 1
+	)
 )
 echo ==== System Info ====>> "%LOG_PATH%"
 ver >> "%LOG_PATH%" 2>&1
@@ -102,8 +113,7 @@ if errorlevel 1 (
 
 echo ==== Creating GitHub Release v%VERSION% ====>> "%LOG_PATH%"
 echo Release Notes: !BUILD_NOTES!>> "%LOG_PATH%"
-gh release create "v%VERSION%" "dist\PCAP_Sentry.exe" --title "PCAP Sentry v%VERSION%" --notes "## What's New
-!BUILD_NOTES!" >> "%LOG_PATH%" 2>&1
+gh release create "v%VERSION%" "dist\PCAP_Sentry.exe" --title "PCAP Sentry v%VERSION%" --notes "What's New: !BUILD_NOTES!" >> "%LOG_PATH%" 2>&1
 if errorlevel 1 (
 	echo Warning: Failed to create GitHub release. See %LOG_PATH% for details.
 ) else (
