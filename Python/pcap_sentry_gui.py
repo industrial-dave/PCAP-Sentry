@@ -2277,7 +2277,7 @@ class PCAPSentryApp:
         self.llm_provider_var = tk.StringVar(value=self.settings.get("llm_provider", "disabled"))
         self.llm_model_var = tk.StringVar(value=self.settings.get("llm_model", "llama3"))
         self.llm_endpoint_var = tk.StringVar(value=self.settings.get("llm_endpoint", "http://localhost:11434"))
-        self.stop_ollama_on_exit_var = tk.BooleanVar(value=self.settings.get("stop_ollama_on_exit", False))
+        self.stop_ollama_on_exit_var = tk.BooleanVar(value=self.settings.get("stop_ollama_on_exit", True))
         self.llm_test_status_var = tk.StringVar(value="Not tested")
         self.llm_test_status_label = None
         self.llm_header_indicator = None
@@ -2943,7 +2943,7 @@ class PCAPSentryApp:
         self.llm_provider_var.set(defaults.get("llm_provider", "disabled"))
         self.llm_model_var.set(defaults.get("llm_model", "llama3"))
         self.llm_endpoint_var.set(defaults.get("llm_endpoint", "http://localhost:11434"))
-        self.stop_ollama_on_exit_var.set(defaults.get("stop_ollama_on_exit", False))
+        self.stop_ollama_on_exit_var.set(defaults.get("stop_ollama_on_exit", True))
         self.theme_var.set(defaults["theme"])
         self._save_settings_from_vars()
 
