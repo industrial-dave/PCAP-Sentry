@@ -3,14 +3,14 @@
 #define IncludeVCRedist
 #endif
 
-#define AppVer "2026.02.13-30"
+#define AppVer "2026.02.13-31"
 
 [Setup]
 AppId={{91EFC8EF-E9F8-42FC-9D82-479C14FBE67D}
 AppName=PCAP Sentry
 AppVersion={#AppVer}
 AppVerName=PCAP Sentry {#AppVer}
-VersionInfoVersion=2026.2.13.30
+VersionInfoVersion=2026.2.13.31
 AppPublisher=industrial-dave
 AppSupportURL=https://github.com/industrial-dave/PCAP-Sentry
 DefaultDirName={autopf}\PCAP Sentry
@@ -127,6 +127,32 @@ begin
     Result := 0;
 end;
 
+function GetLogFileSizeBytes(const Path: String): Integer;
+var
+  FindRec: TFindRec;
+begin
+  Result := 0;
+  if FindFirst(Path, FindRec) then
+  begin
+    Result := FindRec.SizeLow;
+    FindClose(FindRec);
+  end;
+end;
+
+function SafeTailOfString(const S: AnsiString;
+  MaxLen: Integer): String;
+var
+  Start: Integer;
+begin
+  if Length(S) <= MaxLen then
+    Result := S
+  else
+  begin
+    Start := Length(S) - MaxLen + 1;
+    Result := Copy(S, Start, MaxLen);
+  end;
+end;
+
 procedure UpdateLastLog(const LogText: String);
 begin
   if LastLLMLogPath = '' then
@@ -196,6 +222,32 @@ begin
   Exec(ExpandConstant('{cmd}'),
     '/C taskkill /F /T /IM "Ollama app.exe" >nul 2>nul',
     '', SW_HIDE, ewWaitUntilTerminated, RC);
+end;
+
+procedure StopOllamaHeadless;
+var
+  RC: Integer;
+begin
+  Exec(ExpandConstant('{cmd}'),
+    '/C taskkill /F /IM "ollama.exe" >nul 2>nul',
+    '', SW_HIDE, ewWaitUntilTerminated, RC);
+end;
+
+procedure DisableOllamaAutoStart;
+var
+  StartupLink: String;
+  RC: Integer;
+begin
+  { Remove startup shortcut that Ollama installer creates }
+  StartupLink := ExpandConstant(
+    '{userappdata}\Microsoft\Windows\Start Menu\Programs' +
+    '\Startup\Ollama.lnk');
+  if FileExists(StartupLink) then
+    DeleteFile(StartupLink);
+  { Also remove registry auto-start entry if present }
+  RegDeleteValue(HKEY_CURRENT_USER,
+    'Software\Microsoft\Windows\CurrentVersion\Run',
+    'Ollama');
 end;
 
 procedure EnsureOllamaHeadlessRunning;
@@ -377,7 +429,7 @@ function RunCommandWithProgress(
   UseOutputProgress: Boolean;
   var ResultCode: Integer): Boolean;
 var
-  WrappedCommand, LogFile, CaptionText, LastSizeText: String;
+  WrappedCommand, LogFile, CaptionText, LastSizeText, LogTail: String;
   LogText: AnsiString;
   ExitCode: Cardinal;
   PulsePosition, Percent, LastPercent: Integer;
@@ -419,32 +471,38 @@ begin
       Abort;
     end;
 
-    if UseOutputProgress and FileExists(LogFile) then
+    if UseOutputProgress and FileExists(LogFile) and
+       (GetLogFileSizeBytes(LogFile) < 2 * 1024 * 1024) then
     begin
-      if LoadStringFromFile(LogFile, LogText) then
-      begin
-        UpdateLastLog(LogText);
-        if TryExtractSizeProgressFromText(LogText,
-            CurrentMB, TotalMB) then
+      try
+        if LoadStringFromFile(LogFile, LogText) then
         begin
-          CaptionText := WaitCaption + ' (' +
-            IntToStr(CurrentMB) + ' MB / ' +
-            IntToStr(TotalMB) + ' MB)';
-          if CaptionText <> LastSizeText then
+          UpdateLastLog(LogText);
+          LogTail := SafeTailOfString(LogText, 2048);
+          if TryExtractSizeProgressFromText(LogTail,
+              CurrentMB, TotalMB) then
           begin
-            WizardForm.StatusLabel.Caption := CaptionText;
-            LastSizeText := CaptionText;
+            CaptionText := WaitCaption + ' (' +
+              IntToStr(CurrentMB) + ' MB / ' +
+              IntToStr(TotalMB) + ' MB)';
+            if CaptionText <> LastSizeText then
+            begin
+              WizardForm.StatusLabel.Caption := CaptionText;
+              LastSizeText := CaptionText;
+            end;
+          end
+          else if TryExtractPercentFromText(LogTail, Percent)
+                  and (Percent <> LastPercent) then
+          begin
+            WizardForm.ProgressGauge.Position :=
+              BasePosition * 100 + Percent;
+            WizardForm.StatusLabel.Caption :=
+              WaitCaption + ' (' + IntToStr(Percent) + '%)';
+            LastPercent := Percent;
           end;
-        end
-        else if TryExtractPercentFromText(LogText, Percent) and
-                (Percent <> LastPercent) then
-        begin
-          WizardForm.ProgressGauge.Position :=
-            BasePosition * 100 + Percent;
-          WizardForm.StatusLabel.Caption :=
-            WaitCaption + ' (' + IntToStr(Percent) + '%)';
-          LastPercent := Percent;
         end;
+      except
+        { Log file too large or unreadable; skip progress }
       end;
     end
     else
@@ -498,7 +556,16 @@ begin
   { Try winget first }
   if InstallServerViaWinget('Ollama.Ollama',
       'Installing Ollama', Step, TotalSteps) then
-    if IsOllamaInstalled then exit;
+    if IsOllamaInstalled then
+    begin
+      { Winget install also auto-launches the desktop app }
+      Sleep(1500);
+      EnsureOllamaDesktopNotRunning;
+      Sleep(500);
+      EnsureOllamaDesktopNotRunning;
+      DisableOllamaAutoStart;
+      exit;
+    end;
 
   { Fallback: direct download }
   InstallerPath := ExpandConstant('{tmp}\OllamaSetup.exe');
@@ -532,6 +599,17 @@ begin
     Step - 1, TotalSteps, False, RC) and (RC = 0);
   if Result then
     Result := IsOllamaInstalled;
+
+  { Ollama installer auto-launches the desktop app — kill it
+    and disable auto-start so it runs headless only }
+  if Result then
+  begin
+    Sleep(1500);
+    EnsureOllamaDesktopNotRunning;
+    Sleep(500);
+    EnsureOllamaDesktopNotRunning;
+    DisableOllamaAutoStart;
+  end;
 end;
 
 function InstallLMStudioServer(Step, TotalSteps: Integer): Boolean;
@@ -958,7 +1036,16 @@ begin
             'You can retry later: ollama pull <model>',
             mbError, MB_OK);
         end;
+        StopOllamaHeadless;
         EnsureOllamaDesktopNotRunning;
+      end;
+
+      { ── Always clean up Ollama processes/auto-start ─── }
+      if LLMServerPage.Values[IDX_OLLAMA] and
+         IsOllamaInstalled then
+      begin
+        EnsureOllamaDesktopNotRunning;
+        DisableOllamaAutoStart;
       end;
 
       SetLLMProgress('LLM server setup complete.',

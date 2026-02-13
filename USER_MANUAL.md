@@ -58,7 +58,7 @@ PCAP Sentry is a malware analysis console for network packet capture (PCAP) file
 | 🧠 | **Learns from your data** via a trainable knowledge base and optional ML model (25-feature vector) |
 | 💬 | **Chat interface** powered by a local LLM (Ollama, offline) or OpenAI-compatible endpoint (local or cloud) |
 | ♻️ | **LLM status is saved and restored automatically** across sessions |
-| 🔒 | **Security hardened** with SHA-256 download verification, HMAC model integrity checks, OS credential storage (keyring), path-traversal guards, input sanitization, response-size limits, and CMD path sanitization |
+| 🔒 | **Security hardened** with SHA-256 download verification, HMAC model integrity checks, OS credential storage (keyring), path-traversal guards, input sanitization, response-size limits, CMD path sanitization, and API-key-over-HTTP protection |
 | ⚡ | **Optimized analysis engine** with cached vector computations, mask-based filtering, and centralized LLM retry logic |
 
 ### Who Is It For?
@@ -616,6 +616,8 @@ Open preferences via the **⚙ Preferences** button in the toolbar.
 
 Your LLM connection status (provider, model, endpoint) is now saved automatically when you close PCAP Sentry and restored on next launch. This ensures your LLM settings always default to your last-used configuration.
 
+When a local LLM server is configured (Ollama, LM Studio, GPT4All, Jan, LocalAI, or KoboldCpp), PCAP Sentry will prompt on exit asking whether to stop the server. This only appears for servers running on localhost. The default is **No** to prevent accidental termination of shared servers.
+
 ### Available Settings
 
 | Setting | Default | Description |
@@ -631,7 +633,7 @@ Your LLM connection status (provider, model, endpoint) is now saved automaticall
 | 🤖 **LLM provider** | Disabled | Select `disabled`, `ollama`, or `openai_compatible`. Auto-detected on startup if a local LLM server is found. |
 | 🧠 **LLM model** | llama3 | Model name dropdown — click **↻** to detect available models from the running server. You can also type a custom model name. |
 | 🔗 **LLM endpoint** | http://localhost:11434 | Base URL for the LLM API. For Ollama use `http://localhost:11434`. For OpenAI-compatible servers, use the server base URL (no `/v1` suffix). |
-| 🛑 **Stop Ollama on exit** | On | When enabled and using local Ollama, PCAP Sentry stops local Ollama processes on app close. |
+| 🛑 **Stop LLM server on exit** | Prompt | When closing PCAP Sentry with a local LLM server configured (Ollama, LM Studio, GPT4All, Jan, LocalAI, KoboldCpp), a dialog asks whether to stop the server. Defaults to No. |
 | 🧪 **Test Connection** | — | Sends a test request to verify the LLM is reachable with the current settings. Shows OK/FAIL status. |
 | �️ **Uninstall** | — | Removes the currently selected Ollama model from disk. Only available when provider is `ollama`. |
 | �📁 **Backup directory** | Default | Directory where KB backups are stored. |

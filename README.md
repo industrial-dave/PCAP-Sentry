@@ -31,7 +31,7 @@ PCAP Sentry parses network captures (`.pcap` / `.pcapng`), summarizes traffic st
 | 🧠 | **Learns from your data** via a trainable knowledge base and optional ML model (25-feature vector) |
 | 💬 | **Chat interface** powered by a local LLM (Ollama, offline) or OpenAI-compatible endpoint (local or cloud) |
 | ♻️ | **LLM status is now saved and restored automatically** |
-| 🔒 | **Security hardened** with SHA-256 download verification, HMAC model integrity, OS credential storage, path-traversal guards, input sanitization, and response-size limits |
+| 🔒 | **Security hardened** with SHA-256 download verification, HMAC model integrity, OS credential storage, path-traversal guards, input sanitization, response-size limits, and API-key-over-HTTP protection |
 | ⚡ | **Optimized analysis engine** with cached vector computations, mask-based filtering, and centralized LLM retry logic |
 
 ## Quick Start
@@ -45,8 +45,9 @@ PCAP Sentry parses network captures (`.pcap` / `.pcapng`), summarizes traffic st
 	- The page includes a link to the Ollama model library with descriptions.
 	- Installer progress is shown for runtime setup and each selected model.
 	- Ollama is started headless for model pulls; the desktop UI is not required.
-	- In Preferences, Stop Ollama on exit is enabled by default and can be changed.
+	- The installer kills the Ollama desktop app and disables auto-start after install.
 4. Launch PCAP Sentry from the Start Menu or desktop shortcut.
+5. On exit, PCAP Sentry will ask whether to stop any running local LLM server.
 
 Optional: download `pcap_knowledge_base_offline.json` from the [Releases](https://github.com/industrial-dave/PCAP-Sentry/releases) page and import it via **Knowledge Base** > **Restore** to use it as a starter KB.
 

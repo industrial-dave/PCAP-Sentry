@@ -1,5 +1,7 @@
 import base64
 import ctypes
+import hashlib
+import hmac
 import io
 import ipaddress
 import json
@@ -997,15 +999,67 @@ def _train_local_model(kb):
     }, None
 
 
+# Machine-specific HMAC key for model integrity verification.
+# Ensures models can only be loaded on the machine that created them.
+_MODEL_HMAC_KEY = hashlib.sha256(
+    f"{os.getenv('COMPUTERNAME', 'pcap')}-{os.getenv('USERNAME', 'sentry')}".encode()
+).digest()
+
+
+def _model_hmac_path():
+    return MODEL_FILE + ".hmac"
+
+
+def _write_model_hmac():
+    """Compute and write HMAC-SHA256 for the saved model file."""
+    h = hmac.new(_MODEL_HMAC_KEY, digestmod=hashlib.sha256)
+    with open(MODEL_FILE, "rb") as f:
+        while True:
+            chunk = f.read(65536)
+            if not chunk:
+                break
+            h.update(chunk)
+    with open(_model_hmac_path(), "w", encoding="utf-8") as f:
+        f.write(h.hexdigest())
+
+
+def _verify_model_hmac():
+    """Verify HMAC-SHA256 of the model file. Returns False if tampered or missing."""
+    hmac_file = _model_hmac_path()
+    if not os.path.exists(hmac_file):
+        return False
+    try:
+        with open(hmac_file, "r", encoding="utf-8") as f:
+            expected = f.read().strip().lower()
+        h = hmac.new(_MODEL_HMAC_KEY, digestmod=hashlib.sha256)
+        with open(MODEL_FILE, "rb") as f:
+            while True:
+                chunk = f.read(65536)
+                if not chunk:
+                    break
+                h.update(chunk)
+        return hmac.compare_digest(h.hexdigest().lower(), expected)
+    except Exception:
+        return False
+
+
 def _save_local_model(model_bundle):
     _joblib_dump, _joblib_load, DictVectorizer, LogisticRegression = _get_sklearn()
     _joblib_dump(model_bundle, MODEL_FILE)
+    try:
+        _write_model_hmac()
+    except Exception:
+        pass
 
 
 def _load_local_model():
     if not _check_sklearn() or not os.path.exists(MODEL_FILE):
         return None
-    
+
+    # Verify integrity before deserializing (pickle is dangerous with untrusted data)
+    if not _verify_model_hmac():
+        return None
+
     _joblib_dump, _joblib_load, DictVectorizer, LogisticRegression = _get_sklearn()
     try:
         meta = _joblib_load(MODEL_FILE)
@@ -2672,7 +2726,94 @@ class PCAPSentryApp:
         _backup_knowledge_base()
         # Persist LLM status and all settings
         self._save_settings_from_vars()
+
+        # Offer to stop a running local LLM server
+        self._maybe_stop_llm_server()
+
         self.root.destroy()
+
+    # ── Local-server process names keyed by display / provider id ──
+    _LOCAL_SERVER_PROCESS_MAP = {
+        "ollama":           (["ollama.exe", "ollama app.exe"],
+                             "Ollama"),
+        "lm studio":       (["lms.exe", "LM Studio.exe"],
+                             "LM Studio"),
+        "gpt4all":          (["chat.exe"],
+                             "GPT4All"),
+        "jan":              (["jan.exe", "Jan.exe"],
+                             "Jan"),
+        "localai":          (["local-ai.exe"],
+                             "LocalAI"),
+        "koboldcpp":        (["koboldcpp.exe"],
+                             "KoboldCpp"),
+        "text-gen-webui":   (["python.exe"],  # too generic – skip auto-kill
+                             "text-gen-webui"),
+        "vllm":             (["python.exe"],
+                             "vLLM"),
+    }
+
+    def _resolve_active_local_server(self):
+        """Return (process_names, display_name) for the currently configured
+        local LLM server, or *None* if the provider is disabled / cloud."""
+        provider = self.llm_provider_var.get().strip().lower()
+        endpoint = self.llm_endpoint_var.get().strip().lower()
+
+        if provider == "disabled" or not endpoint:
+            return None
+
+        # Cloud endpoints – nothing to stop
+        if not any(h in endpoint for h in ("localhost", "127.0.0.1", "0.0.0.0", "[::1]")):
+            return None
+
+        # Match by provider id first
+        if provider == "ollama":
+            return self._LOCAL_SERVER_PROCESS_MAP["ollama"]
+
+        # Match by endpoint port for openai_compatible providers
+        _PORT_MAP = {
+            "1234":  "lm studio",
+            "4891":  "gpt4all",
+            "1337":  "jan",
+            "8080":  "localai",
+            "5001":  "koboldcpp",
+        }
+        for port, key in _PORT_MAP.items():
+            if f":{port}" in endpoint:
+                return self._LOCAL_SERVER_PROCESS_MAP.get(key)
+
+        return None
+
+    def _maybe_stop_llm_server(self):
+        """If a local LLM server is active, ask the user whether to stop it."""
+        info = self._resolve_active_local_server()
+        if info is None:
+            return
+
+        process_names, display_name = info
+
+        # Don't offer to kill generic processes like python.exe
+        if all(p.lower() == "python.exe" for p in process_names):
+            return
+
+        answer = messagebox.askyesno(
+            "Stop LLM Server?",
+            f"{display_name} is configured as the active LLM server.\n\n"
+            f"Would you like to stop the {display_name} server as well?",
+            default=messagebox.NO,
+        )
+        if not answer:
+            return
+
+        for proc in process_names:
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/IM", proc],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except Exception:
+                pass
 
     def _get_window_title(self):
         """Generate window title with mode indicator"""
@@ -3864,6 +4005,15 @@ class PCAPSentryApp:
     @staticmethod
     def _llm_http_request(url, data, timeout=30, max_retries=2, api_key=""):
         """Send an HTTP POST to an LLM endpoint with automatic retry on transient errors."""
+        # Warn if sending API key over plain HTTP to a non-local endpoint
+        if api_key and url.lower().startswith("http://"):
+            from urllib.parse import urlparse
+            host = urlparse(url).hostname or ""
+            if host not in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+                raise RuntimeError(
+                    f"Refusing to send API key over unencrypted HTTP to remote host '{host}'.\n"
+                    "Please use an https:// endpoint for remote LLM servers."
+                )
         max_bytes = PCAPSentryApp._LLM_MAX_RESPONSE_BYTES
         last_exc = None
         for attempt in range(1 + max_retries):
@@ -6712,6 +6862,7 @@ class PCAPSentryApp:
 
             # Fallback: direct download if URL available
             if download_url and silent_flag:
+                tmp_dir = None
                 try:
                     tmp_dir = tempfile.mkdtemp(prefix=f"{name.lower().replace(' ', '_')}_")
                     installer_path = os.path.join(tmp_dir, f"{name}_setup.exe")
@@ -6735,6 +6886,9 @@ class PCAPSentryApp:
                         return "download"
                 except Exception:
                     pass
+                finally:
+                    if tmp_dir:
+                        shutil.rmtree(tmp_dir, ignore_errors=True)
 
             return None
 
@@ -6839,6 +6993,7 @@ class PCAPSentryApp:
 
         def done(installer_path):
             _set_status("Installing...", self.colors.get("warning", "#d29922"))
+            _tmp_dir = os.path.dirname(installer_path)
 
             def _run_installer():
                 try:
@@ -6852,6 +7007,8 @@ class PCAPSentryApp:
                     return e
 
             def _on_install_done(rc):
+                # Clean up temp dir regardless of outcome
+                shutil.rmtree(_tmp_dir, ignore_errors=True)
                 if isinstance(rc, Exception):
                     _set_status("Install failed", self.colors.get("danger", "#f85149"))
                     messagebox.showerror("Ollama", f"Installer failed:\n{rc}")
