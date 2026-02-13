@@ -121,10 +121,17 @@ build_exe.bat
 build_installer.bat
 ```
 
+### Build EXE + Installer (Single Version Release)
+
+```bash
+build_release.bat
+```
+
 Both scripts auto-increment the version and build artifacts; publish behavior is script-specific (details below).
 
 - `build_exe.bat`: updates version, builds `PCAP_Sentry.exe`, then commits/pushes/releases unless `-NoPush` is provided.
-- `build_installer.bat`: updates version and builds `PCAP_Sentry_Setup.exe`; it is local-only by default and only commits/pushes/releases when `-Push` is provided.
+- `build_installer.bat`: updates version and builds `PCAP_Sentry_Setup.exe`; it is local-only by default and only commits/pushes/releases when `-Push` is provided. Use `-Release` to upload the installer to an existing release without pushing.
+- `build_release.bat`: recommended for publishing both EXE and installer to the same version tag. It lets `build_exe.bat` bump once, then reuses that version for the installer.
 - Both scripts support `-Notes "description"` for version log/release notes text.
 
 ## License
