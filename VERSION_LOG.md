@@ -11,6 +11,9 @@
 
 
 
+
+## 2026.02.13-16 - 2026-02-13
+- Move model uninstall to Preferences; simplify installer model flow
 ## 2026.02.13-15 - 2026-02-13
 - Minor tweaks and improvements
 ## 2026.02.13-14 - 2026-02-13

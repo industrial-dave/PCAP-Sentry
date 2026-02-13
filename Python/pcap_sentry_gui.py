@@ -2770,6 +2770,13 @@ class PCAPSentryApp:
             command=lambda: self._refresh_llm_models(llm_model_combo),
         )
         refresh_btn.pack(side=tk.LEFT, padx=(4, 0))
+        uninstall_model_btn = ttk.Button(
+            model_frame,
+            text="Uninstall",
+            style="Danger.TButton",
+            command=lambda: self._uninstall_selected_ollama_model(llm_model_combo),
+        )
+        uninstall_model_btn.pack(side=tk.LEFT, padx=(4, 0))
         self._help_icon_grid(frame, "Model name for the selected provider. Click \u21BB to detect available models.", row=11, column=2, sticky="w")
         self._refresh_llm_models(llm_model_combo)
 
@@ -2801,6 +2808,12 @@ class PCAPSentryApp:
             llm_model_combo.configure(state=state)
             llm_endpoint_entry.configure(state=state)
             refresh_btn.configure(state=state)
+            can_uninstall = (
+                state == "normal"
+                and self.llm_provider_var.get().strip().lower() == "ollama"
+                and bool(self.llm_model_var.get().strip())
+            )
+            uninstall_model_btn.configure(state=("normal" if can_uninstall else "disabled"))
             if state == "disabled":
                 self._set_llm_test_status("Disabled", self.colors.get("muted", "#8b949e"))
             else:
@@ -2809,6 +2822,8 @@ class PCAPSentryApp:
                 self._refresh_llm_models(llm_model_combo)
 
         llm_provider_combo.bind("<<ComboboxSelected>>", _set_llm_fields_state)
+        llm_model_combo.bind("<<ComboboxSelected>>", _set_llm_fields_state)
+        llm_model_combo.bind("<KeyRelease>", _set_llm_fields_state)
         _set_llm_fields_state()
 
         # Backup directory row with improved spacing
@@ -5761,6 +5776,54 @@ class PCAPSentryApp:
             self.root.after(0, lambda: apply(names))
 
         threading.Thread(target=run, daemon=True).start()
+
+    def _uninstall_selected_ollama_model(self, combo=None):
+        provider = self.llm_provider_var.get().strip().lower()
+        if provider != "ollama":
+            messagebox.showwarning("Ollama", "Model uninstall is only available when LLM provider is set to Ollama.")
+            return
+
+        model_name = self.llm_model_var.get().strip()
+        if not model_name:
+            messagebox.showwarning("Ollama", "Select or enter an Ollama model name first.")
+            return
+
+        confirm = messagebox.askyesno(
+            "Ollama",
+            f"Uninstall Ollama model '{model_name}'?",
+        )
+        if not confirm:
+            return
+
+        def task():
+            try:
+                subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+            result = subprocess.run(
+                ["ollama", "rm", model_name],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode != 0:
+                detail = (result.stderr or result.stdout or "Unknown error").strip()
+                raise RuntimeError(detail)
+            return True
+
+        def done(_):
+            self._refresh_llm_models(combo)
+            self.status_var.set(f"Removed Ollama model: {model_name}")
+            messagebox.showinfo("Ollama", f"Removed model '{model_name}'.")
+
+        def failed(err):
+            messagebox.showerror(
+                "Ollama",
+                "Failed to remove model. Ensure Ollama is installed and running.\n\n"
+                f"Details: {err}",
+            )
+
+        self._run_task(task, done, on_error=failed, message="Removing Ollama model...")
 
     def _auto_detect_llm(self):
         if self.llm_provider_var.get().strip().lower() != "disabled":
