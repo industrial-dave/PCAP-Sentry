@@ -367,6 +367,16 @@ The **Knowledge Base** tab provides tools for managing your trained data:
 
 PCAP Sentry automatically backs up the knowledge base when you close the application. The 3 most recent backups are kept in a `kb_backups/` subdirectory within the app data folder.
 
+### Optional KB Download (Release Asset)
+
+PCAP Sentry releases can include an optional starter knowledge base file. You can use it as a base and then continue training with your own samples.
+
+1. Download `pcap_knowledge_base_offline.json` from the [Releases](https://github.com/industrial-dave/PCAP-Sentry/releases) page.
+2. Open the **Knowledge Base** tab.
+3. Click **Restore** and select the downloaded JSON file.
+
+> **Note:** Restoring a KB replaces your current KB. Use **Backup** first if you want to keep a copy.
+
 ### IoC Feed Import
 
 You can import external threat intelligence indicators:

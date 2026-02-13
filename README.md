@@ -45,6 +45,8 @@ PCAP Sentry parses network captures (`.pcap` / `.pcapng`), summarizes traffic st
 	- In Preferences, Stop Ollama on exit is enabled by default and can be changed.
 4. Launch PCAP Sentry from the Start Menu or desktop shortcut.
 
+Optional: download `pcap_knowledge_base_offline.json` from the [Releases](https://github.com/industrial-dave/PCAP-Sentry/releases) page and import it via **Knowledge Base** > **Restore** to use it as a starter KB.
+
 ### Option 2: Run from Source
 
 ```bash
