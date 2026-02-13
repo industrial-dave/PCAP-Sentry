@@ -11,7 +11,7 @@ Features
 - Wireshark filter generation
 - Threat intelligence integration (AlienVault OTX, URLhaus)
 - Trainable knowledge base with optional ML model
-- Local LLM chat interface (Ollama or OpenAI-compatible)
+- Local LLM chat interface (Ollama runs offline/local; OpenAI-compatible can be local or cloud)
 
 Installation
 Download and run PCAP_Sentry_Setup.exe from the Releases page:

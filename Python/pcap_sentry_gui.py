@@ -2750,6 +2750,7 @@ class PCAPSentryApp:
         llm_provider_combo.state(["readonly"])
         llm_provider_combo.grid(row=9, column=1, sticky="w", pady=6)
         self._help_icon_grid(frame, "Choose which LLM to use for label suggestions. "
+            "Ollama runs locally (offline). OpenAI-compatible may be local or cloud, depending on the endpoint. "
             "Select 'disabled' to turn off LLM features.", row=9, column=2, sticky="w")
 
         ttk.Label(frame, text="LLM model:").grid(row=10, column=0, sticky="w", pady=6)
@@ -2768,8 +2769,9 @@ class PCAPSentryApp:
         ttk.Label(frame, text="LLM endpoint:").grid(row=11, column=0, sticky="w", pady=6)
         llm_endpoint_entry = ttk.Entry(frame, textvariable=self.llm_endpoint_var, width=40)
         llm_endpoint_entry.grid(row=11, column=1, sticky="w", pady=6)
-        self._help_icon_grid(frame, "API base URL for the LLM provider. For Ollama, default is http://localhost:11434. "
-            "For OpenAI-compatible servers, use the server base URL (no /v1).", row=11, column=2, sticky="w")
+        self._help_icon_grid(frame, "API base URL for the LLM provider. For Ollama (offline/local), default is http://localhost:11434. "
+            "For OpenAI-compatible servers, use the server base URL (no /v1). If this points to a cloud service, data is sent off-device.",
+            row=11, column=2, sticky="w")
 
         ttk.Label(frame, text="Test LLM:").grid(row=12, column=0, sticky="w", pady=6)
         test_frame = ttk.Frame(frame)
