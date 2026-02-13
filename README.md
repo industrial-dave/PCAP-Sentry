@@ -37,7 +37,8 @@ PCAP Sentry parses network captures (`.pcap` / `.pcapng`), summarizes traffic st
 
 1. Download **PCAP_Sentry_Setup.exe** from the [Releases](https://github.com/industrial-dave/PCAP-Sentry/releases) page.
 2. Run the installer and follow the prompts.
-3. Launch PCAP Sentry from the Start Menu or desktop shortcut.
+3. Optional: choose **Install Ollama** and select one or more models to pull.
+4. Launch PCAP Sentry from the Start Menu or desktop shortcut.
 
 ### Option 2: Run from Source
 
