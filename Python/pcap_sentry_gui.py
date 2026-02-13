@@ -2369,10 +2369,12 @@ class PCAPSentryApp:
         self.root.after(400, self._auto_detect_llm)
 
     def _on_close(self):
-        """Handle window close – cancel timers, backup KB, then destroy."""
+        """Handle window close – cancel timers, backup KB, persist LLM status, then destroy."""
         self._shutting_down = True
         self._reset_progress()
         _backup_knowledge_base()
+        # Persist LLM status and all settings
+        self._save_settings_from_vars()
         self.root.destroy()
         
 
@@ -2553,12 +2555,18 @@ class PCAPSentryApp:
             padx=8, pady=4,
         )
         self.llm_header_indicator.pack(side=tk.RIGHT, padx=(0, 4))
-        self.llm_header_label = tk.Label(
+        self.llm_header_label = tk.Button(
             self.llm_header_indicator,
             text="LLM: off",
             font=("Segoe UI", 8),
             fg=self.colors.get("muted", "#8b949e"),
             bg=_llm_ind_bg,
+            bd=0,
+            relief=tk.FLAT,
+            activebackground=_llm_ind_bg,
+            activeforeground=self.colors.get("accent", "#58a6ff"),
+            cursor="hand2",
+            command=self._test_llm_connection
         )
         self.llm_header_label.pack()
         self._update_llm_header_indicator()
