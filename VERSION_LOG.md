@@ -12,6 +12,9 @@
 
 
 
+
+## 2026.02.13-17 - 2026-02-13
+- Minor tweaks and improvements
 ## 2026.02.13-16 - 2026-02-13
 - Move model uninstall to Preferences; simplify installer model flow
 - Add deepseek-r1:14b to installer model presets
