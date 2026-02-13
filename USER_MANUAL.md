@@ -101,7 +101,8 @@ PCAP Sentry is a malware analysis console for network packet capture (PCAP) file
 2. Run the installer and follow the on-screen prompts.
 3. Choose an installation directory (default: `C:\Program Files\PCAP Sentry`).
 4. Optionally create a desktop shortcut.
-5. Launch PCAP Sentry from the **Start Menu** or **desktop shortcut**.
+5. Optional: select **Install Ollama** and pick one or more models to download.
+6. Launch PCAP Sentry from the **Start Menu** or **desktop shortcut**.
 
 ### Option 2: Run from Source
 

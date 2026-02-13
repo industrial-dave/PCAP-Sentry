@@ -16,6 +16,7 @@ Features
 Installation
 Download and run PCAP_Sentry_Setup.exe from the Releases page:
 https://github.com/industrial-dave/PCAP-Sentry/releases
+Optional: choose Install Ollama and select models to download during setup.
 
 Running from Source
 1. Install Python 3.14+

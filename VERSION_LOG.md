@@ -5,6 +5,9 @@
 
 
 
+
+## 2026.02.13-7 - 2026-02-13
+- Installer option to install Ollama and pull models
 ## 2026.02.13-6 - 2026-02-13
 - Upgrade build/runtime to Python 3.14, bundle active Python DLL, update docs
 ## 2026.02.13-5 - 2026-02-13
