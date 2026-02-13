@@ -11,16 +11,25 @@ Integrates with free/public threat intelligence sources:
 import json
 import re
 import time
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import ipaddress
 import threading
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import requests
     REQUESTS_AVAILABLE = True
 except ImportError:
     REQUESTS_AVAILABLE = False
+
+# Timeouts (connect, read) in seconds
+_CONNECT_TIMEOUT = 2.0
+_READ_TIMEOUT = 3.0
+_REQUEST_TIMEOUT = (_CONNECT_TIMEOUT, _READ_TIMEOUT)
+
+# Max concurrent network requests
+_MAX_WORKERS = 6
 
 
 class ThreatIntelligence:
@@ -34,6 +43,25 @@ class ThreatIntelligence:
         self._cache_lock = threading.Lock()
         self.cache_ttl = 3600  # 1 hour
         self._max_cache_size = 500
+        # Reusable HTTP session for connection pooling (keep-alive)
+        self._session: Optional[requests.Session] = None
+        self._session_lock = threading.Lock()
+
+    def _get_session(self) -> "requests.Session":
+        """Lazy-init a shared session for connection pooling."""
+        if self._session is None:
+            with self._session_lock:
+                if self._session is None:
+                    s = requests.Session()
+                    s.headers.update({"Accept": "application/json"})
+                    # Allow connection reuse across hosts
+                    adapter = requests.adapters.HTTPAdapter(
+                        pool_connections=8, pool_maxsize=12, max_retries=0,
+                    )
+                    s.mount("https://", adapter)
+                    s.mount("http://", adapter)
+                    self._session = s
+        return self._session
 
     def is_available(self) -> bool:
         """Check if threat intelligence is available"""
@@ -41,13 +69,14 @@ class ThreatIntelligence:
 
     def check_ip_reputation(self, ip: str) -> Dict:
         """
-        Check IP reputation using free public sources
-        Returns dict with reputation data
+        Check IP reputation using free public sources.
+        Skips private/reserved IPs automatically.
+        Returns dict with reputation data.
         """
         if not self.is_available():
             return {"available": False}
 
-        if not self._is_valid_ip(ip):
+        if not self._is_routable_ip(ip):
             return {"valid": False}
 
         # Check cache first
@@ -62,13 +91,15 @@ class ThreatIntelligence:
             "sources": {}
         }
 
-        # Check AlienVault OTX
-        otx_data = self._check_otx_ip(ip)
+        # Run OTX and AbuseIPDB checks concurrently
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            f_otx = pool.submit(self._check_otx_ip, ip)
+            f_abuse = pool.submit(self._check_abuseipdb_ip, ip)
+
+        otx_data = f_otx.result()
         if otx_data:
             result["sources"]["otx"] = otx_data
-
-        # Check AbuseIPDB (free tier - limited to 1000 requests/day)
-        abuse_data = self._check_abuseipdb_ip(ip)
+        abuse_data = f_abuse.result()
         if abuse_data:
             result["sources"]["abuseipdb"] = abuse_data
 
@@ -125,13 +156,15 @@ class ThreatIntelligence:
             "sources": {}
         }
 
-        # Check AlienVault OTX
-        otx_data = self._check_otx_domain(domain)
+        # Run OTX and URLhaus checks concurrently
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            f_otx = pool.submit(self._check_otx_domain, domain)
+            f_url = pool.submit(self._check_urlhaus, domain)
+
+        otx_data = f_otx.result()
         if otx_data:
             result["sources"]["otx"] = otx_data
-
-        # Check URLhaus for malicious URLs
-        url_data = self._check_urlhaus(domain)
+        url_data = f_url.result()
         if url_data:
             result["sources"]["urlhaus"] = url_data
 
@@ -149,13 +182,21 @@ class ThreatIntelligence:
         except ValueError:
             return False
 
+    def _is_routable_ip(self, ip: str) -> bool:
+        """Check that IP is a valid, globally-routable address worth querying."""
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            return False
+        # Skip private, loopback, link-local, multicast, reserved, etc.
+        return addr.is_global
+
     def _check_otx_ip(self, ip: str) -> Optional[Dict]:
         """Check IP against AlienVault OTX (free, no API key required)"""
         try:
             safe_ip = urllib.parse.quote(ip, safe='')
             url = f"{self.otx_base_url}/indicators/IPv4/{safe_ip}/reputation"
-            headers = {"Accept": "application/json"}
-            response = requests.get(url, headers=headers, timeout=5)
+            response = self._get_session().get(url, timeout=_REQUEST_TIMEOUT)
 
             if response.status_code == 200:
                 data = response.json()
@@ -175,8 +216,7 @@ class ThreatIntelligence:
         try:
             safe_domain = urllib.parse.quote(domain, safe='')
             url = f"{self.otx_base_url}/indicators/domain/{safe_domain}/reputation"
-            headers = {"Accept": "application/json"}
-            response = requests.get(url, headers=headers, timeout=5)
+            response = self._get_session().get(url, timeout=_REQUEST_TIMEOUT)
 
             if response.status_code == 200:
                 data = response.json()
@@ -204,7 +244,7 @@ class ThreatIntelligence:
         try:
             url = f"{self.urlhaus_base_url}/host/"
             data = {"host": domain}
-            response = requests.post(url, data=data, timeout=5)
+            response = self._get_session().post(url, data=data, timeout=_REQUEST_TIMEOUT)
 
             if response.status_code == 200:
                 result = response.json()
@@ -261,6 +301,9 @@ class ThreatIntelligence:
         """
         Enrich analysis statistics with threat intelligence.
         progress_cb(fraction) is called with 0.0-1.0 to report progress.
+
+        All IP and domain lookups run concurrently for speed.
+        Private/bogon IPs are automatically skipped.
         """
         if not self.is_available():
             return stats
@@ -268,60 +311,95 @@ class ThreatIntelligence:
         enriched = stats.copy()
         enriched["threat_intel"] = {}
 
-        # Check suspicious IPs - combine unique_src_list and unique_dst_list
+        t0 = time.time()
+
+        # ── Collect work items ──
         all_ips = set(stats.get("unique_src_list", []))
         all_ips.update(stats.get("unique_dst_list", []))
+        # Pre-filter: skip private/bogon IPs before submitting work
+        ip_list = [ip for ip in list(all_ips)[:20] if self._is_routable_ip(ip)]
 
-        # Collect all work items for progress tracking
-        ip_list = list(all_ips)[:10]
-        domains = set()
-        if "dns_queries" in stats or "http_hosts" in stats:
-            domains.update(stats.get("dns_queries", []))
-            domains.update(stats.get("http_hosts", []))
-        domain_list = list(domains)[:10]
+        domains: set = set()
+        domains.update(stats.get("dns_queries", []))
+        domains.update(stats.get("http_hosts", []))
+        domains.update(stats.get("tls_sni", []))
+        domain_list = list(domains)[:20]
+
         total_items = len(ip_list) + len(domain_list)
-        completed = 0
+        if total_items == 0:
+            if progress_cb:
+                progress_cb(1.0)
+            return enriched
 
-        if ip_list:
-            ip_risks = []
-            for ip in ip_list:
-                try:
-                    ip_rep = self.check_ip_reputation(ip)
-                    if ip_rep.get("risk_score", 0) > 30:
+        completed = 0
+        progress_lock = threading.Lock()
+
+        def _advance_progress():
+            nonlocal completed
+            with progress_lock:
+                completed += 1
+                if progress_cb and total_items:
+                    progress_cb(completed / total_items)
+
+        # ── Concurrent lookups ──
+        ip_risks: List[Dict] = []
+        domain_risks: List[Dict] = []
+        results_lock = threading.Lock()
+
+        def _check_ip(ip):
+            try:
+                rep = self.check_ip_reputation(ip)
+                if rep.get("risk_score", 0) > 30:
+                    with results_lock:
                         ip_risks.append({
                             "ip": ip,
-                            "risk_score": ip_rep["risk_score"],
-                            "sources": ip_rep["sources"]
+                            "risk_score": rep["risk_score"],
+                            "sources": rep["sources"],
                         })
-                except Exception as e:
-                    print(f"[DEBUG] Error enriching IP {ip}: {e}")
-                completed += 1
-                if progress_cb and total_items:
-                    progress_cb(completed / total_items)
+            except Exception as e:
+                print(f"[DEBUG] Error enriching IP {ip}: {e}")
+            finally:
+                _advance_progress()
 
-            if ip_risks:
-                enriched["threat_intel"]["risky_ips"] = sorted(ip_risks, key=lambda x: x["risk_score"], reverse=True)
-
-        # Check suspicious domains
-        if domain_list:
-            domain_risks = []
-            for domain in domain_list:
-                try:
-                    domain_rep = self.check_domain_reputation(domain)
-                    if domain_rep.get("risk_score", 0) > 30:
+        def _check_domain(domain):
+            try:
+                rep = self.check_domain_reputation(domain)
+                if rep.get("risk_score", 0) > 30:
+                    with results_lock:
                         domain_risks.append({
                             "domain": domain,
-                            "risk_score": domain_rep["risk_score"],
-                            "sources": domain_rep["sources"]
+                            "risk_score": rep["risk_score"],
+                            "sources": rep["sources"],
                         })
-                except Exception as e:
-                    print(f"[DEBUG] Error enriching domain {domain}: {e}")
-                completed += 1
-                if progress_cb and total_items:
-                    progress_cb(completed / total_items)
+            except Exception as e:
+                print(f"[DEBUG] Error enriching domain {domain}: {e}")
+            finally:
+                _advance_progress()
 
-            if domain_risks:
-                enriched["threat_intel"]["risky_domains"] = sorted(domain_risks, key=lambda x: x["risk_score"], reverse=True)
+        workers = min(_MAX_WORKERS, total_items)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = []
+            for ip in ip_list:
+                futures.append(pool.submit(_check_ip, ip))
+            for domain in domain_list:
+                futures.append(pool.submit(_check_domain, domain))
+            # Wait for all to finish
+            for f in as_completed(futures):
+                pass  # exceptions already handled inside workers
+
+        if ip_risks:
+            enriched["threat_intel"]["risky_ips"] = sorted(
+                ip_risks, key=lambda x: x["risk_score"], reverse=True,
+            )
+        if domain_risks:
+            enriched["threat_intel"]["risky_domains"] = sorted(
+                domain_risks, key=lambda x: x["risk_score"], reverse=True,
+            )
+
+        elapsed = time.time() - t0
+        print(f"[TIMING] Threat intel enrichment: {elapsed:.2f}s "
+              f"({len(ip_list)} IPs, {len(domain_list)} domains, "
+              f"{workers} workers)")
 
         return enriched
 

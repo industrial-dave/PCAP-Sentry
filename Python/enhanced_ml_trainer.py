@@ -178,17 +178,26 @@ class EnhancedMLTrainer:
 
 def vectorize_features(features: Dict) -> Dict:
     """Convert feature dict to ML-ready format"""
+    pkt_count = float(features.get("packet_count", 0))
     vector = {
-        "packet_count": float(features.get("packet_count", 0)),
+        "packet_count": pkt_count,
         "avg_size": float(features.get("avg_size", 0.0)),
+        "median_size": float(features.get("median_size", 0.0)),
         "dns_query_count": float(features.get("dns_query_count", 0)),
         "http_request_count": float(features.get("http_request_count", 0)),
         "unique_http_hosts": float(features.get("unique_http_hosts", 0)),
+        "tls_packet_count": float(features.get("tls_packet_count", 0)),
+        "unique_tls_sni": float(features.get("unique_tls_sni", 0)),
+        "unique_src": float(features.get("unique_src", 0)),
+        "unique_dst": float(features.get("unique_dst", 0)),
+        "malware_port_hits": float(features.get("malware_port_hits", 0)),
         # Threat intelligence features
         "flagged_ip_count": float(features.get("flagged_ip_count", 0)),
         "flagged_domain_count": float(features.get("flagged_domain_count", 0)),
         "avg_ip_risk_score": float(features.get("avg_ip_risk_score", 0.0)),
         "avg_domain_risk_score": float(features.get("avg_domain_risk_score", 0.0)),
+        # Derived ratios
+        "dns_per_packet_ratio": float(features.get("dns_query_count", 0)) / max(pkt_count, 1.0),
     }
 
     # Protocol ratios

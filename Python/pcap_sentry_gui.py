@@ -396,7 +396,7 @@ def _default_settings():
         "max_rows": DEFAULT_MAX_ROWS,
         "parse_http": True,
         "use_high_memory": False,
-        "use_local_model": False,
+        "use_local_model": True,
         "use_multithreading": True,
         "turbo_parse": True,
         "backup_dir": os.path.dirname(KNOWLEDGE_BASE_FILE),
@@ -404,7 +404,6 @@ def _default_settings():
         "llm_model": "llama3",
         "llm_endpoint": "http://localhost:11434",
         "llm_auto_detect": True,
-        "stop_ollama_on_exit": True,
         "theme": "system",
         "offline_mode": False,
         "app_data_notice_shown": False,
@@ -584,12 +583,30 @@ def merge_iocs_into_kb(kb, new_iocs):
     return kb
 
 
+# Well-known malware / C2 ports used by common threats
+MALWARE_PORTS = frozenset({
+    4444, 5555, 6666, 6667, 6668, 6669,  # Meterpreter, IRC C2
+    1337, 31337, 12345, 27374,            # classic backdoors
+    8443, 8880, 9001, 9030, 9050, 9150,   # Tor, alt-HTTPS
+    3127, 3128, 3389,                      # proxy/RDP abuse
+    1080, 1099,                            # SOCKS, RMI
+    2222, 5900, 5985, 5986,               # alt-SSH, VNC, WinRM
+    8081, 8888, 9999, 10000,              # common RAT/C2 ports
+    20, 69,                                # FTP-data, TFTP
+    445, 139, 135,                         # SMB/NetBIOS/RPC abuse
+})
+
 FEATURE_NAMES = [
     "packet_count",
     "avg_size",
+    "median_size",
     "dns_query_count",
     "http_request_count",
     "unique_http_hosts",
+    "tls_packet_count",
+    "unique_tls_sni",
+    "unique_src",
+    "unique_dst",
     "proto_tcp",
     "proto_udp",
     "proto_other",
@@ -598,6 +615,13 @@ FEATURE_NAMES = [
     "top_port_3",
     "top_port_4",
     "top_port_5",
+    "flagged_ip_count",
+    "flagged_domain_count",
+    "avg_ip_risk_score",
+    "avg_domain_risk_score",
+    "malware_port_hits",
+    "dns_per_packet_ratio",
+    "bytes_per_unique_dst",
 ]
 
 
@@ -605,13 +629,19 @@ def _vector_from_features(features):
     proto = features.get("proto_ratio", {})
     top_ports = features.get("top_ports", [])
     port_at = lambda idx: float(top_ports[idx]) if idx < len(top_ports) else 0.0
+    pkt_count = float(features.get("packet_count", 0.0))
 
     return [
-        float(features.get("packet_count", 0.0)),
+        pkt_count,
         float(features.get("avg_size", 0.0)),
+        float(features.get("median_size", 0.0)),
         float(features.get("dns_query_count", 0.0)),
         float(features.get("http_request_count", 0.0)),
         float(features.get("unique_http_hosts", 0.0)),
+        float(features.get("tls_packet_count", 0.0)),
+        float(features.get("unique_tls_sni", 0.0)),
+        float(features.get("unique_src", 0.0)),
+        float(features.get("unique_dst", 0.0)),
         float(proto.get("TCP", 0.0)),
         float(proto.get("UDP", 0.0)),
         float(proto.get("Other", 0.0)),
@@ -620,6 +650,13 @@ def _vector_from_features(features):
         port_at(2),
         port_at(3),
         port_at(4),
+        float(features.get("flagged_ip_count", 0.0)),
+        float(features.get("flagged_domain_count", 0.0)),
+        float(features.get("avg_ip_risk_score", 0.0)),
+        float(features.get("avg_domain_risk_score", 0.0)),
+        float(features.get("malware_port_hits", 0.0)),
+        float(features.get("dns_query_count", 0)) / max(pkt_count, 1.0),
+        (pkt_count * float(features.get("avg_size", 0.0))) / max(float(features.get("unique_dst", 1.0)), 1.0),
     ]
 
 
@@ -781,56 +818,77 @@ def build_features(stats):
     proto_counts = stats.get("protocol_counts", {})
     proto_ratio = {k: v / total for k, v in proto_counts.items()}
     top_ports = [p for p, _ in stats.get("top_ports", [])]
-    
+
+    # Count how many top ports are known malware / C2 ports
+    malware_port_hits = sum(1 for p in top_ports if p in MALWARE_PORTS)
+
     features = {
         "packet_count": stats.get("packet_count", 0),
         "avg_size": stats.get("avg_size", 0.0),
+        "median_size": stats.get("median_size", 0.0),
         "proto_ratio": proto_ratio,
         "top_ports": top_ports,
         "dns_query_count": stats.get("dns_query_count", 0),
         "http_request_count": stats.get("http_request_count", 0),
         "unique_http_hosts": stats.get("unique_http_hosts", 0),
+        "tls_packet_count": stats.get("tls_packet_count", 0),
+        "unique_tls_sni": stats.get("unique_tls_sni", 0),
+        "unique_src": stats.get("unique_src", 0),
+        "unique_dst": stats.get("unique_dst", 0),
+        "malware_port_hits": malware_port_hits,
     }
-    
+
     # Add threat intelligence features if available
     if "threat_intel" in stats:
         intel = stats["threat_intel"]
-        
-        # Count flagged indicators
+
         risky_ips = intel.get("risky_ips", [])
         risky_domains = intel.get("risky_domains", [])
-        
+
         features["flagged_ip_count"] = len(risky_ips)
         features["flagged_domain_count"] = len(risky_domains)
-        
-        # Calculate average risk scores
+
         if risky_ips:
             avg_ip_risk = sum(ip["risk_score"] for ip in risky_ips) / len(risky_ips)
             features["avg_ip_risk_score"] = avg_ip_risk
         else:
             features["avg_ip_risk_score"] = 0.0
-            
+
         if risky_domains:
             avg_domain_risk = sum(d["risk_score"] for d in risky_domains) / len(risky_domains)
             features["avg_domain_risk_score"] = avg_domain_risk
         else:
             features["avg_domain_risk_score"] = 0.0
-    
+    else:
+        features["flagged_ip_count"] = 0
+        features["flagged_domain_count"] = 0
+        features["avg_ip_risk_score"] = 0.0
+        features["avg_domain_risk_score"] = 0.0
+
     return features
 
 
 def _vectorize_features(features):
+    pkt_count = float(features.get("packet_count", 0))
     vector = {
-        "packet_count": float(features.get("packet_count", 0)),
+        "packet_count": pkt_count,
         "avg_size": float(features.get("avg_size", 0.0)),
+        "median_size": float(features.get("median_size", 0.0)),
         "dns_query_count": float(features.get("dns_query_count", 0)),
         "http_request_count": float(features.get("http_request_count", 0)),
         "unique_http_hosts": float(features.get("unique_http_hosts", 0)),
+        "tls_packet_count": float(features.get("tls_packet_count", 0)),
+        "unique_tls_sni": float(features.get("unique_tls_sni", 0)),
+        "unique_src": float(features.get("unique_src", 0)),
+        "unique_dst": float(features.get("unique_dst", 0)),
+        "malware_port_hits": float(features.get("malware_port_hits", 0)),
         # Threat intelligence features
         "flagged_ip_count": float(features.get("flagged_ip_count", 0)),
         "flagged_domain_count": float(features.get("flagged_domain_count", 0)),
         "avg_ip_risk_score": float(features.get("avg_ip_risk_score", 0.0)),
         "avg_domain_risk_score": float(features.get("avg_domain_risk_score", 0.0)),
+        # Derived ratios
+        "dns_per_packet_ratio": float(features.get("dns_query_count", 0)) / max(pkt_count, 1.0),
     }
 
     proto_ratio = features.get("proto_ratio", {})
@@ -938,14 +996,18 @@ def similarity_score(target, entry):
     count_similarity = similarity_metric(target_count, entry_count)
     dns_similarity = similarity_metric(target.get("dns_query_count", 0), entry.get("dns_query_count", 0))
     http_similarity = similarity_metric(target.get("http_request_count", 0), entry.get("http_request_count", 0))
+    tls_similarity = similarity_metric(target.get("tls_packet_count", 0), entry.get("tls_packet_count", 0))
+    dst_similarity = similarity_metric(target.get("unique_dst", 1), entry.get("unique_dst", 1))
 
     score = 100.0 * (
-        0.3 * port_overlap
-        + 0.25 * proto_similarity
-        + 0.15 * size_similarity
-        + 0.1 * count_similarity
-        + 0.1 * dns_similarity
-        + 0.1 * http_similarity
+        0.25 * port_overlap
+        + 0.20 * proto_similarity
+        + 0.12 * size_similarity
+        + 0.10 * count_similarity
+        + 0.10 * dns_similarity
+        + 0.08 * http_similarity
+        + 0.08 * tls_similarity
+        + 0.07 * dst_similarity
     )
     return round(score, 1)
 
@@ -2039,16 +2101,34 @@ def detect_suspicious_flows(df, kb, max_items=8, flow_df=None):
         high_bytes_threshold = 0.0
     flow_df["high_volume"] = flow_df["Bytes"] >= high_bytes_threshold if high_bytes_threshold > 0 else False
 
-    suspicious = flow_df[flow_df["ioc_match"] | flow_df["high_volume"]]
+    # Flag flows using known malware / C2 ports
+    flow_df["malware_port"] = flow_df["DPort"].isin(MALWARE_PORTS) | flow_df["SPort"].isin(MALWARE_PORTS)
+
+    # Flag flows with very high packet counts but low byte volume (possible beaconing)
+    if not flow_df["Packets"].empty and len(flow_df) > 1:
+        high_pkt_threshold = float(flow_df["Packets"].quantile(0.95))
+        median_bytes = float(flow_df["Bytes"].median()) if not flow_df["Bytes"].empty else 0.0
+        flow_df["beacon_like"] = (flow_df["Packets"] >= max(high_pkt_threshold, 6)) & (flow_df["Bytes"] < median_bytes * 2)
+    else:
+        flow_df["beacon_like"] = False
+
+    suspicious = flow_df[flow_df["ioc_match"] | flow_df["high_volume"] | flow_df["malware_port"] | flow_df["beacon_like"]]
     if suspicious.empty:
         return []
 
-    suspicious = suspicious.sort_values(["ioc_match", "Bytes"], ascending=[False, False])
+    suspicious = suspicious.sort_values(["ioc_match", "malware_port", "Bytes"], ascending=[False, False, False])
     results = []
     for _, row in suspicious.head(max_items).iterrows():
         reasons = []
         if bool(row["ioc_match"]):
             reasons.append("IoC IP match")
+        if bool(row["malware_port"]):
+            dport_val = int(row["DPort"])
+            sport_val = int(row["SPort"])
+            port_str = str(dport_val) if dport_val in MALWARE_PORTS else str(sport_val)
+            reasons.append(f"Malware/C2 port ({port_str})")
+        if bool(row.get("beacon_like", False)):
+            reasons.append("Beacon-like pattern")
         if bool(row["high_volume"]):
             reasons.append("High volume")
         results.append(
@@ -2065,6 +2145,129 @@ def detect_suspicious_flows(df, kb, max_items=8, flow_df=None):
             }
         )
     return results
+
+
+def detect_behavioral_anomalies(df, stats, flow_df=None):
+    """Run heuristic checks for common malware traffic patterns.
+
+    Returns a list of dicts: [{\"type\": str, \"detail\": str, \"severity\": int (0-100)}]
+    Each finding also carries a *risk_boost* that gets added to the overall risk score.
+    """
+    findings = []
+    if df.empty:
+        return findings
+
+    pd = _get_pandas()
+    pkt_count = stats.get("packet_count", 0) or 1
+
+    # ── 1. DNS Tunneling: very high DNS-to-packet ratio or long query names ──
+    dns_count = stats.get("dns_query_count", 0)
+    dns_ratio = dns_count / pkt_count
+    if dns_ratio > 0.4 and dns_count > 50:
+        findings.append({
+            "type": "dns_tunneling",
+            "detail": f"DNS queries make up {dns_ratio:.0%} of packets ({dns_count} queries) — possible DNS tunneling",
+            "severity": 70,
+            "risk_boost": 20,
+        })
+    dns_queries = stats.get("dns_queries", [])
+    long_names = [q for q in dns_queries if len(q) > 60]
+    if long_names:
+        findings.append({
+            "type": "dns_long_names",
+            "detail": f"{len(long_names)} DNS queries with names >60 chars — possible DNS exfiltration",
+            "severity": 65,
+            "risk_boost": 15,
+        })
+
+    # ── 2. Beaconing detection via inter-arrival-time regularity ──
+    if flow_df is None:
+        flow_df = compute_flow_stats(df)
+    if not flow_df.empty:
+        flow_cols = ["Src", "Dst", "Proto", "SPort", "DPort"]
+        grouped = df.groupby(flow_cols, dropna=False)
+        beacons = []
+        for keys, group in grouped:
+            if len(group) < 8:
+                continue
+            times = sorted(group["Time"].tolist())
+            gaps = [b - a for a, b in zip(times, times[1:]) if b - a > 0]
+            if len(gaps) < 6:
+                continue
+            avg_gap = sum(gaps) / len(gaps)
+            if avg_gap <= 0 or avg_gap > 3600:
+                continue
+            std_gap = statistics.pstdev(gaps)
+            cv = std_gap / avg_gap
+            if cv < 0.25:  # very regular
+                flow_str = f"{keys[0]}:{keys[3]} -> {keys[1]}:{keys[4]} ({keys[2]})"
+                beacons.append((flow_str, avg_gap, len(group)))
+        if beacons:
+            beacons.sort(key=lambda x: x[2], reverse=True)
+            top = beacons[0]
+            findings.append({
+                "type": "beaconing",
+                "detail": f"Regular callback pattern: {top[0]} — ~{top[1]:.1f}s interval, {top[2]} packets",
+                "severity": 75,
+                "risk_boost": 20,
+            })
+
+    # ── 3. Port scanning: single source hitting many distinct destination ports ──
+    if not df.empty and "DPort" in df.columns:
+        src_port_counts = df.groupby("Src")["DPort"].nunique()
+        scanners = src_port_counts[src_port_counts >= 20]
+        if not scanners.empty:
+            top_scanner = scanners.idxmax()
+            n_ports = int(scanners.max())
+            findings.append({
+                "type": "port_scan",
+                "detail": f"{top_scanner} contacted {n_ports} distinct destination ports — possible port scan",
+                "severity": 60,
+                "risk_boost": 15,
+            })
+
+    # ── 4. Known malware ports in heavy use ──
+    top_ports = stats.get("top_ports", [])
+    malware_hits = [(p, c) for p, c in top_ports if p in MALWARE_PORTS]
+    if malware_hits:
+        port_str = ", ".join(f"{p} ({c} pkts)" for p, c in malware_hits)
+        findings.append({
+            "type": "malware_ports",
+            "detail": f"Known malware/C2 ports in top traffic: {port_str}",
+            "severity": 65,
+            "risk_boost": 15,
+        })
+
+    # ── 5. Data exfiltration: highly asymmetric upload (one host sends much more than receives) ──
+    if not df.empty and len(df) > 20:
+        src_bytes = df.groupby("Src")["Size"].sum()
+        dst_bytes = df.groupby("Dst")["Size"].sum()
+        for src_ip in src_bytes.index:
+            sent = float(src_bytes.get(src_ip, 0))
+            received = float(dst_bytes.get(src_ip, 0))
+            if sent > 1_000_000 and received > 0 and sent / max(received, 1) > 10:
+                findings.append({
+                    "type": "data_exfil",
+                    "detail": f"{src_ip} sent {_format_bytes(sent)} but received only {_format_bytes(received)} — possible data exfiltration",
+                    "severity": 70,
+                    "risk_boost": 15,
+                })
+                break  # only report the worst offender
+
+    # ── 6. Excessive failed connections (many small SYN-only packets to same dest) ──
+    if not df.empty and "Proto" in df.columns:
+        tcp_df = df[df["Proto"] == "TCP"]
+        if len(tcp_df) > 10:
+            small_tcp = tcp_df[tcp_df["Size"] <= 80]
+            if len(small_tcp) > len(tcp_df) * 0.5 and len(small_tcp) > 50:
+                findings.append({
+                    "type": "syn_flood",
+                    "detail": f"{len(small_tcp)} of {len(tcp_df)} TCP packets are ≤80 bytes — possible SYN flood or scan",
+                    "severity": 55,
+                    "risk_boost": 10,
+                })
+
+    return findings
 
 
 def _empty_figure(message):
@@ -2297,7 +2500,6 @@ class PCAPSentryApp:
         self.llm_model_var = tk.StringVar(value=self.settings.get("llm_model", "llama3"))
         self.llm_endpoint_var = tk.StringVar(value=self.settings.get("llm_endpoint", "http://localhost:11434"))
         self.llm_api_key_var = tk.StringVar(value=self.settings.get("llm_api_key", ""))
-        self.stop_ollama_on_exit_var = tk.BooleanVar(value=self.settings.get("stop_ollama_on_exit", True))
         self.llm_test_status_var = tk.StringVar(value="Not tested")
         self.llm_test_status_label = None
         self.llm_header_indicator = None
@@ -2338,6 +2540,10 @@ class PCAPSentryApp:
         self.bg_canvas = None
         self.label_safe_button = None
         self.label_mal_button = None
+        self.llm_suggestion_frame = None
+        self.llm_suggestion_label = None
+        self.llm_suggestion_accept = None
+        self._pending_llm_suggestion = None
         self.target_drop_area = None
         self.why_text = None
         self.education_text = None
@@ -2405,41 +2611,7 @@ class PCAPSentryApp:
         _backup_knowledge_base()
         # Persist LLM status and all settings
         self._save_settings_from_vars()
-        self._stop_ollama_on_exit_if_configured()
         self.root.destroy()
-
-    def _stop_ollama_on_exit_if_configured(self):
-        if not bool(self.stop_ollama_on_exit_var.get()):
-            return
-
-        provider = self.llm_provider_var.get().strip().lower()
-        if provider != "ollama":
-            return
-
-        endpoint = self.llm_endpoint_var.get().strip() or "http://localhost:11434"
-        endpoint_norm = self._normalize_ollama_endpoint(endpoint).rstrip("/").lower()
-        if endpoint_norm not in ("http://localhost:11434", "http://127.0.0.1:11434"):
-            return
-
-        try:
-            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            subprocess.run(
-                ["taskkill", "/F", "/T", "/IM", "Ollama app.exe"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=False,
-                creationflags=creationflags,
-            )
-            subprocess.run(
-                ["taskkill", "/F", "/T", "/IM", "ollama.exe"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=False,
-                creationflags=creationflags,
-            )
-        except Exception as exc:
-            _write_error_log("Failed to stop Ollama on exit", exc)
-        
 
     def _get_window_title(self):
         """Generate window title with mode indicator"""
@@ -2857,6 +3029,16 @@ class PCAPSentryApp:
             "This can significantly speed up analysis on multi-core systems. "
             "Disable if you experience stability issues or want to reduce CPU usage.", row=9, column=2, sticky="w")
 
+        # Install LLM server row (placed before LLM server dropdown)
+        ttk.Label(frame, text="Install server:").grid(row=10, column=0, sticky="w", pady=6)
+        install_frame = ttk.Frame(frame)
+        install_frame.grid(row=10, column=1, sticky="w", pady=6)
+        ttk.Button(install_frame, text="Install LLM Server\u2026", style="Secondary.TButton",
+                   command=self._open_install_llm_dialog).pack(side=tk.LEFT)
+        self._help_icon_grid(frame, "Opens a dialog to install a local LLM server (Ollama, LM Studio, GPT4All, or Jan). "
+            "Use this if you skipped the installer\u2019s LLM setup or want to add another server.",
+            row=10, column=2, sticky="w")
+
         # --- Unified LLM server dropdown ---
         # Cloud providers that need an API key
         _CLOUD_PROVIDERS = {
@@ -2864,6 +3046,11 @@ class PCAPSentryApp:
             "Mistral AI", "Groq", "Together AI", "OpenRouter",
             "Perplexity", "DeepSeek",
         }
+        _CLOUD_ICON = " \u2601"  # ☁
+        def _cloud(name):
+            return name + _CLOUD_ICON if name in _CLOUD_PROVIDERS else name
+        def _strip_cloud(name):
+            return name.replace(_CLOUD_ICON, "") if name.endswith(_CLOUD_ICON) else name
 
         _LLM_SERVERS = {
             "Disabled":         ("disabled",           ""),
@@ -2899,7 +3086,7 @@ class PCAPSentryApp:
             # Match by endpoint
             for name, (p, default_ep) in _LLM_SERVERS.items():
                 if p == "openai_compatible" and default_ep and ep == default_ep.rstrip("/"):
-                    return name
+                    return _cloud(name)
             return "Custom"
 
         _llm_server_var = tk.StringVar(value=_resolve_display_name())
@@ -2908,11 +3095,11 @@ class PCAPSentryApp:
             """Return LLM server names, filtering out cloud providers when offline."""
             if self.offline_mode_var.get():
                 return [n for n in _LLM_SERVERS if n not in _CLOUD_PROVIDERS]
-            return list(_LLM_SERVERS.keys())
+            return [_cloud(n) for n in _LLM_SERVERS]
 
-        ttk.Label(frame, text="LLM server:").grid(row=10, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="LLM server:").grid(row=11, column=0, sticky="w", pady=6)
         provider_frame = ttk.Frame(frame)
-        provider_frame.grid(row=10, column=1, sticky="w", pady=6)
+        provider_frame.grid(row=11, column=1, sticky="w", pady=6)
         llm_provider_combo = ttk.Combobox(
             provider_frame,
             textvariable=_llm_server_var,
@@ -2934,12 +3121,13 @@ class PCAPSentryApp:
         )
         self._detect_hint_label.pack(side=tk.LEFT, padx=(8, 0))
         self._help_icon_grid(frame, "Select the LLM server to use. Local servers run offline on your machine. "
-            "Cloud providers require an API key and send data to external servers. "
+            "Cloud providers (marked with \u2601) require an API key and an internet connection. "
             "For Anthropic Claude, use OpenRouter which supports it via an OpenAI-compatible API. "
             "Click Detect to scan for running local servers. "
-            "Select 'disabled' to turn off LLM features.", row=10, column=2, sticky="w")
+            "Select 'Disabled' to turn off LLM features.", row=11, column=2, sticky="w")
 
         # --- API key row (shown for cloud providers) ---
+        # --- API key row (row=12, shown for cloud providers) ---
         api_key_label = ttk.Label(frame, text="API key:")
         api_key_frame = ttk.Frame(frame)
         api_key_entry = ttk.Entry(api_key_frame, textvariable=self.llm_api_key_var, width=34, show="\u2022")
@@ -2982,14 +3170,15 @@ class PCAPSentryApp:
 
         def _show_api_key_row(visible):
             if visible:
-                api_key_label.grid(row=11, column=0, sticky="w", pady=6)
-                api_key_frame.grid(row=11, column=1, sticky="w", pady=6)
+                api_key_label.grid(row=12, column=0, sticky="w", pady=6)
+                api_key_frame.grid(row=12, column=1, sticky="w", pady=6)
             else:
                 api_key_label.grid_remove()
                 api_key_frame.grid_remove()
 
         def _on_server_selected(*_):
-            name = _llm_server_var.get()
+            raw = _llm_server_var.get()
+            name = _strip_cloud(raw)
             prov, ep = _LLM_SERVERS.get(name, ("disabled", ""))
             self.llm_provider_var.set(prov)
             if ep:
@@ -3004,7 +3193,7 @@ class PCAPSentryApp:
         # When offline mode is toggled, update the dropdown to hide/show cloud providers
         def _on_offline_toggled(*_):
             llm_provider_combo["values"] = _get_server_values()
-            current = _llm_server_var.get()
+            current = _strip_cloud(_llm_server_var.get())
             if self.offline_mode_var.get() and current in _CLOUD_PROVIDERS:
                 # Cloud provider selected but going offline – switch to Disabled
                 _llm_server_var.set("Disabled")
@@ -3018,9 +3207,9 @@ class PCAPSentryApp:
         _show_api_key_row(_resolve_display_name() in _CLOUD_PROVIDERS and not self.offline_mode_var.get())
         _update_api_key_hint(_resolve_display_name())
 
-        ttk.Label(frame, text="LLM model:").grid(row=12, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="LLM model:").grid(row=13, column=0, sticky="w", pady=6)
         model_frame = ttk.Frame(frame)
-        model_frame.grid(row=12, column=1, sticky="w", pady=6)
+        model_frame.grid(row=13, column=1, sticky="w", pady=6)
         llm_model_combo = ttk.Combobox(model_frame, textvariable=self.llm_model_var, width=27)
         llm_model_combo.pack(side=tk.LEFT)
         refresh_btn = ttk.Button(
@@ -3035,28 +3224,16 @@ class PCAPSentryApp:
             command=lambda: self._uninstall_selected_ollama_model(llm_model_combo),
         )
         uninstall_model_btn.pack(side=tk.LEFT, padx=(4, 0))
-        self._help_icon_grid(frame, "Model name for the selected provider. Click \u21BB to detect available models.", row=12, column=2, sticky="w")
+        self._help_icon_grid(frame, "Model name for the selected provider. Click \u21BB to detect available models.", row=13, column=2, sticky="w")
         self._refresh_llm_models(llm_model_combo)
 
-        ttk.Label(frame, text="LLM endpoint:").grid(row=13, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="LLM endpoint:").grid(row=14, column=0, sticky="w", pady=6)
         endpoint_frame = ttk.Frame(frame)
-        endpoint_frame.grid(row=13, column=1, sticky="w", pady=6)
+        endpoint_frame.grid(row=14, column=1, sticky="w", pady=6)
         llm_endpoint_entry = ttk.Entry(endpoint_frame, textvariable=self.llm_endpoint_var, width=34)
         llm_endpoint_entry.pack(side=tk.LEFT)
         self._help_icon_grid(frame, "API base URL for the LLM server. Auto-filled when you pick a server above. "
             "Edit this for custom ports or remote servers.",
-            row=13, column=2, sticky="w")
-
-        stop_ollama_on_exit_check = ttk.Checkbutton(
-            frame,
-            text="Stop Ollama when PCAP Sentry closes",
-            variable=self.stop_ollama_on_exit_var,
-            style="Quiet.TCheckbutton",
-        )
-        stop_ollama_on_exit_check.grid(row=14, column=0, sticky="w", pady=6, columnspan=2)
-        self._help_icon_grid(frame,
-            "When enabled (and server is Ollama), PCAP Sentry will stop local Ollama processes on exit. "
-            "This only applies to local default endpoints (localhost:11434 / 127.0.0.1:11434).",
             row=14, column=2, sticky="w")
 
         ttk.Label(frame, text="Test LLM:").grid(row=15, column=0, sticky="w", pady=6)
@@ -3075,16 +3252,6 @@ class PCAPSentryApp:
         self.llm_test_status_label.pack(side=tk.LEFT)
         self._help_icon_grid(frame, "Sends a small test request to verify the current LLM settings.", row=15, column=2, sticky="w")
 
-        # Install LLM server row
-        ttk.Label(frame, text="Install server:").grid(row=16, column=0, sticky="w", pady=6)
-        install_frame = ttk.Frame(frame)
-        install_frame.grid(row=16, column=1, sticky="w", pady=6)
-        ttk.Button(install_frame, text="Install LLM Server\u2026", style="Secondary.TButton",
-                   command=self._open_install_llm_dialog).pack(side=tk.LEFT)
-        self._help_icon_grid(frame, "Opens a dialog to install a local LLM server (Ollama, LM Studio, GPT4All, or Jan). "
-            "Use this if you skipped the installer\u2019s LLM setup or want to add another server.",
-            row=16, column=2, sticky="w")
-
         def _set_llm_fields_state(*_):
             provider = self.llm_provider_var.get().strip().lower()
             state = "normal" if provider != "disabled" else "disabled"
@@ -3094,7 +3261,6 @@ class PCAPSentryApp:
             detect_btn.configure(state=state)
             is_ollama = provider == "ollama"
             ollama_state = "normal" if is_ollama else "disabled"
-            stop_ollama_on_exit_check.configure(state=ollama_state)
             can_uninstall = (
                 state == "normal"
                 and is_ollama
@@ -3152,7 +3318,6 @@ class PCAPSentryApp:
             "llm_endpoint": self.llm_endpoint_var.get().strip() or "http://localhost:11434",
             "llm_api_key": self.llm_api_key_var.get().strip(),
             "llm_auto_detect": False,
-            "stop_ollama_on_exit": bool(self.stop_ollama_on_exit_var.get()),
             "theme": self.theme_var.get().strip().lower() or "system",
             "app_data_notice_shown": bool(self.settings.get("app_data_notice_shown")),
         }
@@ -3182,7 +3347,6 @@ class PCAPSentryApp:
         self.llm_model_var.set(defaults.get("llm_model", "llama3"))
         self.llm_endpoint_var.set(defaults.get("llm_endpoint", "http://localhost:11434"))
         self.llm_api_key_var.set(defaults.get("llm_api_key", ""))
-        self.stop_ollama_on_exit_var.set(defaults.get("stop_ollama_on_exit", True))
         self.theme_var.set(defaults["theme"])
         self._save_settings_from_vars()
 
@@ -3881,6 +4045,12 @@ class PCAPSentryApp:
             state=tk.DISABLED,
         )
         self.undo_kb_button.pack(side=tk.LEFT, padx=6)
+
+        # LLM suggestion banner (hidden until analysis completes with LLM enabled)
+        self.llm_suggestion_frame = tk.Frame(container, bg=self.colors.get("panel", "#161b22"),
+                                              highlightbackground=self.colors.get("accent", "#58a6ff"),
+                                              highlightthickness=1, padx=10, pady=8)
+        # Not packed yet – shown after analysis if LLM provides a suggestion
 
         self.results_notebook = ttk.Notebook(container)
         self.results_notebook.pack(fill=tk.BOTH, expand=True, pady=8)
@@ -4888,6 +5058,9 @@ class PCAPSentryApp:
         if top_ports:
             common_ports = {22, 53, 80, 123, 443, 445, 3389}
             unusual_ports = [str(port) for port, _ in top_ports if port not in common_ports]
+            malware_flagged = [str(port) for port, _ in top_ports if port in MALWARE_PORTS]
+            if malware_flagged:
+                hint_lines.append(f"- ⚠ Known malware/C2 ports: {', '.join(malware_flagged)}")
             if unusual_ports:
                 hint_lines.append(f"- Unusual top ports: {', '.join(unusual_ports)}")
 
@@ -4922,7 +5095,12 @@ class PCAPSentryApp:
         for ip in ips[:3]:
             filters.append(f"ip.addr == {ip}")
 
-        if top_ports:
+        # Add filters for known malware ports found in traffic
+        malware_port_hits = [p for p, _ in top_ports if p in MALWARE_PORTS]
+        if malware_port_hits:
+            port_str = ", ".join(str(p) for p in malware_port_hits[:5])
+            filters.append(f"tcp.port in {{{port_str}}} or udp.port in {{{port_str}}}")
+        elif top_ports:
             port_values = [str(port) for port, _ in top_ports[:3]]
             if port_values:
                 filters.append(f"tcp.port in {{{', '.join(port_values)}}} or udp.port in {{{', '.join(port_values)}}}")
@@ -6888,6 +7066,123 @@ class PCAPSentryApp:
             _write_error_log(f"Error labeling current capture as {label}", e, sys.exc_info()[2])
             messagebox.showerror("Error", f"Failed to label capture: {str(e)}")
 
+    # ------------------------------------------------------------------
+    # Post-analysis LLM label suggestion (non-blocking)
+    # ------------------------------------------------------------------
+    def _hide_llm_suggestion(self):
+        """Hide the LLM suggestion banner."""
+        self._pending_llm_suggestion = None
+        if self.llm_suggestion_frame is not None:
+            self.llm_suggestion_frame.pack_forget()
+
+    def _request_llm_suggestion_async(self, stats):
+        """After analysis, ask the LLM for a label suggestion in the background."""
+        self._hide_llm_suggestion()
+
+        if not self._llm_is_ready():
+            return
+
+        summary = summarize_stats(stats)
+
+        def worker():
+            try:
+                suggestion = self._request_llm_label(stats, summary)
+                if suggestion and suggestion.get("label") in ("safe", "malicious"):
+                    self.root.after(0, lambda s=suggestion: self._on_llm_suggestion(s))
+            except Exception:
+                pass  # Silently ignore — the suggestion is optional
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_llm_suggestion(self, suggestion):
+        """Called on the main thread when the LLM suggestion arrives."""
+        # Only show if we still have analysis results (user hasn't started a new one)
+        if self.current_stats is None:
+            return
+        self._pending_llm_suggestion = suggestion
+        self._show_llm_suggestion(suggestion)
+
+    def _show_llm_suggestion(self, suggestion):
+        """Display the LLM suggestion banner with label, rationale, and accept button."""
+        frame = self.llm_suggestion_frame
+        if frame is None:
+            return
+
+        # Clear previous contents
+        for w in frame.winfo_children():
+            w.destroy()
+
+        label = suggestion.get("label", "")
+        confidence = suggestion.get("confidence")
+        rationale = suggestion.get("rationale", "").strip()
+        conf_text = f"{confidence:.0%}" if isinstance(confidence, (int, float)) else ""
+
+        # Icon + label
+        if label == "safe":
+            icon = "\u2705"
+            label_color = self.colors.get("success", "#3fb950")
+            label_display = "Safe"
+        else:
+            icon = "\u26a0\ufe0f"
+            label_color = self.colors.get("danger", "#f85149")
+            label_display = "Malicious"
+
+        header_text = f"{icon}  LLM suggests: {label_display}"
+        if conf_text:
+            header_text += f"  ({conf_text} confidence)"
+
+        header = tk.Label(frame, text=header_text,
+                          fg=label_color,
+                          bg=self.colors.get("panel", "#161b22"),
+                          font=("Segoe UI Semibold", 11))
+        header.pack(side=tk.LEFT, padx=(0, 10))
+
+        if rationale:
+            reason = tk.Label(frame, text=rationale,
+                              fg=self.colors.get("fg", "#c9d1d9"),
+                              bg=self.colors.get("panel", "#161b22"),
+                              font=("Segoe UI", 10),
+                              wraplength=500, justify=tk.LEFT)
+            reason.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
+
+        accept_btn = ttk.Button(frame, text=f"Accept \u2192 Mark as {label_display}",
+                                style="Success.TButton" if label == "safe" else "Warning.TButton",
+                                command=lambda: self._accept_llm_suggestion())
+        accept_btn.pack(side=tk.RIGHT, padx=(6, 0))
+
+        dismiss_btn = ttk.Button(frame, text="\u2715", style="Secondary.TButton",
+                                 command=self._hide_llm_suggestion, width=3)
+        dismiss_btn.pack(side=tk.RIGHT, padx=(4, 0))
+
+        frame.pack(fill=tk.X, pady=(0, 4))
+
+    def _accept_llm_suggestion(self):
+        """Apply the LLM-suggested label to the knowledge base (skips re-confirmation)."""
+        suggestion = self._pending_llm_suggestion
+        if suggestion is None or self.current_stats is None:
+            return
+
+        label = suggestion.get("label")
+        if label not in ("safe", "malicious"):
+            return
+
+        self._hide_llm_suggestion()
+
+        # Apply directly — no need to re-ask the LLM since this IS the LLM suggestion
+        try:
+            data_dir = _get_app_data_dir()
+            os.makedirs(data_dir, exist_ok=True)
+            features = build_features(self.current_stats)
+            summary = summarize_stats(self.current_stats)
+            self._apply_label_to_kb(
+                label, self.current_stats, features, summary,
+                "Knowledge Base",
+                f"Current capture saved as {label} (LLM suggestion accepted).",
+            )
+        except Exception as e:
+            _write_error_log(f"Error accepting LLM suggestion as {label}", e, sys.exc_info()[2])
+            messagebox.showerror("Error", f"Failed to label capture: {str(e)}")
+
     def _sync_undo_buttons(self):
         """Enable or disable all undo buttons based on current undo state."""
         has_undo = self._last_kb_label is not None and self._last_kb_entry is not None
@@ -7686,7 +7981,7 @@ class PCAPSentryApp:
                                     anomaly_result, anomaly_reasons, ioc_matches,
                                     ioc_count, ioc_available, stats, safe_scores,
                                     mal_scores, suspicious_flows, threat_intel_findings,
-                                    use_local_model, features):
+                                    use_local_model, features, behavioral_findings=None):
         """Build the Results tab text lines (can run off main thread)."""
         output_lines = [
             f"Risk Score: {risk_score}/100",
@@ -7792,12 +8087,24 @@ class PCAPSentryApp:
                     f"- {item['flow']} | {item['reason']} | {item['bytes']} | {item['packets']} pkts"
                 )
 
+        if behavioral_findings:
+            output_lines.append("")
+            output_lines.append("Behavioral Anomalies")
+            for finding in behavioral_findings:
+                severity = finding.get("severity", 0)
+                level = "HIGH" if severity >= 70 else "MEDIUM" if severity >= 50 else "LOW"
+                output_lines.append(f"- [{level}] {finding['detail']}")
+        elif behavioral_findings is not None:
+            output_lines.append("")
+            output_lines.append("Behavioral Anomalies")
+            output_lines.append("No behavioral anomalies detected.")
+
         return output_lines
 
     def _build_why_lines(self, verdict, risk_score, classifier_result,
                           anomaly_result, anomaly_reasons, ioc_matches,
                           ioc_count, ioc_available, stats, suspicious_flows,
-                          threat_intel_findings, wireshark_filters):
+                          threat_intel_findings, wireshark_filters, behavioral_findings=None):
         """Build the Why tab text lines (can run off main thread)."""
         why_lines = [
             "========================================",
@@ -7880,6 +8187,17 @@ class PCAPSentryApp:
                 why_lines.append("    Result: No matches against any blocklists.")
         else:
             why_lines.append("    Result: Threat feeds not loaded.")
+        why_lines.append("")
+
+        why_lines.append("[D] BEHAVIORAL HEURISTICS")
+        if behavioral_findings:
+            why_lines.append(f"    Result: {len(behavioral_findings)} anomaly(ies) detected")
+            for finding in behavioral_findings:
+                severity = finding.get("severity", 0)
+                level = "HIGH" if severity >= 70 else "MEDIUM" if severity >= 50 else "LOW"
+                why_lines.append(f"    [{level}] {finding['detail']}")
+        else:
+            why_lines.append("    Result: No behavioral anomalies detected.")
         why_lines.append("")
 
         why_lines.append("----------------------------------------")
@@ -7995,6 +8313,9 @@ class PCAPSentryApp:
             messagebox.showwarning("Missing file", "Please select a PCAP or ZIP file.")
             return
 
+        # Hide any previous LLM suggestion banner
+        self._hide_llm_suggestion()
+
         # Read tkinter variables on main thread before launching worker
         max_rows = self.max_rows_var.get()
         parse_http = self.parse_http_var.get()
@@ -8064,6 +8385,7 @@ class PCAPSentryApp:
 
                 _report(45)
                 suspicious_flows = detect_suspicious_flows(df, kb, flow_df=flow_df_early)
+                behavioral_findings = detect_behavioral_anomalies(df, stats, flow_df=flow_df_early)
 
                 t_p2 = time.time()
                 print(f"[TIMING] Phase 2 parallel (intel+ioc+baseline+flows): {t_p2-t_start:.2f}s")
@@ -8105,6 +8427,7 @@ class PCAPSentryApp:
                 flow_df_early = compute_flow_stats(df)
                 _report(48)
                 suspicious_flows = detect_suspicious_flows(df, kb, flow_df=flow_df_early)
+                behavioral_findings = detect_behavioral_anomalies(df, stats, flow_df=flow_df_early)
 
                 _report(52)
                 features = build_features(stats)
@@ -8123,21 +8446,35 @@ class PCAPSentryApp:
             _report(68)
             ioc_count = len(ioc_matches["ips"]) + len(ioc_matches["domains"])
             ioc_available = any(kb.get("ioc", {}).get(key) for key in ("ips", "domains", "hashes"))
-            ioc_score = min(100.0, 75.0 + (ioc_count - 1) * 5.0) if ioc_count else 0.0
+            ioc_score = min(100.0, 80.0 + (ioc_count - 1) * 5.0) if ioc_count else 0.0
 
+            # Behavioral heuristic score (aggregated from individual findings)
+            behavioral_score = 0.0
+            if behavioral_findings:
+                behavioral_score = min(100.0, sum(f.get("risk_boost", 0) for f in behavioral_findings))
+
+            # Weighted risk scoring with dynamic weights
             risk_components = []
             if classifier_result is not None:
-                risk_components.append((classifier_result["score"], 0.5))
+                risk_components.append((classifier_result["score"], 0.35))
             if anomaly_result is not None:
-                risk_components.append((anomaly_result, 0.3))
+                risk_components.append((anomaly_result, 0.20))
             if ioc_available:
-                risk_components.append((ioc_score, 0.2))
+                risk_components.append((ioc_score, 0.25))
+            if behavioral_findings:
+                risk_components.append((behavioral_score, 0.20))
 
             if risk_components:
                 total_weight = sum(w for _, w in risk_components)
                 risk_score = round(sum(s * w for s, w in risk_components) / total_weight, 1)
             else:
                 risk_score = 0.0
+
+            # Hard escalation: IoC matches or critical behavioral findings floor the score
+            if ioc_count >= 2 and risk_score < 60:
+                risk_score = max(risk_score, 60.0)
+            if behavioral_score >= 40 and risk_score < 45:
+                risk_score = max(risk_score, 45.0)
 
             if risk_score >= 70:
                 verdict = "Likely Malicious"
@@ -8162,12 +8499,13 @@ class PCAPSentryApp:
                         risk_score, verdict, classifier_result, anomaly_result, anomaly_reasons,
                         ioc_matches, ioc_count, ioc_available, stats, safe_scores, mal_scores,
                         suspicious_flows, threat_intel_findings, use_local_model, features,
+                        behavioral_findings,
                     )
                     f_why = pool.submit(
                         self._build_why_lines,
                         verdict, risk_score, classifier_result, anomaly_result, anomaly_reasons,
                         ioc_matches, ioc_count, ioc_available, stats, suspicious_flows,
-                        threat_intel_findings, wireshark_filters,
+                        threat_intel_findings, wireshark_filters, behavioral_findings,
                     )
                     f_edu = pool.submit(
                         self._build_education_content,
@@ -8184,12 +8522,13 @@ class PCAPSentryApp:
                     risk_score, verdict, classifier_result, anomaly_result, anomaly_reasons,
                     ioc_matches, ioc_count, ioc_available, stats, safe_scores, mal_scores,
                     suspicious_flows, threat_intel_findings, use_local_model, features,
+                    behavioral_findings,
                 )
                 _report(85)
                 why_lines = self._build_why_lines(
                     verdict, risk_score, classifier_result, anomaly_result, anomaly_reasons,
                     ioc_matches, ioc_count, ioc_available, stats, suspicious_flows,
-                    threat_intel_findings, wireshark_filters,
+                    threat_intel_findings, wireshark_filters, behavioral_findings,
                 )
                 _report(90)
                 edu_content = self._build_education_content(
@@ -8216,6 +8555,7 @@ class PCAPSentryApp:
                 "classifier_result": classifier_result,
                 "flow_df_early": flow_df_early,
                 "suspicious_flows": suspicious_flows,
+                "behavioral_findings": behavioral_findings,
                 "output_lines": output_lines,
                 "why_lines": why_lines,
                 "edu_content": edu_content,
@@ -8346,6 +8686,9 @@ class PCAPSentryApp:
             self._populate_extracted_tab(extracted_data)
 
             self.target_path_var.set("")
+
+            # Fire LLM label suggestion in background (non-blocking)
+            self._request_llm_suggestion_async(stats)
 
         self._run_task(task, done, message="Analyzing PCAP...", progress_label="Analyzing PCAP")
 
