@@ -575,6 +575,15 @@ If a server is found, the provider, endpoint, and first available model are auto
    - **LLM endpoint** = `http://localhost:11434`
 5. Click **Test Connection** to verify.
 
+### Installer-Based Ollama Model Management (Optional)
+
+If you choose the **Install/manage Ollama** option during PCAP Sentry setup, the installer shows an **Ollama Models** page where you can:
+
+- **Install/Update selected models** (default behavior)
+- **Remove selected models** (check **Remove selected models instead of install/update**)
+
+The installer now shows live progress while installing Ollama and while processing each selected model.
+
 ### OpenAI-Compatible Server Setup (Optional)
 
 PCAP Sentry works with any server that implements the OpenAI chat completions API (e.g., LM Studio, text-generation-webui, LocalAI, vLLM):
@@ -684,6 +693,7 @@ PCAP Sentry uses date-based versioning: `YYYY.MM.DD` (e.g., `2026.02.13`). If mu
 - Ensure **LLM provider** is set to `ollama` or `openai_compat` in Preferences.
 - Verify the LLM server is running and reachable at the configured endpoint.
 - For Ollama: confirm the model is pulled (e.g., `ollama pull llama3`).
+- If you used installer remove mode, reinstall a model with `ollama pull <model>`.
 - Click **Test Connection** in Preferences to validate your settings — the error message includes the URL and server response for diagnostics.
 - If the endpoint includes `/v1`, remove it — PCAP Sentry adds the correct API path automatically.
 - Check the header indicator: **✔ LLM** (green/blue) means connected, **✘ LLM** (red) means failed.
