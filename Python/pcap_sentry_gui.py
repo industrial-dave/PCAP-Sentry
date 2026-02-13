@@ -5810,13 +5810,14 @@ class PCAPSentryApp:
         content = self._request_openai_compat_chat(messages, temperature=0.2)
         return self._parse_llm_label_response(content)
 
-    def _confirm_llm_label(self, intended_label, stats, summary, on_apply):
+    def _llm_is_ready(self):
+        """Return True only if LLM is enabled AND connection was verified."""
         if not self._llm_is_enabled():
-            on_apply(intended_label)
-            return
-        # Skip if the LLM was never successfully connected
-        status = self.llm_test_status_var.get().strip()
-        if status in ("", "FAIL", "Disabled", "Not tested"):
+            return False
+        return self.llm_test_status_var.get().strip() in ("OK", "Auto")
+
+    def _confirm_llm_label(self, intended_label, stats, summary, on_apply):
+        if not self._llm_is_ready():
             on_apply(intended_label)
             return
 
