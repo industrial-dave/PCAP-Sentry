@@ -10,6 +10,9 @@
 
 
 
+
+## 2026.02.13-15 - 2026-02-13
+- Minor tweaks and improvements
 ## 2026.02.13-14 - 2026-02-13
 - Added deferred in-app standalone update replacement with clearer failure reasons.
 - Added installer progress for Ollama runtime install and per-model actions.
