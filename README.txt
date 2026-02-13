@@ -1,40 +1,33 @@
 PCAP Sentry - Malware Analysis Console
 
-PCAP Sentry is a malware analysis console for PCAP files. It parses
-network captures, summarizes traffic statistics, and provides heuristic
-signals to help triage suspicious activity.
+PCAP Sentry analyzes PCAP/PCAPNG files, summarizes traffic statistics,
+and provides heuristic signals to help triage suspicious network activity.
+
+Features
+- Risk scoring from 0-100 with verdict explanation
+- Credential extraction from cleartext protocols
+- Host discovery (IPs, MACs, hostnames)
+- C2 and data exfiltration detection
+- Wireshark filter generation
+- Threat intelligence integration (AlienVault OTX, URLhaus)
+- Trainable knowledge base with optional ML model
+- Local LLM chat interface (Ollama or OpenAI-compatible)
 
 Installation
+Download and run PCAP_Sentry_Setup.exe from the Releases page:
+https://github.com/industrial-dave/PCAP-Sentry/releases
 
-Option 1: Download Installer
-The latest installer is available in the dist/ folder:
-- PCAP_Sentry_Setup.exe (Recommended for end users)
+Running from Source
+1. Install Python 3.10+
+2. Create virtual environment: python -m venv .venv
+3. Activate: .venv\Scripts\activate.bat
+4. Install dependencies: pip install -r requirements.txt
+5. Run: python Python\pcap_sentry_gui.py
 
-To install:
-1. Download PCAP_Sentry_Setup.exe from the repository
-2. Run the installer and follow the prompts
-3. Choose installation directory (default: C:\Program Files\PCAP Sentry)
-4. Create desktop shortcut (optional)
-5. Launch PCAP Sentry from the Start menu or desktop
-
-Option 2: Run from Source
-For development or custom deployments:
-1. Clone the repository
-2. Install Python 3.10+
-3. Create virtual environment: python -m venv .venv
-4. Activate: .venv\Scripts\activate.bat
-5. Install dependencies: pip install -r requirements.txt
-6. Run: python Python/pcap_sentry_gui.py
-
-Notes
-- Large PCAP files can take several minutes to parse.
-- App data is stored under the user profile if the install directory is not
-  writable.
-- To bundle the VC++ runtime in the installer, run download_vcredist.ps1 before
-  building.
-- Performance has been optimized for 4-6x faster analysis with KB caching and
-  top-K similarity filtering.
+Requirements
+- Windows 10/11 (64-bit)
+- 4 GB RAM minimum (8 GB recommended)
+- VC++ Redistributable 2015+ (included with installer)
 
 Support
-If you encounter issues, capture logs from the build process and note the
-steps to reproduce the problem.
+https://github.com/industrial-dave/PCAP-Sentry/issues

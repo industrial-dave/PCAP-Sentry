@@ -23,5 +23,6 @@ Desktop.ini
 
 # Editor
 .vscode/
+.streamlit/
 .venv-gpu/
 
