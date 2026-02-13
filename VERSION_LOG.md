@@ -9,6 +9,9 @@
 
 
 
+
+## 2026.02.13-11 - 2026-02-13
+- Minor tweaks and improvements
 ## 2026.02.13-10 - 2026-02-13
 - Avoid installer stall by running Ollama setup in background
 ## 2026.02.13-9 - 2026-02-13

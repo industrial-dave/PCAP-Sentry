@@ -3,20 +3,20 @@
 #define IncludeVCRedist
 #endif
 
-#define AppVer "2026.02.13-10"
+#define AppVer "2026.02.13-11"
 
 [Setup]
-AppId={{B8A5C2E1-7F3D-4A1B-9C6E-2D8F5A4E3B71}
-AppName=PCAP Sentry
+AppId={{91EFC8EF-E9F8-42FC-9D82-479C14FBE67D}
+AppName=PCAP Sentry (GPU)
 AppVersion={#AppVer}
-AppVerName=PCAP Sentry {#AppVer}
-VersionInfoVersion=2026.2.13.10
+AppVerName=PCAP Sentry (GPU) {#AppVer}
+VersionInfoVersion=2026.2.13.11
 AppPublisher=industrial-dave
 AppSupportURL=https://github.com/industrial-dave/PCAP-Sentry
-DefaultDirName={autopf}\PCAP Sentry
-DefaultGroupName=PCAP Sentry
+DefaultDirName={autopf}\PCAP Sentry (GPU)
+DefaultGroupName=PCAP Sentry (GPU)
 OutputDir=..\dist
-OutputBaseFilename=PCAP_Sentry_Setup
+OutputBaseFilename=PCAP_Sentry_GPU_Setup
 Compression=lzma
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -24,14 +24,14 @@ WizardStyle=modern
 SetupIconFile=..\assets\pcap_sentry.ico
 LicenseFile=..\LICENSE.txt
 InfoBeforeFile=..\README.txt
-UninstallDisplayIcon={app}\PCAP_Sentry.exe
-UninstallDisplayName=PCAP Sentry {#AppVer}
+UninstallDisplayIcon={app}\PCAP_Sentry_GPU.exe
+UninstallDisplayName=PCAP Sentry (GPU) {#AppVer}
 CloseApplications=yes
 RestartApplications=yes
 MinVersion=10.0
 
 [Files]
-Source: "..\dist\PCAP_Sentry.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\PCAP_Sentry_GPU.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 #ifdef IncludeVCRedist
@@ -39,8 +39,8 @@ Source: "{#VCRedistPath}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 #endif
 
 [Icons]
-Name: "{group}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"
-Name: "{commondesktop}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"; Tasks: desktopicon
+Name: "{group}\PCAP Sentry (GPU)"; Filename: "{app}\PCAP_Sentry_GPU.exe"
+Name: "{commondesktop}\PCAP Sentry (GPU)"; Filename: "{app}\PCAP_Sentry_GPU.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
@@ -50,7 +50,7 @@ Name: "installollama"; Description: "Install Ollama (local LLM runtime) (~1.5 GB
 #ifdef IncludeVCRedist
 Filename: "{tmp}\vcredist_x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing VC++ Runtime..."; Flags: waituntilterminated skipifsilent
 #endif
-Filename: "{app}\PCAP_Sentry.exe"; Description: "Launch PCAP Sentry"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\PCAP_Sentry_GPU.exe"; Description: "Launch PCAP Sentry (GPU)"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 ; Remove app-created subdirectories under the install directory
@@ -59,7 +59,7 @@ Type: filesandordirs; Name: "{app}\logs"
 
 [Code]
 const
-  LocalAppDataFolder = '{localappdata}\PCAP_Sentry';
+  LocalAppDataFolder = '{localappdata}\PCAP_Sentry_GPU';
   OllamaRuntimeSizeMB = 1536;
 
 var
