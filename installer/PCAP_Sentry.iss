@@ -3,14 +3,14 @@
 #define IncludeVCRedist
 #endif
 
-#define AppVer "2026.02.13-15"
+#define AppVer "2026.02.13-16"
 
 [Setup]
 AppId={{91EFC8EF-E9F8-42FC-9D82-479C14FBE67D}
 AppName=PCAP Sentry
 AppVersion={#AppVer}
 AppVerName=PCAP Sentry {#AppVer}
-VersionInfoVersion=2026.2.13.15
+VersionInfoVersion=2026.2.13.16
 AppPublisher=industrial-dave
 AppSupportURL=https://github.com/industrial-dave/PCAP-Sentry
 DefaultDirName={autopf}\PCAP Sentry
@@ -68,7 +68,6 @@ var
   OllamaModelSizesMB: array of Integer;
   OllamaSpaceNote: TNewStaticText;
   OllamaModelsHint: TNewStaticText;
-  OllamaRemoveModeCheck: TNewCheckBox;
   TasksClickHandlerSet: Boolean;
   CommandRunId: Integer;
 
@@ -120,11 +119,6 @@ begin
   end;
 end;
 
-function IsOllamaRemoveMode: Boolean;
-begin
-  Result := (OllamaRemoveModeCheck <> nil) and OllamaRemoveModeCheck.Checked;
-end;
-
 procedure SetOllamaInstallProgress(const CaptionText: String; Position, MaxValue: Integer);
   forward;
 
@@ -139,12 +133,6 @@ begin
   if not WizardIsTaskSelected('installollama') then
   begin
     OllamaSpaceNote.Caption := 'Additional space for Ollama and models: not selected.';
-    exit;
-  end;
-
-  if IsOllamaRemoveMode then
-  begin
-    OllamaSpaceNote.Caption := 'Model action: remove selected models (this can free disk space).';
     exit;
   end;
 
@@ -177,9 +165,9 @@ begin
   OllamaModelsPage := CreateInputOptionPage(
     wpSelectTasks,
     'Ollama Models',
-    'Select models to install/update or remove',
+    'Select models to install/update',
     'Choose one or more Ollama models.' + #13#10 +
-    'Default action installs/updates selected models; enable remove mode to uninstall selected models instead.',
+    'Selected models will be installed or updated.',
     True,
     False
   );
@@ -209,16 +197,7 @@ begin
   OllamaModelsHint.Left := ScaleX(0);
   OllamaModelsHint.Top := ScaleY(0);
   OllamaModelsHint.Width := OllamaModelsPage.SurfaceWidth;
-  OllamaModelsHint.Caption := 'Selected models will be installed/updated unless remove mode is checked.';
-
-  OllamaRemoveModeCheck := TNewCheckBox.Create(WizardForm);
-  OllamaRemoveModeCheck.Parent := OllamaModelsPage.Surface;
-  OllamaRemoveModeCheck.Left := ScaleX(0);
-  OllamaRemoveModeCheck.Top := ScaleY(18);
-  OllamaRemoveModeCheck.Width := OllamaModelsPage.SurfaceWidth;
-  OllamaRemoveModeCheck.Caption := 'Remove selected models instead of install/update';
-  OllamaRemoveModeCheck.Checked := False;
-  OllamaRemoveModeCheck.OnClick := @HandleSelectionChange;
+  OllamaModelsHint.Caption := 'Selected models will be installed/updated.';
 
   UpdateOllamaSpaceNote;
 
@@ -329,9 +308,6 @@ begin
       Result := False;
       exit;
     end;
-
-    if IsOllamaRemoveMode then
-      exit;
 
     RequiredMB := OllamaRuntimeSizeMB + GetSelectedOllamaModelsSizeMB;
     FreeBytes := GetFreeSpaceBytes(ExpandConstant('{localappdata}'));
@@ -560,7 +536,7 @@ begin
   Result := IsOllamaAvailable;
 end;
 
-function ApplySelectedOllamaModels(TotalSteps: Integer; RemoveMode: Boolean): Boolean;
+function ApplySelectedOllamaModels(TotalSteps: Integer): Boolean;
 var
   I: Integer;
   ResultCode: Integer;
@@ -568,9 +544,6 @@ var
   CurrentStep: Integer;
   SelectedIndex: Integer;
   SelectedCount: Integer;
-  ActionVerb: String;
-  ActionDoneVerb: String;
-  OllamaArgs: String;
 begin
   Result := True;
   if not AnyOllamaModelSelected then
@@ -581,17 +554,6 @@ begin
   SelectedIndex := 0;
   SelectedCount := CountSelectedOllamaModels;
 
-  if RemoveMode then
-  begin
-    ActionVerb := 'Removing';
-    ActionDoneVerb := 'Removed';
-  end
-  else
-  begin
-    ActionVerb := 'Downloading';
-    ActionDoneVerb := 'Downloaded';
-  end;
-
   for I := 0 to GetArrayLength(OllamaModelIds) - 1 do
   begin
     if not OllamaModelsPage.Values[I] then
@@ -599,20 +561,15 @@ begin
 
     SelectedIndex := SelectedIndex + 1;
     SetOllamaInstallProgress(
-      ActionVerb + ' Ollama model ' + IntToStr(SelectedIndex) + '/' + IntToStr(SelectedCount) + ': ' + OllamaModelIds[I] + ' ...',
+      'Downloading Ollama model ' + IntToStr(SelectedIndex) + '/' + IntToStr(SelectedCount) + ': ' + OllamaModelIds[I] + ' ...',
       CurrentStep,
       TotalSteps
     );
 
-    if RemoveMode then
-      OllamaArgs := 'rm ' + OllamaModelIds[I]
-    else
-      OllamaArgs := 'pull ' + OllamaModelIds[I];
-
     if not RunCommandWithProgress(
         OllamaExe,
-        OllamaArgs,
-        ActionVerb + ' Ollama model ' + IntToStr(SelectedIndex) + '/' + IntToStr(SelectedCount) + ': ' + OllamaModelIds[I] + ' ...',
+        'pull ' + OllamaModelIds[I],
+        'Downloading Ollama model ' + IntToStr(SelectedIndex) + '/' + IntToStr(SelectedCount) + ': ' + OllamaModelIds[I] + ' ...',
         CurrentStep,
         TotalSteps,
         ResultCode
@@ -624,7 +581,7 @@ begin
 
     CurrentStep := CurrentStep + 1;
     SetOllamaInstallProgress(
-      ActionDoneVerb + ' Ollama model: ' + OllamaModelIds[I],
+      'Downloaded Ollama model: ' + OllamaModelIds[I],
       CurrentStep,
       TotalSteps
     );
@@ -711,7 +668,6 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   TotalSteps: Integer;
   SelectedModels: Integer;
-  RemoveMode: Boolean;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -719,49 +675,9 @@ begin
     begin
       SelectedModels := CountSelectedOllamaModels;
       TotalSteps := 1 + SelectedModels;
-      RemoveMode := IsOllamaRemoveMode;
 
       if SelectedModels = 0 then
         exit;
-
-      if RemoveMode then
-      begin
-        if not IsOllamaAvailable then
-        begin
-          MsgBox(
-            'Cannot remove models because Ollama is not installed.',
-            mbError,
-            MB_OK
-          );
-          exit;
-        end;
-
-        SetOllamaInstallProgress(
-          'Removing selected Ollama models ...',
-          0,
-          TotalSteps
-        );
-
-        SetOllamaInstallProgress(
-          'Ollama runtime ready (1/' + IntToStr(TotalSteps) + ')',
-          1,
-          TotalSteps
-        );
-
-        if not ApplySelectedOllamaModels(TotalSteps, True) then
-        begin
-          MsgBox(
-            'One or more model removals failed.' + #13#10 +
-            'You can retry manually in a terminal, for example: ollama rm llama3.2',
-            mbError,
-            MB_OK
-          );
-          exit;
-        end;
-
-        SetOllamaInstallProgress('Ollama model removal complete.', TotalSteps, TotalSteps);
-        exit;
-      end;
 
       SetOllamaInstallProgress(
         'Installing Ollama runtime (1/' + IntToStr(TotalSteps) + ') ...',
@@ -786,7 +702,7 @@ begin
         TotalSteps
       );
 
-      if not ApplySelectedOllamaModels(TotalSteps, False) then
+      if not ApplySelectedOllamaModels(TotalSteps) then
       begin
         MsgBox(
           'One or more Ollama model downloads failed.' + #13#10 +
