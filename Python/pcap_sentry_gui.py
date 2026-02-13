@@ -4917,6 +4917,7 @@ class PCAPSentryApp:
             }
 
         self.root.configure(bg=self.colors["bg"])
+        self._set_dark_titlebar()
         style = ttk.Style(self.root)
         try:
             style.theme_use("clam")
@@ -5213,6 +5214,22 @@ class PCAPSentryApp:
         )
 
         style.configure("TSeparator", background=border)
+
+    def _set_dark_titlebar(self):
+        """Force the Windows title bar to use dark mode via DWM."""
+        if not sys.platform.startswith("win"):
+            return
+        try:
+            import ctypes
+            hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            value = ctypes.c_int(1)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ctypes.byref(value), ctypes.sizeof(value)
+            )
+        except Exception:
+            pass
 
     def _resolve_theme(self):
         theme = "system"
