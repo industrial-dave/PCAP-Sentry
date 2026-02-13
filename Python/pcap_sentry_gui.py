@@ -2853,17 +2853,49 @@ class PCAPSentryApp:
             "Disable if you experience stability issues or want to reduce CPU usage.", row=9, column=2, sticky="w")
 
         ttk.Label(frame, text="LLM provider:").grid(row=10, column=0, sticky="w", pady=6)
+        provider_frame = ttk.Frame(frame)
+        provider_frame.grid(row=10, column=1, sticky="w", pady=6)
         llm_provider_combo = ttk.Combobox(
-            frame,
+            provider_frame,
             textvariable=self.llm_provider_var,
             values=["disabled", "ollama", "openai_compat"],
             width=12,
         )
         llm_provider_combo.state(["readonly"])
-        llm_provider_combo.grid(row=10, column=1, sticky="w", pady=6)
+        llm_provider_combo.pack(side=tk.LEFT)
+        install_ollama_btn = ttk.Button(
+            provider_frame, text="Install Ollama",
+            style="Secondary.TButton",
+            command=self._install_ollama,
+            state=tk.DISABLED,
+        )
+        install_ollama_btn.pack(side=tk.LEFT, padx=(6, 0))
+        self._install_ollama_status = tk.Label(
+            provider_frame,
+            text="",
+            fg=self.colors.get("muted", "#8b949e"),
+            bg=self.colors.get("bg", "#0d1117"),
+            font=("Segoe UI", 10),
+            padx=4,
+        )
+        self._install_ollama_status.pack(side=tk.LEFT)
         self._help_icon_grid(frame, "Choose which LLM to use for label suggestions. "
             "Ollama runs locally (offline). OpenAI-compatible may be local or cloud, depending on the endpoint. "
             "Select 'disabled' to turn off LLM features.", row=10, column=2, sticky="w")
+
+        # Check once at preferences open whether Ollama is already installed
+        _ollama_installed = [False]
+        def _check_ollama_installed():
+            try:
+                result = subprocess.run(
+                    ["ollama", "--version"],
+                    capture_output=True, text=True, timeout=5,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+                _ollama_installed[0] = result.returncode == 0
+            except Exception:
+                _ollama_installed[0] = False
+        threading.Thread(target=_check_ollama_installed, daemon=True).start()
 
         ttk.Label(frame, text="LLM model:").grid(row=11, column=0, sticky="w", pady=6)
         model_frame = ttk.Frame(frame)
@@ -2920,28 +2952,6 @@ class PCAPSentryApp:
         self.llm_test_status_label.pack(side=tk.LEFT)
         self._help_icon_grid(frame, "Sends a small test request to verify the current LLM settings.", row=14, column=2, sticky="w")
 
-        ttk.Label(frame, text="Install Ollama:").grid(row=15, column=0, sticky="w", pady=6)
-        install_frame = ttk.Frame(frame)
-        install_frame.grid(row=15, column=1, sticky="w", pady=6)
-        install_ollama_btn = ttk.Button(
-            install_frame, text="Download && Install Ollama",
-            style="Secondary.TButton",
-            command=self._install_ollama,
-        )
-        install_ollama_btn.pack(side=tk.LEFT)
-        self._install_ollama_status = tk.Label(
-            install_frame,
-            text="",
-            fg=self.colors.get("muted", "#8b949e"),
-            bg=self.colors.get("bg", "#0d1117"),
-            font=("Segoe UI", 10),
-            padx=8,
-        )
-        self._install_ollama_status.pack(side=tk.LEFT)
-        self._help_icon_grid(frame, "Downloads the official Ollama installer and runs it. "
-            "After installation, set the LLM provider to 'ollama' and test the connection.",
-            row=15, column=2, sticky="w")
-
         def _set_llm_fields_state(*_):
             state = "normal" if self.llm_provider_var.get() != "disabled" else "disabled"
             llm_model_combo.configure(state=state)
@@ -2955,6 +2965,10 @@ class PCAPSentryApp:
                 and bool(self.llm_model_var.get().strip())
             )
             uninstall_model_btn.configure(state=("normal" if can_uninstall else "disabled"))
+            # Install Ollama: only enabled when ollama selected AND not already installed
+            is_ollama = self.llm_provider_var.get().strip().lower() == "ollama"
+            show_install = is_ollama and not _ollama_installed[0]
+            install_ollama_btn.configure(state=("normal" if show_install else "disabled"))
             if state == "disabled":
                 self._set_llm_test_status("Disabled", self.colors.get("muted", "#8b949e"))
             else:
@@ -2969,20 +2983,20 @@ class PCAPSentryApp:
 
         # Backup directory row with improved spacing
 
-        ttk.Label(frame, text="Backup directory:").grid(row=16, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="Backup directory:").grid(row=15, column=0, sticky="w", pady=6)
         backup_entry = ttk.Entry(frame, textvariable=self.backup_dir_var, width=60)
-        backup_entry.grid(row=16, column=1, sticky="ew", pady=6)
+        backup_entry.grid(row=15, column=1, sticky="ew", pady=6)
         self._add_clear_x(backup_entry, self.backup_dir_var)
         frame.grid_columnconfigure(1, weight=1)
         button_frame = ttk.Frame(frame)
-        button_frame.grid(row=16, column=2, columnspan=4, sticky="e", pady=6)
+        button_frame.grid(row=15, column=2, columnspan=4, sticky="e", pady=6)
         ttk.Button(button_frame, text="Browse", style="Secondary.TButton",
                    command=self._browse_backup_dir).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Cancel", style="Secondary.TButton",
                    command=window.destroy).pack(side=tk.LEFT, padx=2)
         ttk.Button(frame, text="Reset to Defaults", style="Danger.TButton",
-               command=self._reset_preferences).grid(row=17, column=0, columnspan=6, sticky="e", pady=(12, 0))
+               command=self._reset_preferences).grid(row=16, column=0, columnspan=6, sticky="e", pady=(12, 0))
 
         window.grab_set()
 
