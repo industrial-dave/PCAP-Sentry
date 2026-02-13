@@ -2,6 +2,23 @@
 
 
 
+## 2025-06-19 — Security Hardening
+
+### Summary
+Comprehensive security hardening across update pipeline, ML model loading, threat-intelligence networking, credential storage, and CI/CD workflow.
+
+### Changes
+- **SHA-256 download verification** — downloaded update executables are checked against `SHA256SUMS.txt` published alongside each GitHub release; mismatched hashes abort the update
+- **Download size limits** — update downloads capped at 500 MB, API responses at 5 MB
+- **URL domain validation** — only `github.com` / `*.github.com` download URLs are accepted
+- **CMD path sanitization** — paths embedded in the restart batch script are stripped of shell-special characters to prevent command injection
+- **HMAC model integrity** — ML models are signed with HMAC-SHA256 on save; signature is verified before `joblib.load()`, and deserialized objects are type-checked for expected sklearn interfaces
+- **Keyring credential storage** — LLM API keys are stored in the OS credential manager (Windows Credential Locker) via `keyring`; existing plaintext keys are auto-migrated on first load; graceful fallback to JSON if keyring is unavailable
+- **Response size limits on TI APIs** — OTX, AbuseIPDB, and URLhaus responses are capped at 2 MB before JSON parsing
+- **HTTP adapter removed** — `threat_intelligence.py` no longer mounts an HTTP adapter; all requests go through HTTPS only
+- **GH Actions script-injection fix** — `release-checksums.yml` moves `${{ }}` expressions to `env:` block to prevent tag-name injection into shell scripts
+- **Added `keyring>=25.0`** to `requirements.txt`
+
 ## 2026.02.13-30 - 2026-02-13
 - Detection accuracy + TI speed optimization + behavioral heuristics + docs update
 ## 2026.02.13-30 - 2026-02-13

@@ -31,7 +31,7 @@ PCAP Sentry parses network captures (`.pcap` / `.pcapng`), summarizes traffic st
 | 🧠 | **Learns from your data** via a trainable knowledge base and optional ML model (25-feature vector) |
 | 💬 | **Chat interface** powered by a local LLM (Ollama, offline) or OpenAI-compatible endpoint (local or cloud) |
 | ♻️ | **LLM status is now saved and restored automatically** |
-| 🔒 | **Security hardened** with path-traversal guards, input sanitization, model-name validation, and response-size limits |
+| 🔒 | **Security hardened** with SHA-256 download verification, HMAC model integrity, OS credential storage, path-traversal guards, input sanitization, and response-size limits |
 | ⚡ | **Optimized analysis engine** with cached vector computations, mask-based filtering, and centralized LLM retry logic |
 
 ## Quick Start
@@ -83,6 +83,9 @@ python Python/pcap_sentry_gui.py
 
 - **CodeQL scanning** runs on pushes, pull requests, and a weekly schedule via `.github/workflows/codeql.yml`.
 - **Release checksums** are generated and uploaded as `SHA256SUMS.txt` for each published GitHub release via `.github/workflows/release-checksums.yml`.
+- **Download verification**: The built-in updater automatically verifies downloaded EXE files against the published `SHA256SUMS.txt` hashes before execution.
+- **ML model integrity**: Trained models are signed with HMAC-SHA256 and verified before loading to prevent deserialization attacks.
+- **Credential storage**: LLM API keys are stored in the OS credential manager (Windows Credential Manager via `keyring`) when available, with automatic migration from plaintext settings.
 - Users can verify downloaded artifacts against the published SHA-256 checksum file.
 
 ## Project Structure

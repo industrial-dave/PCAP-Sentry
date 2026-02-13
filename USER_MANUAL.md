@@ -58,7 +58,7 @@ PCAP Sentry is a malware analysis console for network packet capture (PCAP) file
 | 🧠 | **Learns from your data** via a trainable knowledge base and optional ML model (25-feature vector) |
 | 💬 | **Chat interface** powered by a local LLM (Ollama, offline) or OpenAI-compatible endpoint (local or cloud) |
 | ♻️ | **LLM status is saved and restored automatically** across sessions |
-| 🔒 | **Security hardened** with path-traversal guards, input sanitization, model-name validation, and response-size limits |
+| 🔒 | **Security hardened** with SHA-256 download verification, HMAC model integrity checks, OS credential storage (keyring), path-traversal guards, input sanitization, response-size limits, and CMD path sanitization |
 | ⚡ | **Optimized analysis engine** with cached vector computations, mask-based filtering, and centralized LLM retry logic |
 
 ### Who Is It For?
@@ -742,6 +742,8 @@ All preferences are saved to `settings.json` in the application data directory:
 %LOCALAPPDATA%\PCAP_Sentry\settings.json
 ```
 
+> **Security Note:** If the `keyring` Python package is installed, the LLM API key is stored in the Windows Credential Manager instead of `settings.json`. Existing plaintext keys are automatically migrated on first load. If `keyring` is not available, the API key is stored in the JSON file as a fallback.
+
 ---
 
 <h2><img src="https://img.shields.io/badge/14-Updating_PCAP_Sentry-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
@@ -867,6 +869,7 @@ This directory contains:
 | `settings.json` | User preferences |
 | `pcap_knowledge_base_offline.json` | Knowledge base |
 | `pcap_local_model.joblib` | Trained ML model |
+| `pcap_local_model.joblib.hmac` | HMAC integrity signature for the ML model |
 | `kb_backups/` | Automatic KB backups (3 most recent) |
 | `updates/` | Downloaded update files |
 | `startup_errors.log` | Errors during application launch |
@@ -958,6 +961,7 @@ The analysis engine evaluates numerous heuristic signals including:
 | Settings | `%LOCALAPPDATA%\PCAP_Sentry\settings.json` |
 | Knowledge base | `%LOCALAPPDATA%\PCAP_Sentry\pcap_knowledge_base_offline.json` |
 | ML model | `%LOCALAPPDATA%\PCAP_Sentry\pcap_local_model.joblib` |
+| ML model signature | `%LOCALAPPDATA%\PCAP_Sentry\pcap_local_model.joblib.hmac` |
 | KB backups | `%LOCALAPPDATA%\PCAP_Sentry\kb_backups\` |
 | Update downloads | `%LOCALAPPDATA%\PCAP_Sentry\updates\` |
 | Logs | `%LOCALAPPDATA%\PCAP_Sentry\*.log` |
