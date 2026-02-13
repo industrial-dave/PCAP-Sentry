@@ -3075,6 +3075,16 @@ class PCAPSentryApp:
         self.llm_test_status_label.pack(side=tk.LEFT)
         self._help_icon_grid(frame, "Sends a small test request to verify the current LLM settings.", row=15, column=2, sticky="w")
 
+        # Install LLM server row
+        ttk.Label(frame, text="Install server:").grid(row=16, column=0, sticky="w", pady=6)
+        install_frame = ttk.Frame(frame)
+        install_frame.grid(row=16, column=1, sticky="w", pady=6)
+        ttk.Button(install_frame, text="Install LLM Server\u2026", style="Secondary.TButton",
+                   command=self._open_install_llm_dialog).pack(side=tk.LEFT)
+        self._help_icon_grid(frame, "Opens a dialog to install a local LLM server (Ollama, LM Studio, GPT4All, or Jan). "
+            "Use this if you skipped the installer\u2019s LLM setup or want to add another server.",
+            row=16, column=2, sticky="w")
+
         def _set_llm_fields_state(*_):
             provider = self.llm_provider_var.get().strip().lower()
             state = "normal" if provider != "disabled" else "disabled"
@@ -3104,20 +3114,20 @@ class PCAPSentryApp:
 
         # Backup directory row with improved spacing
 
-        ttk.Label(frame, text="Backup directory:").grid(row=16, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="Backup directory:").grid(row=17, column=0, sticky="w", pady=6)
         backup_entry = ttk.Entry(frame, textvariable=self.backup_dir_var, width=60)
-        backup_entry.grid(row=16, column=1, sticky="ew", pady=6)
+        backup_entry.grid(row=17, column=1, sticky="ew", pady=6)
         self._add_clear_x(backup_entry, self.backup_dir_var)
         frame.grid_columnconfigure(1, weight=1)
         button_frame = ttk.Frame(frame)
-        button_frame.grid(row=16, column=2, columnspan=4, sticky="e", pady=6)
+        button_frame.grid(row=17, column=2, columnspan=4, sticky="e", pady=6)
         ttk.Button(button_frame, text="Browse", style="Secondary.TButton",
                    command=self._browse_backup_dir).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Cancel", style="Secondary.TButton",
                    command=window.destroy).pack(side=tk.LEFT, padx=2)
         ttk.Button(frame, text="Reset to Defaults", style="Danger.TButton",
-               command=self._reset_preferences).grid(row=17, column=0, columnspan=6, sticky="e", pady=(12, 0))
+               command=self._reset_preferences).grid(row=18, column=0, columnspan=6, sticky="e", pady=(12, 0))
 
         window.grab_set()
 
@@ -6282,6 +6292,250 @@ class PCAPSentryApp:
             )
 
         self._run_task(task, done, on_error=failed, message="Removing Ollama model...")
+
+    def _open_install_llm_dialog(self):
+        """Open a dialog to install a local LLM server."""
+        _SERVERS = [
+            {
+                "name": "Ollama",
+                "desc": "Headless CLI server \u2014 no desktop app needed. Best for automation.",
+                "check": lambda: self._is_program_installed("ollama", ["--version"]),
+                "winget": "Ollama.Ollama",
+                "url": "https://ollama.com/download/OllamaSetup.exe",
+                "homepage": "https://ollama.com/download",
+                "silent_flag": "/S",
+            },
+            {
+                "name": "LM Studio",
+                "desc": "Desktop app with model browser. Download models in-app.",
+                "check": lambda: self._is_path_installed([
+                    os.path.expandvars(r"%LOCALAPPDATA%\LM-Studio\LM Studio.exe"),
+                    os.path.expandvars(r"%LOCALAPPDATA%\Programs\LM-Studio\LM Studio.exe"),
+                ]),
+                "winget": "Element.LMStudio",
+                "url": None,
+                "homepage": "https://lmstudio.ai/download",
+                "silent_flag": None,
+            },
+            {
+                "name": "GPT4All",
+                "desc": "Desktop app with built-in model library. Easy setup.",
+                "check": lambda: self._is_path_installed([
+                    os.path.expandvars(r"%LOCALAPPDATA%\nomic.ai\GPT4All\bin\chat.exe"),
+                    os.path.expandvars(r"%PROGRAMFILES%\GPT4All\bin\chat.exe"),
+                ]),
+                "winget": "Nomic.GPT4All",
+                "url": "https://gpt4all.io/installers/gpt4all-installer-win64.exe",
+                "homepage": "https://gpt4all.io",
+                "silent_flag": "/S",
+            },
+            {
+                "name": "Jan",
+                "desc": "Desktop app with chat UI. Download models in-app.",
+                "check": lambda: self._is_path_installed([
+                    os.path.expandvars(r"%LOCALAPPDATA%\Programs\jan\Jan.exe"),
+                ]),
+                "winget": "Jan.Jan",
+                "url": None,
+                "homepage": "https://jan.ai/download",
+                "silent_flag": None,
+            },
+        ]
+
+        window = tk.Toplevel(self.root)
+        window.title("Install LLM Server")
+        window.resizable(False, False)
+        window.configure(bg=self.colors["bg"])
+
+        frame = ttk.Frame(window, padding=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frame, text="Install LLM Server", style="Heading.TLabel").pack(anchor="w", pady=(0, 4))
+        ttk.Label(frame, text="Select a local LLM server to install. "
+            "These run on your machine for fully offline AI analysis.",
+            style="Hint.TLabel", wraplength=460).pack(anchor="w", pady=(0, 12))
+
+        status_vars = []
+        install_buttons = []
+
+        for idx, srv in enumerate(_SERVERS):
+            row_frame = ttk.Frame(frame)
+            row_frame.pack(fill=tk.X, pady=4)
+
+            # Left: name + description
+            info = ttk.Frame(row_frame)
+            info.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            ttk.Label(info, text=srv["name"], font=("Segoe UI", 11, "bold")).pack(anchor="w")
+            ttk.Label(info, text=srv["desc"], style="Hint.TLabel").pack(anchor="w")
+
+            # Right: status + install button
+            btn_frame = ttk.Frame(row_frame)
+            btn_frame.pack(side=tk.RIGHT)
+
+            status_var = tk.StringVar(value="Checking...")
+            status_vars.append(status_var)
+            status_lbl = tk.Label(
+                btn_frame, textvariable=status_var,
+                fg=self.colors.get("muted", "#8b949e"),
+                bg=self.colors.get("bg", "#0d1117"),
+                font=("Segoe UI", 9),
+            )
+            status_lbl.pack(side=tk.LEFT, padx=(0, 8))
+
+            install_btn = ttk.Button(
+                btn_frame, text="Install",
+                command=lambda s=srv, sv=status_var, sl=status_lbl: self._install_llm_server(
+                    s, sv, sl, window),
+            )
+            install_btn.pack(side=tk.LEFT)
+            install_buttons.append(install_btn)
+
+            ttk.Separator(frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=4)
+
+        # Check installed status in background
+        def _check_all():
+            results = []
+            for srv in _SERVERS:
+                try:
+                    installed = srv["check"]()
+                except Exception:
+                    installed = False
+                results.append(installed)
+            return results
+
+        def _apply_checks(results):
+            for i, installed in enumerate(results):
+                if installed:
+                    status_vars[i].set("\u2714 Installed")
+                    # Find the status label widget and color it green
+                    parent = install_buttons[i].master
+                    for child in parent.winfo_children():
+                        if isinstance(child, tk.Label):
+                            child.configure(fg=self.colors.get("success", "#3fb950"))
+                    install_buttons[i].configure(text="Reinstall")
+                else:
+                    status_vars[i].set("Not installed")
+
+        def _run_checks():
+            results = _check_all()
+            self.root.after(0, lambda: _apply_checks(results))
+
+        threading.Thread(target=_run_checks, daemon=True).start()
+
+        ttk.Button(frame, text="Close", command=window.destroy).pack(anchor="e", pady=(8, 0))
+        window.transient(self.root)
+        window.grab_set()
+
+    @staticmethod
+    def _is_program_installed(cmd, args):
+        """Check if a CLI program is available."""
+        try:
+            result = subprocess.run(
+                [cmd] + args, capture_output=True, text=True, timeout=5,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    @staticmethod
+    def _is_path_installed(paths):
+        """Check if any of the given file paths exist."""
+        for p in paths:
+            if os.path.isfile(p):
+                return True
+        return False
+
+    def _install_llm_server(self, server_info, status_var, status_label, parent_window):
+        """Install a local LLM server via winget or direct download."""
+        name = server_info["name"]
+        winget_id = server_info["winget"]
+        download_url = server_info["url"]
+        homepage = server_info["homepage"]
+        silent_flag = server_info["silent_flag"]
+
+        status_var.set("Installing...")
+        status_label.configure(fg=self.colors.get("accent", "#58a6ff"))
+
+        def task():
+            # Try winget first
+            try:
+                result = subprocess.run(
+                    ["winget", "install", "-e", "--id", winget_id,
+                     "--accept-package-agreements", "--accept-source-agreements", "-h"],
+                    capture_output=True, text=True, timeout=600,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+                if result.returncode == 0:
+                    return "winget"
+            except Exception:
+                pass
+
+            # Fallback: direct download if URL available
+            if download_url and silent_flag:
+                try:
+                    tmp_dir = tempfile.mkdtemp(prefix=f"{name.lower().replace(' ', '_')}_")
+                    installer_path = os.path.join(tmp_dir, f"{name}_setup.exe")
+                    req = urllib.request.Request(
+                        download_url,
+                        headers={"User-Agent": "PCAP-Sentry/1.0"},
+                    )
+                    with urllib.request.urlopen(req, timeout=120) as resp:
+                        with open(installer_path, "wb") as f:
+                            while True:
+                                chunk = resp.read(65536)
+                                if not chunk:
+                                    break
+                                f.write(chunk)
+                    result = subprocess.run(
+                        [installer_path, silent_flag],
+                        capture_output=True, text=True, timeout=300,
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                    )
+                    if result.returncode == 0:
+                        return "download"
+                except Exception:
+                    pass
+
+            return None
+
+        def done(method):
+            try:
+                installed = server_info["check"]()
+            except Exception:
+                installed = False
+
+            if installed or method is not None:
+                status_var.set("\u2714 Installed")
+                status_label.configure(fg=self.colors.get("success", "#3fb950"))
+                messagebox.showinfo(
+                    name,
+                    f"{name} installed successfully.\n\n"
+                    f"Select '{server_info['name']}' from the LLM server dropdown, "
+                    f"refresh models, and test the connection.",
+                )
+            else:
+                status_var.set("Manual install needed")
+                status_label.configure(fg=self.colors.get("warning", "#d29922"))
+                messagebox.showinfo(
+                    name,
+                    f"{name} could not be installed automatically.\n\n"
+                    f"Please download it manually from:\n{homepage}\n\n"
+                    f"After installing, select it from the LLM server dropdown.",
+                )
+
+        def failed(err):
+            status_var.set("Install failed")
+            status_label.configure(fg=self.colors.get("danger", "#f85149"))
+            messagebox.showerror(
+                name,
+                f"Failed to install {name}.\n\n"
+                f"You can download it manually from:\n{homepage}\n\n"
+                f"Error: {err}",
+            )
+
+        self._run_task(task, done, on_error=failed,
+                      message=f"Installing {name}...")
 
     def _install_ollama(self):
         """Download and run the official Ollama installer for Windows."""
