@@ -2520,6 +2520,28 @@ class PCAPSentryApp:
         self.root.clipboard_clear()
         self.root.clipboard_append(APP_DATA_DIR)
 
+    def _start_logo_spin(self):
+        """Begin spinning the header logo (called when processing starts)."""
+        if not self._spin_frames or self._logo_spinning:
+            return
+        self._logo_spinning = True
+        self._animate_logo_spin()
+
+    def _stop_logo_spin(self):
+        """Stop spinning and reset the logo to its static frame."""
+        self._logo_spinning = False
+        if self._spin_frames and self._brand_label:
+            self._spin_index = 0
+            self._brand_label.configure(image=self._spin_frames[0])
+
+    def _animate_logo_spin(self):
+        """Advance one frame of the vertical-axis spin animation."""
+        if not self._logo_spinning or not self._spin_frames or not self._brand_label:
+            return
+        self._spin_index = (self._spin_index + 1) % len(self._spin_frames)
+        self._brand_label.configure(image=self._spin_frames[self._spin_index])
+        self.root.after(50, self._animate_logo_spin)
+
     def _build_header(self):
         header = ttk.Frame(self.root)
         header.pack(fill=tk.X, padx=20, pady=(18, 10))
@@ -2530,31 +2552,66 @@ class PCAPSentryApp:
         title_block = ttk.Frame(top_row)
         title_block.pack(side=tk.LEFT)
 
-        # App icon + title on same line
-        title_row = ttk.Frame(title_block)
-        title_row.pack(anchor=tk.W)
+        # App icon + title + subtitle stacked, with logo spanning full height
+        brand_row = ttk.Frame(title_block)
+        brand_row.pack(anchor=tk.W)
 
         # Load the app icon as the brand image (prefer PNG for clarity)
         self._header_icon_image = None
+        self._brand_icon_size = 0
+        self._spin_frames = []
+        self._spin_index = 0
+        self._spin_src_img = None
+        self._logo_spinning = False
         icon_path = _get_app_icon_path(prefer_png=True)
         if icon_path:
             try:
                 from PIL import Image, ImageTk
-                img = Image.open(icon_path)
-                img = img.resize((48, 48), Image.LANCZOS)
-                self._header_icon_image = ImageTk.PhotoImage(img)
+                src = Image.open(icon_path).convert("RGBA")
+                self._brand_icon_size = 70
+                src = src.resize((self._brand_icon_size, self._brand_icon_size), Image.LANCZOS)
+                self._spin_src_img = src
+                # Pre-generate frames simulating vertical-axis (Y) rotation
+                num_frames = 36
+                import math as _math
+                for i in range(num_frames):
+                    angle = 2 * _math.pi * i / num_frames
+                    scale_x = abs(_math.cos(angle))
+                    w = max(int(self._brand_icon_size * scale_x), 1)
+                    h = self._brand_icon_size
+                    # Squeeze horizontally, then paste centered on transparent canvas
+                    squeezed = src.resize((w, h), Image.LANCZOS)
+                    # When cos < 0 (back side), mirror the image for realism
+                    if _math.cos(angle) < 0:
+                        squeezed = squeezed.transpose(Image.FLIP_LEFT_RIGHT)
+                    canvas = Image.new("RGBA", (self._brand_icon_size, self._brand_icon_size), (0, 0, 0, 0))
+                    canvas.paste(squeezed, ((self._brand_icon_size - w) // 2, 0))
+                    self._spin_frames.append(ImageTk.PhotoImage(canvas))
+                self._header_icon_image = self._spin_frames[0]
             except Exception:
                 pass
+        self._brand_label = None
         if self._header_icon_image:
-            ttk.Label(
-                title_row,
+            self._brand_label = ttk.Label(
+                brand_row,
                 image=self._header_icon_image,
-            ).pack(side=tk.LEFT, padx=(0, 12))
+            )
+            self._brand_label.pack(side=tk.LEFT, padx=(0, 14))
+            # Logo starts static; spinning is triggered by _set_busy
+
+        # Title + subtitle stacked to the right of the icon
+        text_col = ttk.Frame(brand_row)
+        text_col.pack(side=tk.LEFT)
         ttk.Label(
-            title_row,
+            text_col,
             text="PCAP Sentry",
             font=self.font_title,
-        ).pack(side=tk.LEFT)
+        ).pack(anchor=tk.W)
+        ttk.Label(
+            text_col,
+            text=f"Malware Analysis Console  \u2022  v{APP_VERSION}",
+            style="Hint.TLabel",
+        ).pack(anchor=tk.W)
 
         # User Manual link — top-right corner, pill-style button
         _manual_url = "https://github.com/industrial-dave/PCAP-Sentry/blob/main/USER_MANUAL.md"
@@ -2631,13 +2688,7 @@ class PCAPSentryApp:
         self.llm_header_label.pack()
         self._update_llm_header_indicator()
 
-        # Indent subtitle to align with text (past icon)
-        subtitle_padx = (62, 0) if self._header_icon_image else (0, 0)
-        ttk.Label(
-            title_block,
-            text=f"Malware Analysis Console  \u2022  v{APP_VERSION}",
-            style="Hint.TLabel",
-        ).pack(anchor=tk.W, padx=subtitle_padx)
+        # (subtitle is now part of brand_row text column above)
 
         toolbar = ttk.Frame(header, padding=(0, 14, 0, 0))
         toolbar.pack(fill=tk.X)
@@ -4761,6 +4812,7 @@ class PCAPSentryApp:
                 self.progress.start(10)
                 self.root.configure(cursor="watch")
                 self.root.title(f"{self.root_title} - Working...")
+                self._start_logo_spin()
                 self.widget_states = {w: str(w["state"]) for w in self.busy_widgets}
                 for widget in self.busy_widgets:
                     widget.configure(state=tk.DISABLED)
@@ -4772,6 +4824,7 @@ class PCAPSentryApp:
         else:
             self.busy_count = max(0, self.busy_count - 1)
             if self.busy_count == 0:
+                self._stop_logo_spin()
                 self.root.configure(cursor="")
                 self.root_title = self._get_window_title()
                 self.root.title(self.root_title)
@@ -7336,7 +7389,10 @@ class PCAPSentryApp:
                     ti = ThreatIntelligence()
                     if ti.is_available():
                         print("[DEBUG] Enriching stats with threat intelligence...")
-                        return ti.enrich_stats(stats)
+                        # Report incremental progress during TI enrichment (32-44%)
+                        def _ti_progress(fraction):
+                            _report(32 + fraction * 12, f"Threat intelligence {int(fraction * 100)}%...")
+                        return ti.enrich_stats(stats, progress_cb=_ti_progress)
                 except Exception as e:
                     print(f"[DEBUG] Threat intelligence enrichment failed: {e}")
                 return {}

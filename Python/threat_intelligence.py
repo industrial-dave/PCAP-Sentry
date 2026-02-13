@@ -257,9 +257,10 @@ class ThreatIntelligence:
 
         return min(100.0, risk_score)
 
-    def enrich_stats(self, stats: Dict) -> Dict:
+    def enrich_stats(self, stats: Dict, progress_cb=None) -> Dict:
         """
-        Enrich analysis statistics with threat intelligence
+        Enrich analysis statistics with threat intelligence.
+        progress_cb(fraction) is called with 0.0-1.0 to report progress.
         """
         if not self.is_available():
             return stats
@@ -270,9 +271,20 @@ class ThreatIntelligence:
         # Check suspicious IPs - combine unique_src_list and unique_dst_list
         all_ips = set(stats.get("unique_src_list", []))
         all_ips.update(stats.get("unique_dst_list", []))
-        if all_ips:
+
+        # Collect all work items for progress tracking
+        ip_list = list(all_ips)[:10]
+        domains = set()
+        if "dns_queries" in stats or "http_hosts" in stats:
+            domains.update(stats.get("dns_queries", []))
+            domains.update(stats.get("http_hosts", []))
+        domain_list = list(domains)[:10]
+        total_items = len(ip_list) + len(domain_list)
+        completed = 0
+
+        if ip_list:
             ip_risks = []
-            for ip in list(all_ips)[:10]:  # Check top 10 IPs
+            for ip in ip_list:
                 try:
                     ip_rep = self.check_ip_reputation(ip)
                     if ip_rep.get("risk_score", 0) > 30:
@@ -283,18 +295,17 @@ class ThreatIntelligence:
                         })
                 except Exception as e:
                     print(f"[DEBUG] Error enriching IP {ip}: {e}")
+                completed += 1
+                if progress_cb and total_items:
+                    progress_cb(completed / total_items)
 
             if ip_risks:
                 enriched["threat_intel"]["risky_ips"] = sorted(ip_risks, key=lambda x: x["risk_score"], reverse=True)
 
         # Check suspicious domains
-        if "dns_queries" in stats or "http_hosts" in stats:
-            domains = set()
-            domains.update(stats.get("dns_queries", []))
-            domains.update(stats.get("http_hosts", []))
-
+        if domain_list:
             domain_risks = []
-            for domain in list(domains)[:10]:  # Check top 10 domains
+            for domain in domain_list:
                 try:
                     domain_rep = self.check_domain_reputation(domain)
                     if domain_rep.get("risk_score", 0) > 30:
@@ -305,6 +316,9 @@ class ThreatIntelligence:
                         })
                 except Exception as e:
                     print(f"[DEBUG] Error enriching domain {domain}: {e}")
+                completed += 1
+                if progress_cb and total_items:
+                    progress_cb(completed / total_items)
 
             if domain_risks:
                 enriched["threat_intel"]["risky_domains"] = sorted(domain_risks, key=lambda x: x["risk_score"], reverse=True)
