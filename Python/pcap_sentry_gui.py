@@ -2897,9 +2897,62 @@ class PCAPSentryApp:
                 _ollama_installed[0] = False
         threading.Thread(target=_check_ollama_installed, daemon=True).start()
 
-        ttk.Label(frame, text="LLM model:").grid(row=11, column=0, sticky="w", pady=6)
+        # --- Server preset row (row 11, visible only for openai_compatible) ---
+        _LLM_PRESETS = {
+            "LM Studio": "http://localhost:1234",
+            "LocalAI": "http://localhost:8080",
+            "vLLM": "http://localhost:8000",
+            "text-gen-webui": "http://localhost:5000",
+            "GPT4All": "http://localhost:4891",
+            "Jan": "http://localhost:1337",
+            "KoboldCpp": "http://localhost:5001",
+            "Custom": "",
+        }
+        preset_label = ttk.Label(frame, text="Server type:")
+        preset_frame = ttk.Frame(frame)
+        preset_var = tk.StringVar(value="Custom")
+        preset_combo = ttk.Combobox(
+            preset_frame,
+            textvariable=preset_var,
+            values=list(_LLM_PRESETS.keys()),
+            width=16,
+        )
+        preset_combo.state(["readonly"])
+        preset_combo.pack(side=tk.LEFT)
+
+        def _on_preset_selected(*_):
+            name = preset_var.get()
+            ep = _LLM_PRESETS.get(name, "")
+            if ep:
+                self.llm_endpoint_var.set(ep)
+                self._refresh_llm_models(llm_model_combo)
+        preset_combo.bind("<<ComboboxSelected>>", _on_preset_selected)
+
+        detect_btn = ttk.Button(
+            preset_frame, text="Detect", style="Secondary.TButton",
+            command=lambda: self._detect_openai_servers(preset_var, _LLM_PRESETS, llm_model_combo),
+        )
+        detect_btn.pack(side=tk.LEFT, padx=(6, 0))
+        preset_hint = tk.Label(
+            preset_frame, text="", anchor="w",
+            fg=self.colors.get("muted", "#8b949e"),
+            bg=self.colors.get("bg", "#0d1117"),
+            font=("Segoe UI", 9),
+        )
+        preset_hint.pack(side=tk.LEFT, padx=(8, 0))
+        # Store references for show/hide
+        _preset_widgets = (preset_label, preset_frame, preset_hint)
+        self._preset_hint_label = preset_hint
+        self._help_icon_grid(frame, "Select the server software you are running. "
+            "This auto-fills the endpoint with the default port. "
+            "Click Detect to scan for running servers.", row=11, column=2, sticky="w")
+        # Store the help icon widget for show/hide
+        _preset_help = frame.grid_slaves(row=11, column=2)
+        _preset_help_widget = _preset_help[0] if _preset_help else None
+
+        ttk.Label(frame, text="LLM model:").grid(row=12, column=0, sticky="w", pady=6)
         model_frame = ttk.Frame(frame)
-        model_frame.grid(row=11, column=1, sticky="w", pady=6)
+        model_frame.grid(row=12, column=1, sticky="w", pady=6)
         llm_model_combo = ttk.Combobox(model_frame, textvariable=self.llm_model_var, width=27)
         llm_model_combo.pack(side=tk.LEFT)
         refresh_btn = ttk.Button(
@@ -2914,15 +2967,17 @@ class PCAPSentryApp:
             command=lambda: self._uninstall_selected_ollama_model(llm_model_combo),
         )
         uninstall_model_btn.pack(side=tk.LEFT, padx=(4, 0))
-        self._help_icon_grid(frame, "Model name for the selected provider. Click \u21BB to detect available models.", row=11, column=2, sticky="w")
+        self._help_icon_grid(frame, "Model name for the selected provider. Click \u21BB to detect available models.", row=12, column=2, sticky="w")
         self._refresh_llm_models(llm_model_combo)
 
-        ttk.Label(frame, text="LLM endpoint:").grid(row=12, column=0, sticky="w", pady=6)
-        llm_endpoint_entry = ttk.Entry(frame, textvariable=self.llm_endpoint_var, width=40)
-        llm_endpoint_entry.grid(row=12, column=1, sticky="w", pady=6)
+        ttk.Label(frame, text="LLM endpoint:").grid(row=13, column=0, sticky="w", pady=6)
+        endpoint_frame = ttk.Frame(frame)
+        endpoint_frame.grid(row=13, column=1, sticky="w", pady=6)
+        llm_endpoint_entry = ttk.Entry(endpoint_frame, textvariable=self.llm_endpoint_var, width=34)
+        llm_endpoint_entry.pack(side=tk.LEFT)
         self._help_icon_grid(frame, "API base URL for the LLM provider. For Ollama (offline/local), default is http://localhost:11434. "
             "For OpenAI-compatible servers, use the server base URL (no /v1). If this points to a cloud service, data is sent off-device.",
-            row=12, column=2, sticky="w")
+            row=13, column=2, sticky="w")
 
         stop_ollama_on_exit_check = ttk.Checkbutton(
             frame,
@@ -2930,15 +2985,15 @@ class PCAPSentryApp:
             variable=self.stop_ollama_on_exit_var,
             style="Quiet.TCheckbutton",
         )
-        stop_ollama_on_exit_check.grid(row=13, column=0, sticky="w", pady=6, columnspan=2)
+        stop_ollama_on_exit_check.grid(row=14, column=0, sticky="w", pady=6, columnspan=2)
         self._help_icon_grid(frame,
             "When enabled (and provider is Ollama), PCAP Sentry will stop local Ollama processes on exit. "
             "This only applies to local default endpoints (localhost:11434 / 127.0.0.1:11434).",
-            row=13, column=2, sticky="w")
+            row=14, column=2, sticky="w")
 
-        ttk.Label(frame, text="Test LLM:").grid(row=14, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="Test LLM:").grid(row=15, column=0, sticky="w", pady=6)
         test_frame = ttk.Frame(frame)
-        test_frame.grid(row=14, column=1, sticky="w", pady=6)
+        test_frame.grid(row=15, column=1, sticky="w", pady=6)
         ttk.Button(test_frame, text="Test Connection", style="Secondary.TButton",
                    command=self._test_llm_connection).pack(side=tk.LEFT)
         self.llm_test_status_label = tk.Label(
@@ -2950,25 +3005,42 @@ class PCAPSentryApp:
             padx=8,
         )
         self.llm_test_status_label.pack(side=tk.LEFT)
-        self._help_icon_grid(frame, "Sends a small test request to verify the current LLM settings.", row=14, column=2, sticky="w")
+        self._help_icon_grid(frame, "Sends a small test request to verify the current LLM settings.", row=15, column=2, sticky="w")
 
         def _set_llm_fields_state(*_):
-            state = "normal" if self.llm_provider_var.get() != "disabled" else "disabled"
+            provider = self.llm_provider_var.get().strip().lower()
+            state = "normal" if provider != "disabled" else "disabled"
             llm_model_combo.configure(state=state)
             llm_endpoint_entry.configure(state=state)
             refresh_btn.configure(state=state)
-            ollama_state = "normal" if self.llm_provider_var.get().strip().lower() == "ollama" else "disabled"
+            ollama_state = "normal" if provider == "ollama" else "disabled"
             stop_ollama_on_exit_check.configure(state=ollama_state)
             can_uninstall = (
                 state == "normal"
-                and self.llm_provider_var.get().strip().lower() == "ollama"
+                and provider == "ollama"
                 and bool(self.llm_model_var.get().strip())
             )
             uninstall_model_btn.configure(state=("normal" if can_uninstall else "disabled"))
             # Install Ollama: only enabled when ollama selected AND not already installed
-            is_ollama = self.llm_provider_var.get().strip().lower() == "ollama"
+            is_ollama = provider == "ollama"
             show_install = is_ollama and not _ollama_installed[0]
             install_ollama_btn.configure(state=("normal" if show_install else "disabled"))
+            # Show/hide server preset row (only for openai_compatible)
+            is_compat = provider == "openai_compatible"
+            if is_compat:
+                preset_label.grid(row=11, column=0, sticky="w", pady=6)
+                preset_frame.grid(row=11, column=1, sticky="w", pady=6)
+                if _preset_help_widget:
+                    _preset_help_widget.grid()
+            else:
+                preset_label.grid_remove()
+                preset_frame.grid_remove()
+                if _preset_help_widget:
+                    _preset_help_widget.grid_remove()
+            # Set default endpoint when switching providers
+            if is_ollama:
+                if not self.llm_endpoint_var.get().strip() or is_compat:
+                    self.llm_endpoint_var.set("http://localhost:11434")
             if state == "disabled":
                 self._set_llm_test_status("Disabled", self.colors.get("muted", "#8b949e"))
             else:
@@ -2983,20 +3055,20 @@ class PCAPSentryApp:
 
         # Backup directory row with improved spacing
 
-        ttk.Label(frame, text="Backup directory:").grid(row=15, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="Backup directory:").grid(row=16, column=0, sticky="w", pady=6)
         backup_entry = ttk.Entry(frame, textvariable=self.backup_dir_var, width=60)
-        backup_entry.grid(row=15, column=1, sticky="ew", pady=6)
+        backup_entry.grid(row=16, column=1, sticky="ew", pady=6)
         self._add_clear_x(backup_entry, self.backup_dir_var)
         frame.grid_columnconfigure(1, weight=1)
         button_frame = ttk.Frame(frame)
-        button_frame.grid(row=15, column=2, columnspan=4, sticky="e", pady=6)
+        button_frame.grid(row=16, column=2, columnspan=4, sticky="e", pady=6)
         ttk.Button(button_frame, text="Browse", style="Secondary.TButton",
                    command=self._browse_backup_dir).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Cancel", style="Secondary.TButton",
                    command=window.destroy).pack(side=tk.LEFT, padx=2)
         ttk.Button(frame, text="Reset to Defaults", style="Danger.TButton",
-               command=self._reset_preferences).grid(row=16, column=0, columnspan=6, sticky="e", pady=(12, 0))
+               command=self._reset_preferences).grid(row=17, column=0, columnspan=6, sticky="e", pady=(12, 0))
 
         window.grab_set()
 
@@ -6030,6 +6102,59 @@ class PCAPSentryApp:
             self.root.after(0, lambda: apply(names))
 
         threading.Thread(target=run, daemon=True).start()
+
+    def _detect_openai_servers(self, preset_var, presets, model_combo):
+        """Scan common ports for running OpenAI-compatible servers."""
+        hint = getattr(self, "_preset_hint_label", None)
+
+        if hint:
+            hint.configure(
+                text="Scanning...",
+                fg=self.colors.get("accent", "#58a6ff"),
+            )
+
+        def _scan():
+            found = []
+            for name, endpoint in presets.items():
+                if name == "Custom" or not endpoint:
+                    continue
+                try:
+                    model_id = self._probe_openai_compat(endpoint)
+                    if model_id:
+                        found.append((name, endpoint, model_id))
+                except Exception:
+                    pass
+            return found
+
+        def _apply(found):
+            if not found:
+                if hint:
+                    hint.configure(
+                        text="No servers found — start one first",
+                        fg=self.colors.get("warning", "#d29922"),
+                    )
+                return
+            # Auto-select the first found server
+            name, endpoint, model_id = found[0]
+            preset_var.set(name)
+            self.llm_endpoint_var.set(endpoint)
+            self.llm_model_var.set(model_id)
+            self._refresh_llm_models(model_combo)
+            if hint:
+                others = ", ".join(n for n, _, _ in found[1:])
+                msg = f"Found {name}"
+                if others:
+                    msg += f" (also: {others})"
+                hint.configure(
+                    text=msg,
+                    fg=self.colors.get("success", "#3fb950"),
+                )
+
+        def _run():
+            results = _scan()
+            self.root.after(0, lambda: _apply(results))
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def _uninstall_selected_ollama_model(self, combo=None):
         provider = self.llm_provider_var.get().strip().lower()
