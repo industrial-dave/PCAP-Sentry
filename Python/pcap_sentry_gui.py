@@ -2920,6 +2920,28 @@ class PCAPSentryApp:
         self.llm_test_status_label.pack(side=tk.LEFT)
         self._help_icon_grid(frame, "Sends a small test request to verify the current LLM settings.", row=14, column=2, sticky="w")
 
+        ttk.Label(frame, text="Install Ollama:").grid(row=15, column=0, sticky="w", pady=6)
+        install_frame = ttk.Frame(frame)
+        install_frame.grid(row=15, column=1, sticky="w", pady=6)
+        install_ollama_btn = ttk.Button(
+            install_frame, text="Download && Install Ollama",
+            style="Secondary.TButton",
+            command=self._install_ollama,
+        )
+        install_ollama_btn.pack(side=tk.LEFT)
+        self._install_ollama_status = tk.Label(
+            install_frame,
+            text="",
+            fg=self.colors.get("muted", "#8b949e"),
+            bg=self.colors.get("bg", "#0d1117"),
+            font=("Segoe UI", 10),
+            padx=8,
+        )
+        self._install_ollama_status.pack(side=tk.LEFT)
+        self._help_icon_grid(frame, "Downloads the official Ollama installer and runs it. "
+            "After installation, set the LLM provider to 'ollama' and test the connection.",
+            row=15, column=2, sticky="w")
+
         def _set_llm_fields_state(*_):
             state = "normal" if self.llm_provider_var.get() != "disabled" else "disabled"
             llm_model_combo.configure(state=state)
@@ -2947,20 +2969,20 @@ class PCAPSentryApp:
 
         # Backup directory row with improved spacing
 
-        ttk.Label(frame, text="Backup directory:").grid(row=15, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="Backup directory:").grid(row=16, column=0, sticky="w", pady=6)
         backup_entry = ttk.Entry(frame, textvariable=self.backup_dir_var, width=60)
-        backup_entry.grid(row=15, column=1, sticky="ew", pady=6)
+        backup_entry.grid(row=16, column=1, sticky="ew", pady=6)
         self._add_clear_x(backup_entry, self.backup_dir_var)
         frame.grid_columnconfigure(1, weight=1)
         button_frame = ttk.Frame(frame)
-        button_frame.grid(row=15, column=2, columnspan=4, sticky="e", pady=6)
+        button_frame.grid(row=16, column=2, columnspan=4, sticky="e", pady=6)
         ttk.Button(button_frame, text="Browse", style="Secondary.TButton",
                    command=self._browse_backup_dir).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Cancel", style="Secondary.TButton",
                    command=window.destroy).pack(side=tk.LEFT, padx=2)
         ttk.Button(frame, text="Reset to Defaults", style="Danger.TButton",
-               command=self._reset_preferences).grid(row=16, column=0, columnspan=6, sticky="e", pady=(12, 0))
+               command=self._reset_preferences).grid(row=17, column=0, columnspan=6, sticky="e", pady=(12, 0))
 
         window.grab_set()
 
@@ -6047,6 +6069,84 @@ class PCAPSentryApp:
             )
 
         self._run_task(task, done, on_error=failed, message="Removing Ollama model...")
+
+    def _install_ollama(self):
+        """Download and run the official Ollama installer for Windows."""
+        import tempfile
+
+        OLLAMA_URL = "https://ollama.com/download/OllamaSetup.exe"
+        status_label = getattr(self, "_install_ollama_status", None)
+
+        def _set_status(text, color=None):
+            if status_label:
+                status_label.configure(
+                    text=text,
+                    fg=color or self.colors.get("muted", "#8b949e"),
+                )
+
+        # Check if Ollama is already installed
+        try:
+            result = subprocess.run(
+                ["ollama", "--version"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0:
+                ver = result.stdout.strip() or "installed"
+                answer = messagebox.askyesno(
+                    "Ollama",
+                    f"Ollama is already installed ({ver}).\n\n"
+                    "Do you want to download and reinstall/update anyway?",
+                )
+                if not answer:
+                    return
+        except Exception:
+            pass  # Not installed — proceed
+
+        _set_status("Downloading...", self.colors.get("accent", "#58a6ff"))
+
+        def task():
+            tmp_dir = tempfile.mkdtemp(prefix="ollama_")
+            installer_path = os.path.join(tmp_dir, "OllamaSetup.exe")
+            req = urllib.request.Request(
+                OLLAMA_URL,
+                headers={"User-Agent": "PCAP-Sentry/1.0"},
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                with open(installer_path, "wb") as f:
+                    while True:
+                        chunk = resp.read(65536)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+            return installer_path
+
+        def done(installer_path):
+            _set_status("Installing...", self.colors.get("warning", "#d29922"))
+            try:
+                os.startfile(installer_path)
+                _set_status("Installer launched", self.colors.get("success", "#3fb950"))
+                messagebox.showinfo(
+                    "Ollama",
+                    "The Ollama installer has been launched.\n\n"
+                    "After installation completes:\n"
+                    "1. Set LLM provider to 'ollama'\n"
+                    "2. Click the refresh button to detect models\n"
+                    "3. Test the connection",
+                )
+            except Exception as e:
+                _set_status("Launch failed", self.colors.get("danger", "#f85149"))
+                messagebox.showerror("Ollama", f"Failed to launch installer:\n{e}")
+
+        def failed(err):
+            _set_status("Download failed", self.colors.get("danger", "#f85149"))
+            messagebox.showerror(
+                "Ollama",
+                f"Failed to download Ollama installer.\n\n"
+                f"You can download it manually from:\nhttps://ollama.com/download\n\n"
+                f"Error: {err}",
+            )
+
+        self._run_task(task, done, on_error=failed, message="Downloading Ollama...")
 
     def _auto_detect_llm(self):
         if self.llm_provider_var.get().strip().lower() != "disabled":
