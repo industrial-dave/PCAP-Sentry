@@ -131,10 +131,10 @@ def _show_startup_error(message, exc=None):
         if tk._default_root is None:
             root = tk.Tk()
             root.withdraw()
-            messagebox.showerror("PCAP Sentry", message)
+            messagebox.showerror("PCAP Sentry (GPU)", message)
             root.destroy()
         else:
-            messagebox.showerror("PCAP Sentry", message)
+            messagebox.showerror("PCAP Sentry (GPU)", message)
     except Exception:
         pass
 
@@ -217,7 +217,7 @@ def _get_scapy():
         return DNS, DNSQR, IP, PcapReader, Raw, TCP, UDP
     except Exception as exc:
         _show_startup_error(
-            "Scapy is required but was not found. Please reinstall PCAP Sentry or "
+            "Scapy is required but was not found. Please reinstall PCAP Sentry (GPU) or "
             "contact support.",
             exc,
         )
@@ -366,7 +366,7 @@ def _get_app_data_dir():
                 fallback_notice = "App data folder in install directory is not writable."
 
     base_dir = os.getenv("LOCALAPPDATA") or os.getenv("APPDATA") or os.path.expanduser("~")
-    data_dir = os.path.join(base_dir, "PCAP_Sentry")
+    data_dir = os.path.join(base_dir, "PCAP_Sentry_GPU")
     os.makedirs(data_dir, exist_ok=True)
     APP_DATA_DIR = data_dir
     if fallback_notice:
@@ -2242,7 +2242,7 @@ class _HelpTooltip:
 class PCAPSentryApp:
     def __init__(self, root):
         self.root = root
-        self.base_title = f"PCAP Sentry v{APP_VERSION}"
+        self.base_title = f"PCAP Sentry (GPU) v{APP_VERSION}"
         
         self.settings = load_settings()
         
@@ -2492,7 +2492,7 @@ class PCAPSentryApp:
             ).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Label(
             title_row,
-            text="PCAP Sentry",
+            text="PCAP Sentry (GPU)",
             font=self.font_title,
         ).pack(side=tk.LEFT)
 
@@ -3064,9 +3064,9 @@ class PCAPSentryApp:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 is_installer = getattr(checker, "download_is_installer", False)
                 if is_installer:
-                    exe_name = f"PCAP_Sentry_Setup_{version}_{timestamp}.exe"
+                    exe_name = f"PCAP_Sentry_GPU_Setup_{version}_{timestamp}.exe"
                 else:
-                    exe_name = f"PCAP_Sentry_{version}_{timestamp}.exe"
+                    exe_name = f"PCAP_Sentry_GPU_{version}_{timestamp}.exe"
                 dest_path = os.path.join(update_dir, exe_name)
 
                 def progress_callback(downloaded, total):
@@ -3088,7 +3088,7 @@ class PCAPSentryApp:
                                 "The installer has been downloaded.\n\n"
                                 "The installer will now launch to update all files\n"
                                 "(executable, documentation, runtime libraries).\n\n"
-                                "PCAP Sentry will close so the update can proceed.",
+                                "PCAP Sentry (GPU) will close so the update can proceed.",
                             )
                             if checker.launch_installer(dest_path):
                                 self.root.quit()
@@ -3107,7 +3107,7 @@ class PCAPSentryApp:
                                 messagebox.showinfo(
                                     "Update Installed",
                                     "The update has been installed successfully.\n\n"
-                                    "PCAP Sentry will now restart.",
+                                    "PCAP Sentry (GPU) will now restart.",
                                 )
                                 try:
                                     subprocess.Popen([current_exe])
@@ -3256,7 +3256,7 @@ class PCAPSentryApp:
         if provider == "openai_compat":
             return self._request_openai_compat_chat(
                 [
-                    {"role": "system", "content": "You are a PCAP Sentry assistant. Answer clearly and concisely."},
+                    {"role": "system", "content": "You are a PCAP Sentry (GPU) assistant. Answer clearly and concisely."},
                     {"role": "user", "content": self._build_openai_chat_prompt(user_message)},
                 ]
             )
@@ -3272,7 +3272,7 @@ class PCAPSentryApp:
             {
                 "role": "system",
                 "content": (
-                    "You are a PCAP Sentry assistant. Answer clearly and concisely. "
+                    "You are a PCAP Sentry (GPU) assistant. Answer clearly and concisely. "
                     "If no analysis is loaded, say so and answer in general terms.\n\n"
                     f"Context JSON:\n{json.dumps(context, indent=2)}"
                 ),
@@ -7471,7 +7471,7 @@ def _acquire_single_instance():
     Returns the mutex handle if this is the first instance, or ``None``
     if another instance is already running (brings it to the foreground).
     """
-    MUTEX_NAME = "Global\\PCAP_Sentry_SingleInstance"
+    MUTEX_NAME = "Global\\PCAP_Sentry_GPU_SingleInstance"
     ERROR_ALREADY_EXISTS = 183
 
     try:
@@ -7490,7 +7490,7 @@ def _acquire_single_instance():
             @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
             def _enum_cb(hwnd, _lparam):
                 GetWindowTextW(hwnd, buf, 256)
-                if "PCAP Sentry" in buf.value:
+                if "PCAP Sentry (GPU)" in buf.value:
                     ShowWindow(hwnd, SW_RESTORE)
                     SetForegroundWindow(hwnd)
                     return False  # stop enumeration
