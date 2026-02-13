@@ -593,7 +593,7 @@ Your LLM connection status (provider, model, endpoint) is now saved automaticall
 | 🧠 **Enable local ML model** | Off | Use the trained scikit-learn model for a supplemental verdict. |
 | ✈️ **Offline mode** | Off | Disable all online threat intelligence lookups. |
 | 🧵 **Multithreaded analysis** | On | Use multiple threads for parallel analysis. |
-| 🤖 **LLM provider** | Disabled | Select `disabled`, `ollama`, or `openai_compat`. Auto-detected on startup if a local LLM server is found. |
+| 🤖 **LLM provider** | Disabled | Select `disabled`, `ollama`, or `openai_compatible`. Auto-detected on startup if a local LLM server is found. |
 | 🧠 **LLM model** | llama3 | Model name dropdown — click **↻** to detect available models from the running server. You can also type a custom model name. |
 | 🔗 **LLM endpoint** | http://localhost:11434 | Base URL for the LLM API. For Ollama use `http://localhost:11434`. For OpenAI-compatible servers, use the server base URL (no `/v1` suffix). |
 | 🛑 **Stop Ollama on exit** | On | When enabled and using local Ollama, PCAP Sentry stops local Ollama processes on app close. |
@@ -658,7 +658,7 @@ PCAP Sentry works with any server that implements the OpenAI chat completions AP
 
 1. Start your OpenAI-compatible server.
 2. In **⚙ Preferences**, set:
-   - **LLM provider** = `openai_compat`
+   - **LLM provider** = `openai_compatible`
    - **LLM model** = click **↻** to detect available models, or type a model name
    - **LLM endpoint** = your server's base URL (e.g., `http://localhost:1234`). Do not include `/v1`.
 3. Click **Test Connection** to verify.
@@ -764,7 +764,7 @@ PCAP Sentry uses date-based versioning: `YYYY.MM.DD` (e.g., `2026.02.13`). If mu
 
 ### LLM Not Working
 
-- Ensure **LLM provider** is set to `ollama` or `openai_compat` in Preferences.
+- Ensure **LLM provider** is set to `ollama` or `openai_compatible` in Preferences.
 - Verify the LLM server is running and reachable at the configured endpoint.
 - For Ollama: confirm the model is pulled (e.g., `ollama pull llama3`).
 - If you used installer remove mode, reinstall a model with `ollama pull <model>`.
