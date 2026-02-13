@@ -345,7 +345,7 @@ The **Train** tab allows you to teach PCAP Sentry what safe and malicious traffi
 
 ### LLM Label Assistant (Optional)
 
-If enabled in Preferences, PCAP Sentry can call a local LLM (Ollama or any OpenAI-compatible server) to suggest a label and short rationale before saving a sample. You can accept the suggestion or keep your original label.
+If enabled in Preferences, PCAP Sentry can call a local LLM (Ollama, offline) or an OpenAI-compatible endpoint (local or cloud) to suggest a label and short rationale before saving a sample. You can accept the suggestion or keep your original label. If you point to a cloud endpoint, data is sent off-device.
 
 ---
 

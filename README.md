@@ -28,7 +28,7 @@ PCAP Sentry parses network captures (`.pcap` / `.pcapng`), summarizes traffic st
 | 🦈 | **Generates Wireshark filters** for follow-up investigation |
 | 🌐 | **Queries threat intelligence feeds** for known-bad indicators |
 | 🧠 | **Learns from your data** via a trainable knowledge base and optional ML model |
-| 💬 | **Chat interface** powered by a local LLM (Ollama or OpenAI-compatible) |
+| 💬 | **Chat interface** powered by a local LLM (Ollama, offline) or OpenAI-compatible endpoint (local or cloud) |
 | ♻️ | **LLM status is now saved and restored automatically** |
 
 ## Quick Start

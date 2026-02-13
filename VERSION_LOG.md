@@ -7,6 +7,9 @@
 
 
 
+
+## 2026.02.13-9 - 2026-02-13
+- Clarify offline Ollama vs cloud LLM endpoints in UI/docs
 ## 2026.02.13-8 - 2026-02-13
 - Installer disk space estimates and checks for Ollama models
 ## 2026.02.13-7 - 2026-02-13
