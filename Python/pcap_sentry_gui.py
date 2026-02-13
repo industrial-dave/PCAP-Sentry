@@ -2296,6 +2296,7 @@ class PCAPSentryApp:
         self.llm_provider_var = tk.StringVar(value=self.settings.get("llm_provider", "disabled"))
         self.llm_model_var = tk.StringVar(value=self.settings.get("llm_model", "llama3"))
         self.llm_endpoint_var = tk.StringVar(value=self.settings.get("llm_endpoint", "http://localhost:11434"))
+        self.llm_api_key_var = tk.StringVar(value=self.settings.get("llm_api_key", ""))
         self.stop_ollama_on_exit_var = tk.BooleanVar(value=self.settings.get("stop_ollama_on_exit", True))
         self.llm_test_status_var = tk.StringVar(value="Not tested")
         self.llm_test_status_label = None
@@ -2853,17 +2854,34 @@ class PCAPSentryApp:
             "Disable if you experience stability issues or want to reduce CPU usage.", row=9, column=2, sticky="w")
 
         # --- Unified LLM server dropdown ---
+        # Cloud providers that need an API key
+        _CLOUD_PROVIDERS = {
+            "OpenAI", "Google Gemini",
+            "Mistral AI", "Groq", "Together AI", "OpenRouter",
+            "Perplexity", "DeepSeek",
+        }
+
         _LLM_SERVERS = {
-            "Disabled":      ("disabled",           ""),
-            "Ollama":        ("ollama",              "http://localhost:11434"),
-            "LM Studio":    ("openai_compatible",   "http://localhost:1234"),
-            "LocalAI":      ("openai_compatible",   "http://localhost:8080"),
-            "vLLM":         ("openai_compatible",   "http://localhost:8000"),
-            "text-gen-webui":("openai_compatible",  "http://localhost:5000"),
-            "GPT4All":      ("openai_compatible",   "http://localhost:4891"),
-            "Jan":          ("openai_compatible",    "http://localhost:1337"),
-            "KoboldCpp":    ("openai_compatible",   "http://localhost:5001"),
-            "Custom":       ("openai_compatible",   ""),
+            "Disabled":         ("disabled",           ""),
+            # --- Local servers ---
+            "Ollama":           ("ollama",              "http://localhost:11434"),
+            "LM Studio":       ("openai_compatible",   "http://localhost:1234"),
+            "LocalAI":         ("openai_compatible",   "http://localhost:8080"),
+            "vLLM":            ("openai_compatible",   "http://localhost:8000"),
+            "text-gen-webui":  ("openai_compatible",   "http://localhost:5000"),
+            "GPT4All":         ("openai_compatible",   "http://localhost:4891"),
+            "Jan":             ("openai_compatible",    "http://localhost:1337"),
+            "KoboldCpp":       ("openai_compatible",   "http://localhost:5001"),
+            "Custom":          ("openai_compatible",   ""),
+            # --- Cloud providers (API key required) ---
+            "OpenAI":           ("openai_compatible",   "https://api.openai.com"),
+            "Google Gemini":    ("openai_compatible",   "https://generativelanguage.googleapis.com/v1beta/openai"),
+            "Mistral AI":       ("openai_compatible",   "https://api.mistral.ai"),
+            "Groq":             ("openai_compatible",   "https://api.groq.com/openai"),
+            "Together AI":      ("openai_compatible",   "https://api.together.xyz"),
+            "OpenRouter":       ("openai_compatible",   "https://openrouter.ai/api"),
+            "Perplexity":       ("openai_compatible",   "https://api.perplexity.ai"),
+            "DeepSeek":         ("openai_compatible",   "https://api.deepseek.com"),
         }
 
         # Reverse-map saved settings to display name
@@ -2889,7 +2907,7 @@ class PCAPSentryApp:
             provider_frame,
             textvariable=_llm_server_var,
             values=list(_LLM_SERVERS.keys()),
-            width=16,
+            width=20,
         )
         llm_provider_combo.state(["readonly"])
         llm_provider_combo.pack(side=tk.LEFT)
@@ -2905,9 +2923,60 @@ class PCAPSentryApp:
             font=("Segoe UI", 9),
         )
         self._detect_hint_label.pack(side=tk.LEFT, padx=(8, 0))
-        self._help_icon_grid(frame, "Select the LLM server to use. Ollama runs locally (offline). "
-            "Other options are OpenAI-compatible servers. Click Detect to scan for running servers. "
+        self._help_icon_grid(frame, "Select the LLM server to use. Local servers run offline on your machine. "
+            "Cloud providers require an API key and send data to external servers. "
+            "For Anthropic Claude, use OpenRouter which supports it via an OpenAI-compatible API. "
+            "Click Detect to scan for running local servers. "
             "Select 'disabled' to turn off LLM features.", row=10, column=2, sticky="w")
+
+        # --- API key row (shown for cloud providers) ---
+        api_key_label = ttk.Label(frame, text="API key:")
+        api_key_frame = ttk.Frame(frame)
+        api_key_entry = ttk.Entry(api_key_frame, textvariable=self.llm_api_key_var, width=34, show="\u2022")
+        api_key_entry.pack(side=tk.LEFT)
+        api_key_show_var = tk.BooleanVar(value=False)
+        def _toggle_key_visibility():
+            api_key_entry.configure(show="" if api_key_show_var.get() else "\u2022")
+        api_key_show_btn = ttk.Checkbutton(
+            api_key_frame, text="Show", variable=api_key_show_var,
+            command=_toggle_key_visibility, style="Quiet.TCheckbutton")
+        api_key_show_btn.pack(side=tk.LEFT, padx=(6, 0))
+        api_key_hint = tk.Label(
+            api_key_frame, text="", anchor="w",
+            fg=self.colors.get("muted", "#8b949e"),
+            bg=self.colors.get("bg", "#0d1117"),
+            font=("Segoe UI", 8),
+        )
+        api_key_hint.pack(side=tk.LEFT, padx=(8, 0))
+
+        # API key signup links per provider
+        _API_KEY_URLS = {
+            "OpenAI": "https://platform.openai.com/api-keys",
+            "Google Gemini": "https://aistudio.google.com/apikey",
+            "Mistral AI": "https://console.mistral.ai/api-keys",
+            "Groq": "https://console.groq.com/keys",
+            "Together AI": "https://api.together.xyz/settings/api-keys",
+            "OpenRouter": "https://openrouter.ai/settings/keys",
+            "Perplexity": "https://www.perplexity.ai/settings/api",
+            "DeepSeek": "https://platform.deepseek.com/api_keys",
+        }
+
+        def _update_api_key_hint(name):
+            url = _API_KEY_URLS.get(name, "")
+            if url:
+                api_key_hint.configure(text=f"Get key: {url}", cursor="hand2")
+                api_key_hint.bind("<Button-1>", lambda e: __import__('webbrowser').open(url))
+            else:
+                api_key_hint.configure(text="", cursor="")
+                api_key_hint.unbind("<Button-1>")
+
+        def _show_api_key_row(visible):
+            if visible:
+                api_key_label.grid(row=11, column=0, sticky="w", pady=6)
+                api_key_frame.grid(row=11, column=1, sticky="w", pady=6)
+            else:
+                api_key_label.grid_remove()
+                api_key_frame.grid_remove()
 
         def _on_server_selected(*_):
             name = _llm_server_var.get()
@@ -2915,13 +2984,20 @@ class PCAPSentryApp:
             self.llm_provider_var.set(prov)
             if ep:
                 self.llm_endpoint_var.set(ep)
+            is_cloud = name in _CLOUD_PROVIDERS
+            _show_api_key_row(is_cloud)
+            _update_api_key_hint(name)
             _set_llm_fields_state()
             self._refresh_llm_models(llm_model_combo)
         llm_provider_combo.bind("<<ComboboxSelected>>", _on_server_selected)
 
-        ttk.Label(frame, text="LLM model:").grid(row=11, column=0, sticky="w", pady=6)
+        # Initial visibility
+        _show_api_key_row(_resolve_display_name() in _CLOUD_PROVIDERS)
+        _update_api_key_hint(_resolve_display_name())
+
+        ttk.Label(frame, text="LLM model:").grid(row=12, column=0, sticky="w", pady=6)
         model_frame = ttk.Frame(frame)
-        model_frame.grid(row=11, column=1, sticky="w", pady=6)
+        model_frame.grid(row=12, column=1, sticky="w", pady=6)
         llm_model_combo = ttk.Combobox(model_frame, textvariable=self.llm_model_var, width=27)
         llm_model_combo.pack(side=tk.LEFT)
         refresh_btn = ttk.Button(
@@ -2936,17 +3012,17 @@ class PCAPSentryApp:
             command=lambda: self._uninstall_selected_ollama_model(llm_model_combo),
         )
         uninstall_model_btn.pack(side=tk.LEFT, padx=(4, 0))
-        self._help_icon_grid(frame, "Model name for the selected provider. Click \u21BB to detect available models.", row=11, column=2, sticky="w")
+        self._help_icon_grid(frame, "Model name for the selected provider. Click \u21BB to detect available models.", row=12, column=2, sticky="w")
         self._refresh_llm_models(llm_model_combo)
 
-        ttk.Label(frame, text="LLM endpoint:").grid(row=12, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="LLM endpoint:").grid(row=13, column=0, sticky="w", pady=6)
         endpoint_frame = ttk.Frame(frame)
-        endpoint_frame.grid(row=12, column=1, sticky="w", pady=6)
+        endpoint_frame.grid(row=13, column=1, sticky="w", pady=6)
         llm_endpoint_entry = ttk.Entry(endpoint_frame, textvariable=self.llm_endpoint_var, width=34)
         llm_endpoint_entry.pack(side=tk.LEFT)
         self._help_icon_grid(frame, "API base URL for the LLM server. Auto-filled when you pick a server above. "
             "Edit this for custom ports or remote servers.",
-            row=12, column=2, sticky="w")
+            row=13, column=2, sticky="w")
 
         stop_ollama_on_exit_check = ttk.Checkbutton(
             frame,
@@ -2954,15 +3030,15 @@ class PCAPSentryApp:
             variable=self.stop_ollama_on_exit_var,
             style="Quiet.TCheckbutton",
         )
-        stop_ollama_on_exit_check.grid(row=13, column=0, sticky="w", pady=6, columnspan=2)
+        stop_ollama_on_exit_check.grid(row=14, column=0, sticky="w", pady=6, columnspan=2)
         self._help_icon_grid(frame,
             "When enabled (and server is Ollama), PCAP Sentry will stop local Ollama processes on exit. "
             "This only applies to local default endpoints (localhost:11434 / 127.0.0.1:11434).",
-            row=13, column=2, sticky="w")
+            row=14, column=2, sticky="w")
 
-        ttk.Label(frame, text="Test LLM:").grid(row=14, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="Test LLM:").grid(row=15, column=0, sticky="w", pady=6)
         test_frame = ttk.Frame(frame)
-        test_frame.grid(row=14, column=1, sticky="w", pady=6)
+        test_frame.grid(row=15, column=1, sticky="w", pady=6)
         ttk.Button(test_frame, text="Test Connection", style="Secondary.TButton",
                    command=self._test_llm_connection).pack(side=tk.LEFT)
         self.llm_test_status_label = tk.Label(
@@ -2974,7 +3050,7 @@ class PCAPSentryApp:
             padx=8,
         )
         self.llm_test_status_label.pack(side=tk.LEFT)
-        self._help_icon_grid(frame, "Sends a small test request to verify the current LLM settings.", row=14, column=2, sticky="w")
+        self._help_icon_grid(frame, "Sends a small test request to verify the current LLM settings.", row=15, column=2, sticky="w")
 
         def _set_llm_fields_state(*_):
             provider = self.llm_provider_var.get().strip().lower()
@@ -3005,20 +3081,20 @@ class PCAPSentryApp:
 
         # Backup directory row with improved spacing
 
-        ttk.Label(frame, text="Backup directory:").grid(row=15, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="Backup directory:").grid(row=16, column=0, sticky="w", pady=6)
         backup_entry = ttk.Entry(frame, textvariable=self.backup_dir_var, width=60)
-        backup_entry.grid(row=15, column=1, sticky="ew", pady=6)
+        backup_entry.grid(row=16, column=1, sticky="ew", pady=6)
         self._add_clear_x(backup_entry, self.backup_dir_var)
         frame.grid_columnconfigure(1, weight=1)
         button_frame = ttk.Frame(frame)
-        button_frame.grid(row=15, column=2, columnspan=4, sticky="e", pady=6)
+        button_frame.grid(row=16, column=2, columnspan=4, sticky="e", pady=6)
         ttk.Button(button_frame, text="Browse", style="Secondary.TButton",
                    command=self._browse_backup_dir).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Cancel", style="Secondary.TButton",
                    command=window.destroy).pack(side=tk.LEFT, padx=2)
         ttk.Button(frame, text="Reset to Defaults", style="Danger.TButton",
-               command=self._reset_preferences).grid(row=16, column=0, columnspan=6, sticky="e", pady=(12, 0))
+               command=self._reset_preferences).grid(row=17, column=0, columnspan=6, sticky="e", pady=(12, 0))
 
         window.grab_set()
 
@@ -3041,6 +3117,7 @@ class PCAPSentryApp:
             "llm_provider": self.llm_provider_var.get().strip().lower() or "disabled",
             "llm_model": self.llm_model_var.get().strip() or "llama3",
             "llm_endpoint": self.llm_endpoint_var.get().strip() or "http://localhost:11434",
+            "llm_api_key": self.llm_api_key_var.get().strip(),
             "llm_auto_detect": False,
             "stop_ollama_on_exit": bool(self.stop_ollama_on_exit_var.get()),
             "theme": self.theme_var.get().strip().lower() or "system",
@@ -3071,6 +3148,7 @@ class PCAPSentryApp:
         self.llm_provider_var.set(defaults.get("llm_provider", "disabled"))
         self.llm_model_var.set(defaults.get("llm_model", "llama3"))
         self.llm_endpoint_var.set(defaults.get("llm_endpoint", "http://localhost:11434"))
+        self.llm_api_key_var.set(defaults.get("llm_api_key", ""))
         self.stop_ollama_on_exit_var.set(defaults.get("stop_ollama_on_exit", True))
         self.theme_var.set(defaults["theme"])
         self._save_settings_from_vars()
@@ -3526,12 +3604,15 @@ class PCAPSentryApp:
     _LLM_MAX_RESPONSE_BYTES = 10 * 1024 * 1024  # 10 MB safety cap
 
     @staticmethod
-    def _llm_http_request(url, data, timeout=30, max_retries=2):
+    def _llm_http_request(url, data, timeout=30, max_retries=2, api_key=""):
         """Send an HTTP POST to an LLM endpoint with automatic retry on transient errors."""
         max_bytes = PCAPSentryApp._LLM_MAX_RESPONSE_BYTES
         last_exc = None
         for attempt in range(1 + max_retries):
-            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+            headers = {"Content-Type": "application/json"}
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+            req = urllib.request.Request(url, data=data, headers=headers)
             try:
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
                     raw = resp.read(max_bytes + 1)
@@ -3561,6 +3642,7 @@ class PCAPSentryApp:
     def _request_openai_compat_chat(self, messages, temperature=0.3):
         endpoint = self._normalize_openai_endpoint(self.llm_endpoint_var.get() or "http://localhost:1234")
         model = self.llm_model_var.get().strip() or "local-model"
+        api_key = self.llm_api_key_var.get().strip()
         url = endpoint + "/v1/chat/completions"
         payload = {
             "model": model,
@@ -3569,7 +3651,7 @@ class PCAPSentryApp:
             "max_tokens": 400,
         }
         data = json.dumps(payload).encode("utf-8")
-        raw = self._llm_http_request(url, data, timeout=30)
+        raw = self._llm_http_request(url, data, timeout=30, api_key=api_key)
 
         response = json.loads(raw)
         choices = response.get("choices", [])
@@ -5987,10 +6069,13 @@ class PCAPSentryApp:
         models = payload.get("models", []) if isinstance(payload, dict) else []
         return [m.get("name") for m in models if isinstance(m, dict) and m.get("name")]
 
-    def _probe_openai_compat(self, endpoint):
+    def _probe_openai_compat(self, endpoint, api_key=""):
         url = endpoint.rstrip("/") + "/v1/models"
-        req = urllib.request.Request(url, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=1.5) as resp:
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=3) as resp:
             raw = resp.read().decode("utf-8")
         payload = json.loads(raw)
         models = payload.get("data", []) if isinstance(payload, dict) else []
@@ -5999,11 +6084,14 @@ class PCAPSentryApp:
         model_id = models[0].get("id") if isinstance(models[0], dict) else None
         return model_id
 
-    def _list_openai_compat_models(self, endpoint):
+    def _list_openai_compat_models(self, endpoint, api_key=""):
         base = self._normalize_openai_endpoint(endpoint)
         url = base.rstrip("/") + "/v1/models"
-        req = urllib.request.Request(url, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=5) as resp:
             raw = resp.read().decode("utf-8")
         payload = json.loads(raw)
         models = payload.get("data", []) if isinstance(payload, dict) else []
@@ -6035,7 +6123,8 @@ class PCAPSentryApp:
                 if provider == "ollama":
                     return self._list_ollama_models(endpoint)
                 if provider == "openai_compatible":
-                    return self._list_openai_compat_models(endpoint)
+                    api_key = self.llm_api_key_var.get().strip()
+                    return self._list_openai_compat_models(endpoint, api_key=api_key)
             except Exception:
                 pass
             return []
@@ -6065,9 +6154,17 @@ class PCAPSentryApp:
 
         def _scan():
             found = []
+            # Cloud providers set (skip during local port scan)
+            _CLOUD_NAMES = {
+                "OpenAI", "Google Gemini",
+                "Mistral AI", "Groq", "Together AI", "OpenRouter",
+                "Perplexity", "DeepSeek",
+            }
             for name, (prov, endpoint) in servers.items():
                 if name in ("Disabled", "Custom") or not endpoint:
                     continue
+                if name in _CLOUD_NAMES:
+                    continue  # skip cloud — no local port to scan
                 try:
                     if prov == "ollama":
                         model_id = self._probe_ollama(endpoint)
