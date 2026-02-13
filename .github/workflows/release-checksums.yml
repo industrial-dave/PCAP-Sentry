@@ -37,6 +37,18 @@ jobs:
         run: |
           type -p gh >/dev/null || (sudo apt update && sudo apt install gh -y)
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Upload knowledge base to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ steps.tag.outputs.tag }}" --repo "$GITHUB_REPOSITORY" \
+            "Python/pcap_knowledge_base_offline.json" --clobber
+
       - name: Download release assets
         env:
           GH_TOKEN: ${{ github.token }}
