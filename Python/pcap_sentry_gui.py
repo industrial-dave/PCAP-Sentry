@@ -2894,11 +2894,10 @@ class PCAPSentryApp:
         ttk.Label(frame, text="Backup directory:").grid(row=15, column=0, sticky="w", pady=6)
         backup_entry = ttk.Entry(frame, textvariable=self.backup_dir_var, width=60)
         backup_entry.grid(row=15, column=1, sticky="ew", pady=6)
+        self._add_clear_x(backup_entry, self.backup_dir_var)
         frame.grid_columnconfigure(1, weight=1)
         button_frame = ttk.Frame(frame)
         button_frame.grid(row=15, column=2, columnspan=4, sticky="e", pady=6)
-        ttk.Button(button_frame, text="\u2715", width=3, style="ClearField.TButton",
-                   command=lambda: self.backup_dir_var.set("")).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Browse", style="Secondary.TButton",
                    command=self._browse_backup_dir).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(side=tk.LEFT, padx=2)
@@ -3521,8 +3520,7 @@ class PCAPSentryApp:
         self.safe_path_var = tk.StringVar()
         self.safe_entry = ttk.Entry(safe_frame, textvariable=self.safe_path_var, width=90)
         self.safe_entry.pack(side=tk.LEFT, padx=6)
-        ttk.Button(safe_frame, text="\u2715", width=3, style="ClearField.TButton",
-                   command=lambda: self.safe_path_var.set("")).pack(side=tk.LEFT, padx=(2, 0))
+        self._add_clear_x(self.safe_entry, self.safe_path_var)
         self.safe_browse = ttk.Button(safe_frame, text="Browse", style="Secondary.TButton",
                                       command=lambda: self._browse_file(self.safe_path_var))
         self.safe_browse.pack(side=tk.LEFT, padx=6)
@@ -3548,8 +3546,7 @@ class PCAPSentryApp:
         self.mal_path_var = tk.StringVar()
         self.mal_entry = ttk.Entry(mal_frame, textvariable=self.mal_path_var, width=90)
         self.mal_entry.pack(side=tk.LEFT, padx=6)
-        ttk.Button(mal_frame, text="\u2715", width=3, style="ClearField.TButton",
-                   command=lambda: self.mal_path_var.set("")).pack(side=tk.LEFT, padx=(2, 0))
+        self._add_clear_x(self.mal_entry, self.mal_path_var)
         self.mal_browse = ttk.Button(mal_frame, text="Browse", style="Secondary.TButton",
                                       command=lambda: self._browse_file(self.mal_path_var))
         self.mal_browse.pack(side=tk.LEFT, padx=6)
@@ -3612,8 +3609,7 @@ class PCAPSentryApp:
         self.target_path_var = tk.StringVar()
         self.target_entry = ttk.Entry(file_frame, textvariable=self.target_path_var, width=90)
         self.target_entry.pack(side=tk.LEFT, padx=6)
-        ttk.Button(file_frame, text="\u2715", width=3, style="ClearField.TButton",
-                   command=lambda: self.target_path_var.set("")).pack(side=tk.LEFT, padx=(2, 0))
+        self._add_clear_x(self.target_entry, self.target_path_var)
         target_browse = ttk.Button(file_frame, text="Browse", style="Secondary.TButton",
                                    command=lambda: self._browse_file(self.target_path_var))
         target_browse.pack(side=tk.LEFT, padx=6)
@@ -5390,6 +5386,23 @@ class PCAPSentryApp:
         except Exception:
             pass
         return normalize(data)
+
+    def _add_clear_x(self, entry, var):
+        """Place a small red ✕ inside the right edge of an Entry widget."""
+        x_label = tk.Label(
+            entry,
+            text="\u2715",
+            font=("Segoe UI", 10, "bold"),
+            fg=self.colors["danger"],
+            bg=self.colors["panel"],
+            cursor="hand2",
+            padx=2,
+        )
+        x_label.place(relx=1.0, rely=0.5, anchor="e", x=-4)
+        x_label.bind("<Button-1>", lambda e: var.set(""))
+        x_label.bind("<Enter>", lambda e: x_label.configure(fg=self.colors["danger_hover"]))
+        x_label.bind("<Leave>", lambda e: x_label.configure(fg=self.colors["danger"]))
+        return x_label
 
     def _style_text(self, widget):
         widget.configure(
