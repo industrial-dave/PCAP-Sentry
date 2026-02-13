@@ -6,18 +6,27 @@ REM Run this after building the EXE.
 REM Default behavior: local build only (no commit/push).
 REM Optional: pass -Push to enable git commit/push and release creation.
 REM Optional: pass -NoPush to force local-only mode.
+REM Optional: pass -Release to upload installer without git push.
 REM Optional: pass -NoBump to skip version update (use current version).
 REM Optional: pass -Notes "your notes here" to set release notes / What's New.
 REM   If omitted, defaults to "Minor tweaks and improvements".
 
 set "NO_PUSH=1"
 set "NO_BUMP="
+set "DO_RELEASE="
 set "BUILD_NOTES=Minor tweaks and improvements"
+if defined PCAP_NO_BUMP set "NO_BUMP=1"
 
 :parse_args
 if "%~1"=="" goto :args_done
 if /I "%~1"=="-Push" (
 	set "NO_PUSH="
+	set "DO_RELEASE=1"
+	shift
+	goto :parse_args
+)
+if /I "%~1"=="-Release" (
+	set "DO_RELEASE=1"
 	shift
 	goto :parse_args
 )
@@ -68,6 +77,7 @@ set "PYTHON=python"
 if exist ".venv\Scripts\python.exe" set "PYTHON=.venv\Scripts\python.exe"
 echo.>> "%LOG_PATH%"
 echo ==== Build started %DATE% %TIME% ====>> "%LOG_PATH%"
+echo Args: %*>> "%LOG_PATH%"
 
 REM Update version before build (unless -NoBump is set)
 if defined NO_BUMP (
@@ -100,6 +110,11 @@ REM Get current version from version_info.txt
 powershell -NoProfile -Command "$c = Get-Content -Path 'version_info.txt' -Raw; if ($c -match 'filevers=\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)') { '{0}.{1}.{2}-{3}' -f $matches[1],$matches[2],$matches[3],$matches[4] }" > "%TEMP%\pcap_version.txt"
 set /p VERSION=<"%TEMP%\pcap_version.txt"
 del "%TEMP%\pcap_version.txt" >nul 2>&1
+if not defined VERSION (
+	echo Failed to read version from version_info.txt.>> "%LOG_PATH%"
+	echo Failed to read version from version_info.txt.
+	exit /b 1
+)
 
 if defined NO_PUSH (
 	echo Skipping git commit/push because -NoPush was provided.>> "%LOG_PATH%"
@@ -116,19 +131,34 @@ if defined NO_PUSH (
 		echo Pushed version %VERSION% and installer to GitHub
 	)
 
-	REM Create GitHub Release with the installer (requires gh CLI)
+)
+
+if defined DO_RELEASE (
+	REM Create or update GitHub Release with the installer (requires gh CLI)
 	where gh >nul 2>&1
 	if errorlevel 1 (
-		echo Warning: GitHub CLI not found. Skipping release creation.>> "%LOG_PATH%"
+		echo Warning: GitHub CLI not found. Skipping release upload.>> "%LOG_PATH%"
 		echo Warning: Install gh CLI to auto-create releases: winget install GitHub.cli
 	) else (
-		echo ==== Creating GitHub Release v%VERSION% ====>> "%LOG_PATH%"
+		set "RELEASE_TAG=v%VERSION%"
+		echo ==== Publishing GitHub Release %RELEASE_TAG% ====>> "%LOG_PATH%"
+		echo Publishing GitHub Release %RELEASE_TAG%
 		echo Release Notes: !BUILD_NOTES!>> "%LOG_PATH%"
-		gh release create "v%VERSION%" "dist\PCAP_Sentry_Setup.exe" --title "PCAP Sentry v%VERSION%" --notes "What's New: !BUILD_NOTES!" >> "%LOG_PATH%" 2>&1
+		gh release view "%RELEASE_TAG%" >nul 2>&1
 		if errorlevel 1 (
-			echo Warning: Failed to create GitHub release. See %LOG_PATH% for details.
+			gh release create "%RELEASE_TAG%" "dist\PCAP_Sentry_Setup.exe" --title "PCAP Sentry v%VERSION%" --notes "What's New: !BUILD_NOTES!" >> "%LOG_PATH%" 2>&1
+			if errorlevel 1 (
+				echo Warning: Failed to create GitHub release. See %LOG_PATH% for details.
+			) else (
+				echo Created GitHub release %RELEASE_TAG% with PCAP_Sentry_Setup.exe
+			)
 		) else (
-			echo Created GitHub release v%VERSION% with PCAP_Sentry_Setup.exe
+			gh release upload "%RELEASE_TAG%" "dist\PCAP_Sentry_Setup.exe" --clobber >> "%LOG_PATH%" 2>&1
+			if errorlevel 1 (
+				echo Warning: Failed to upload installer to GitHub release. See %LOG_PATH% for details.
+			) else (
+				echo Uploaded PCAP_Sentry_Setup.exe to GitHub release %RELEASE_TAG%
+			)
 		)
 	)
 )

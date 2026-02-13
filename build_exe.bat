@@ -11,6 +11,7 @@ REM   If omitted, defaults to "Minor tweaks and improvements".
 set "NO_PUSH="
 set "NO_BUMP="
 set "BUILD_NOTES=Minor tweaks and improvements"
+if defined PCAP_NO_BUMP set "NO_BUMP=1"
 
 :parse_args
 if "%~1"=="" goto :args_done
@@ -42,6 +43,7 @@ if exist ".venv\Scripts\python.exe" set "PYTHON=.venv\Scripts\python.exe"
 set "PYTHONWARNINGS=ignore:Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater:UserWarning"
 echo.>> "%LOG_PATH%"
 echo ==== Build started %DATE% %TIME% ====>> "%LOG_PATH%"
+echo Args: %*>> "%LOG_PATH%"
 
 REM Update version before build (unless -NoBump is set)
 if defined NO_BUMP (
@@ -85,6 +87,11 @@ REM Get current version from version_info.txt
 powershell -NoProfile -Command "$c = Get-Content -Path 'version_info.txt' -Raw; if ($c -match 'filevers=\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)') { '{0}.{1}.{2}-{3}' -f $matches[1],$matches[2],$matches[3],$matches[4] }" > "%TEMP%\pcap_version.txt"
 set /p VERSION=<"%TEMP%\pcap_version.txt"
 del "%TEMP%\pcap_version.txt" >nul 2>&1
+if not defined VERSION (
+	echo Failed to read version from version_info.txt.>> "%LOG_PATH%"
+	echo Failed to read version from version_info.txt.
+	exit /b 1
+)
 
 if defined NO_PUSH (
 	echo Skipping git commit/push because -NoPush was provided.>> "%LOG_PATH%"
@@ -103,7 +110,7 @@ if errorlevel 1 (
 	echo Pushed version %VERSION% to GitHub
 )
 
-REM Create GitHub Release with the EXE (requires gh CLI)
+REM Create or update GitHub Release with the EXE (requires gh CLI)
 where gh >nul 2>&1
 if errorlevel 1 (
 	echo Warning: GitHub CLI not found. Skipping release creation.>> "%LOG_PATH%"
@@ -111,13 +118,24 @@ if errorlevel 1 (
 	goto :DONE
 )
 
-echo ==== Creating GitHub Release v%VERSION% ====>> "%LOG_PATH%"
+set "RELEASE_TAG=v%VERSION%"
+echo ==== Publishing GitHub Release %RELEASE_TAG% ====>> "%LOG_PATH%"
 echo Release Notes: !BUILD_NOTES!>> "%LOG_PATH%"
-gh release create "v%VERSION%" "dist\PCAP_Sentry.exe" --title "PCAP Sentry v%VERSION%" --notes "What's New: !BUILD_NOTES!" >> "%LOG_PATH%" 2>&1
+gh release view "%RELEASE_TAG%" >nul 2>&1
 if errorlevel 1 (
-	echo Warning: Failed to create GitHub release. See %LOG_PATH% for details.
+	gh release create "%RELEASE_TAG%" "dist\PCAP_Sentry.exe" --title "PCAP Sentry v%VERSION%" --notes "What's New: !BUILD_NOTES!" >> "%LOG_PATH%" 2>&1
+	if errorlevel 1 (
+		echo Warning: Failed to create GitHub release. See %LOG_PATH% for details.
+	) else (
+		echo Created GitHub release %RELEASE_TAG% with PCAP_Sentry.exe
+	)
 ) else (
-	echo Created GitHub release v%VERSION% with PCAP_Sentry.exe
+	gh release upload "%RELEASE_TAG%" "dist\PCAP_Sentry.exe" --clobber >> "%LOG_PATH%" 2>&1
+	if errorlevel 1 (
+		echo Warning: Failed to upload EXE to GitHub release. See %LOG_PATH% for details.
+	) else (
+		echo Uploaded PCAP_Sentry.exe to GitHub release %RELEASE_TAG%
+	)
 )
 
 :DONE
