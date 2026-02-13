@@ -2859,7 +2859,7 @@ class PCAPSentryApp:
             provider_frame,
             textvariable=self.llm_provider_var,
             values=["disabled", "ollama", "openai_compat"],
-            width=12,
+            width=16,
         )
         llm_provider_combo.state(["readonly"])
         llm_provider_combo.pack(side=tk.LEFT)
