@@ -2247,7 +2247,7 @@ class _HelpTooltip:
             background=tt_bg,
             foreground=tt_fg,
             wraplength=self.wrap_length,
-            font=("Segoe UI", 9),
+            font=("Segoe UI", 10),
             padx=10,
             pady=8,
         )
@@ -2280,7 +2280,7 @@ class PCAPSentryApp:
         self._apply_theme()
 
         self.font_title = tkfont.Font(family="Segoe UI", size=24, weight="bold")
-        self.font_subtitle = tkfont.Font(family="Segoe UI", size=10)
+        self.font_subtitle = tkfont.Font(family="Segoe UI", size=11)
 
         self.max_rows_var = tk.IntVar(value=self.settings.get("max_rows", DEFAULT_MAX_ROWS))
         self.parse_http_var = tk.BooleanVar(value=self.settings.get("parse_http", True))
@@ -2565,7 +2565,7 @@ class PCAPSentryApp:
         manual_label = tk.Label(
             manual_frame,
             text="User Manual",
-            font=("Segoe UI", 9),
+            font=("Segoe UI", 10),
             fg=self.colors.get("accent", "#58a6ff"),
             bg=self.colors.get("panel", "#161b22"),
             cursor="hand2",
@@ -2614,7 +2614,7 @@ class PCAPSentryApp:
         self.llm_header_label = tk.Button(
             self.llm_header_indicator,
             text="LLM: off",
-            font=("Segoe UI", 8),
+            font=("Segoe UI", 9),
             fg=self.colors.get("muted", "#8b949e"),
             bg=_llm_ind_bg,
             bd=0,
@@ -2701,7 +2701,7 @@ class PCAPSentryApp:
         self.cancel_button.pack(side=tk.LEFT, padx=(4, 0))
         self.cancel_button.pack_forget()  # hidden until busy
         # Status message
-        status_label = ttk.Label(status, textvariable=self.status_var, font=("Segoe UI", 11, "bold"))
+        status_label = ttk.Label(status, textvariable=self.status_var, font=("Segoe UI", 12, "bold"))
         status_label.pack(side=tk.LEFT, padx=12, fill=tk.X, expand=True)
         ttk.Label(status, textvariable=self.sample_note_var, style="Hint.TLabel").pack(side=tk.RIGHT)
 
@@ -2858,7 +2858,7 @@ class PCAPSentryApp:
             textvariable=self.llm_test_status_var,
             fg=self.colors.get("muted", "#8b949e"),
             bg=self.colors.get("bg", "#0d1117"),
-            font=("Segoe UI", 9, "bold"),
+            font=("Segoe UI", 10, "bold"),
             padx=8,
         )
         self.llm_test_status_label.pack(side=tk.LEFT)
@@ -3012,7 +3012,7 @@ class PCAPSentryApp:
             ttk.Label(
                 frame,
                 text="A new version is available!",
-                font=("Segoe UI", 12, "bold"),
+                font=("Segoe UI", 13, "bold"),
             ).pack(anchor="w", pady=(0, 10))
 
             ttk.Label(
@@ -3022,7 +3022,7 @@ class PCAPSentryApp:
                 frame, text=f"Available version: {latest}"
             ).pack(anchor="w", pady=(0, 15))
 
-            ttk.Label(frame, text="Release Notes:", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            ttk.Label(frame, text="Release Notes:", font=("Segoe UI", 11, "bold")).pack(anchor="w")
             text_frame = ttk.Frame(frame)
             text_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 15))
 
@@ -3068,13 +3068,13 @@ class PCAPSentryApp:
                 ttk.Label(
                     frame,
                     text=f"You are running the latest version ({current})",
-                    font=("Segoe UI", 11, "bold"),
+                    font=("Segoe UI", 12, "bold"),
                 ).pack(anchor="w", pady=(0, 12))
 
                 ttk.Label(
                     frame,
                     text="What's in this release:",
-                    font=("Segoe UI", 10, "bold"),
+                    font=("Segoe UI", 11, "bold"),
                 ).pack(anchor="w")
 
                 text_frame = ttk.Frame(frame)
@@ -4021,11 +4021,11 @@ class PCAPSentryApp:
         self._style_text(self.extracted_summary_text)
         self.extracted_summary_text.insert(tk.END, "Run an analysis to see extracted credentials and host information.")
         # Configure highlight tags for the summary
-        self.extracted_summary_text.tag_configure("heading", font=("Segoe UI", 11, "bold"))
-        self.extracted_summary_text.tag_configure("username_tag", foreground=self.colors["accent"], font=("Consolas", 10, "bold"))
-        self.extracted_summary_text.tag_configure("password_tag", foreground=self.colors["danger"], font=("Consolas", 10, "bold"))
-        self.extracted_summary_text.tag_configure("hostname_tag", foreground=self.colors["success"], font=("Consolas", 10, "bold"))
-        self.extracted_summary_text.tag_configure("label_dim", foreground=self.colors["muted"], font=("Segoe UI", 9))
+        self.extracted_summary_text.tag_configure("heading", font=("Segoe UI", 12, "bold"))
+        self.extracted_summary_text.tag_configure("username_tag", foreground=self.colors["accent"], font=("Consolas", 11, "bold"))
+        self.extracted_summary_text.tag_configure("password_tag", foreground=self.colors["danger"], font=("Consolas", 11, "bold"))
+        self.extracted_summary_text.tag_configure("hostname_tag", foreground=self.colors["success"], font=("Consolas", 11, "bold"))
+        self.extracted_summary_text.tag_configure("label_dim", foreground=self.colors["muted"], font=("Segoe UI", 10))
         self.extracted_summary_text.tag_configure("separator", foreground=self.colors["border_light"])
 
         summary_scrollbar = ttk.Scrollbar(summary_text_frame, orient=tk.VERTICAL, command=self.extracted_summary_text.yview)
@@ -4059,11 +4059,11 @@ class PCAPSentryApp:
             self.cred_table.column(col, width=col_widths.get(col, 120), anchor=tk.W, stretch=True)
 
         # Color tags for credential rows
-        self.cred_table.tag_configure("password", foreground=self.colors["danger"], font=("Consolas", 9, "bold"))
-        self.cred_table.tag_configure("username", foreground=self.colors["accent"], font=("Consolas", 9, "bold"))
-        self.cred_table.tag_configure("hostname", foreground=self.colors["success"], font=("Consolas", 9))
-        self.cred_table.tag_configure("cookie", foreground=self.colors["warning"], font=("Consolas", 9))
-        self.cred_table.tag_configure("other", font=("Consolas", 9))
+        self.cred_table.tag_configure("password", foreground=self.colors["danger"], font=("Consolas", 10, "bold"))
+        self.cred_table.tag_configure("username", foreground=self.colors["accent"], font=("Consolas", 10, "bold"))
+        self.cred_table.tag_configure("hostname", foreground=self.colors["success"], font=("Consolas", 10))
+        self.cred_table.tag_configure("cookie", foreground=self.colors["warning"], font=("Consolas", 10))
+        self.cred_table.tag_configure("other", font=("Consolas", 10))
         self._make_treeview_sortable(self.cred_table)
 
         cred_scroll_y = ttk.Scrollbar(cred_table_frame, orient=tk.VERTICAL, command=self.cred_table.yview)
@@ -4105,8 +4105,8 @@ class PCAPSentryApp:
             self.host_table.heading(col, text=col)
             self.host_table.column(col, width=host_col_widths.get(col, 150), anchor=tk.W, stretch=True)
 
-        self.host_table.tag_configure("has_name", foreground=self.colors["success"], font=("Consolas", 9, "bold"))
-        self.host_table.tag_configure("no_name", font=("Consolas", 9))
+        self.host_table.tag_configure("has_name", foreground=self.colors["success"], font=("Consolas", 10, "bold"))
+        self.host_table.tag_configure("no_name", font=("Consolas", 10))
         self._make_treeview_sortable(self.host_table)
 
         host_scroll_y = ttk.Scrollbar(host_table_frame, orient=tk.VERTICAL, command=self.host_table.yview)
@@ -4939,14 +4939,14 @@ class PCAPSentryApp:
 
         style.configure("TFrame", background=bg)
         style.configure("TLabel", background=bg, foreground=text,
-                        font=("Segoe UI", 10))
+                        font=("Segoe UI", 11))
         style.configure("Hint.TLabel", background=bg, foreground=muted,
-                        font=("Segoe UI", 9))
+                        font=("Segoe UI", 10))
         style.configure("Heading.TLabel", background=bg, foreground=text,
-                        font=("Segoe UI", 12, "bold"))
+                        font=("Segoe UI", 13, "bold"))
 
         # ── Buttons ──────────────────────────────────────────────
-        _btn_font = ("Segoe UI", 10)
+        _btn_font = ("Segoe UI", 11)
 
         # Primary action button
         style.configure(
@@ -5050,10 +5050,10 @@ class PCAPSentryApp:
 
         # ── Checkbuttons ─────────────────────────────────────────
         style.configure("TCheckbutton", background=bg, foreground=text,
-                        font=("Segoe UI", 10))
+                        font=("Segoe UI", 11))
         style.map("TCheckbutton", foreground=[("disabled", muted)])
         style.configure("Quiet.TCheckbutton", background=bg, foreground=text,
-                        font=("Segoe UI", 10))
+                        font=("Segoe UI", 11))
         style.map(
             "Quiet.TCheckbutton",
             background=[("active", bg), ("focus", bg)],
@@ -5065,13 +5065,13 @@ class PCAPSentryApp:
                         bordercolor=border_light, relief="groove",
                         borderwidth=1)
         style.configure("TLabelframe.Label", background=bg, foreground=accent,
-                        font=("Segoe UI", 10, "bold"))
+                        font=("Segoe UI", 11, "bold"))
 
         # ── Notebook / Tabs ──────────────────────────────────────
         style.configure("TNotebook", background=bg, bordercolor=border,
                         tabmargins=[2, 6, 2, 0])
         style.configure("TNotebook.Tab", background=panel_alt, foreground=muted,
-                        padding=(18, 9), font=("Segoe UI", 10, "bold"))
+                        padding=(18, 9), font=("Segoe UI", 11, "bold"))
         style.map(
             "TNotebook.Tab",
             background=[("selected", accent), ("active", accent_subtle)],
@@ -5125,7 +5125,7 @@ class PCAPSentryApp:
         self.root.option_add("*TCombobox*Listbox.foreground", text)
         self.root.option_add("*TCombobox*Listbox.selectBackground", accent_subtle)
         self.root.option_add("*TCombobox*Listbox.selectForeground", text)
-        self.root.option_add("*TCombobox*Listbox.font", ("Segoe UI", 10))
+        self.root.option_add("*TCombobox*Listbox.font", ("Segoe UI", 11))
 
         # ── Treeview ─────────────────────────────────────────────
         style.configure(
@@ -5134,14 +5134,14 @@ class PCAPSentryApp:
             fieldbackground=panel,
             foreground=text,
             bordercolor=border,
-            rowheight=30,
-            font=("Segoe UI", 10),
+            rowheight=32,
+            font=("Segoe UI", 11),
         )
         style.configure(
             "Treeview.Heading",
             background=panel_alt,
             foreground=text,
-            font=("Segoe UI", 10, "bold"),
+            font=("Segoe UI", 11, "bold"),
             padding=8,
             bordercolor=border_light,
             relief="flat",
@@ -5163,8 +5163,8 @@ class PCAPSentryApp:
             fieldbackground=panel,
             foreground=text,
             bordercolor=border,
-            rowheight=26,
-            font=("Consolas", 10),
+            rowheight=28,
+            font=("Consolas", 11),
         )
         style.configure(
             "Packet.Treeview.Heading",
@@ -5172,7 +5172,7 @@ class PCAPSentryApp:
             foreground=text,
             bordercolor=border_light,
             relief="flat",
-            font=("Segoe UI", 9, "bold"),
+            font=("Segoe UI", 10, "bold"),
             padding=6,
         )
         style.map(
@@ -5385,7 +5385,7 @@ class PCAPSentryApp:
             highlightthickness=1,
             highlightbackground=self.colors["border_light"],
             highlightcolor=self.colors["accent"],
-            font=("Consolas", 10),
+            font=("Consolas", 11),
             padx=10,
             pady=8,
             spacing1=2,
