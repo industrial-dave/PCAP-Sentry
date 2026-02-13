@@ -4,20 +4,19 @@
 #endif
 
 #define AppVer "2026.02.13-14"
-#define CudaInstallerUrl "https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/cuda_12.1.1_531.14_windows.exe"
 
 [Setup]
 AppId={{91EFC8EF-E9F8-42FC-9D82-479C14FBE67D}
-AppName=PCAP Sentry (GPU)
+AppName=PCAP Sentry
 AppVersion={#AppVer}
-AppVerName=PCAP Sentry (GPU) {#AppVer}
+AppVerName=PCAP Sentry {#AppVer}
 VersionInfoVersion=2026.2.13.14
 AppPublisher=industrial-dave
 AppSupportURL=https://github.com/industrial-dave/PCAP-Sentry
-DefaultDirName={autopf}\PCAP Sentry (GPU)
-DefaultGroupName=PCAP Sentry (GPU)
+DefaultDirName={autopf}\PCAP Sentry
+DefaultGroupName=PCAP Sentry
 OutputDir=..\dist
-OutputBaseFilename=PCAP_Sentry_GPU_Setup
+OutputBaseFilename=PCAP_Sentry_Setup
 Compression=lzma
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -25,14 +24,14 @@ WizardStyle=modern
 SetupIconFile=..\assets\pcap_sentry.ico
 LicenseFile=..\LICENSE.txt
 InfoBeforeFile=..\README.txt
-UninstallDisplayIcon={app}\PCAP_Sentry_GPU.exe
-UninstallDisplayName=PCAP Sentry (GPU) {#AppVer}
+UninstallDisplayIcon={app}\PCAP_Sentry.exe
+UninstallDisplayName=PCAP Sentry {#AppVer}
 CloseApplications=yes
 RestartApplications=yes
 MinVersion=10.0
 
 [Files]
-Source: "..\dist\PCAP_Sentry_GPU.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\PCAP_Sentry.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 #ifdef IncludeVCRedist
@@ -40,19 +39,18 @@ Source: "{#VCRedistPath}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 #endif
 
 [Icons]
-Name: "{group}\PCAP Sentry (GPU)"; Filename: "{app}\PCAP_Sentry_GPU.exe"
-Name: "{commondesktop}\PCAP Sentry (GPU)"; Filename: "{app}\PCAP_Sentry_GPU.exe"; Tasks: desktopicon
+Name: "{group}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"
+Name: "{commondesktop}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 Name: "installollama"; Description: "Install/manage Ollama (local LLM runtime + models)"; GroupDescription: "Optional LLM setup:"; Flags: unchecked
-Name: "installcuda"; Description: "Install NVIDIA CUDA toolkit (for GPU acceleration)"; GroupDescription: "Optional GPU setup:"; Flags: unchecked
 
 [Run]
 #ifdef IncludeVCRedist
 Filename: "{tmp}\vcredist_x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing VC++ Runtime..."; Flags: waituntilterminated skipifsilent
 #endif
-Filename: "{app}\PCAP_Sentry_GPU.exe"; Description: "Launch PCAP Sentry (GPU)"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\PCAP_Sentry.exe"; Description: "Launch PCAP Sentry"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 ; Remove app-created subdirectories under the install directory
@@ -61,9 +59,8 @@ Type: filesandordirs; Name: "{app}\logs"
 
 [Code]
 const
-  LocalAppDataFolder = '{localappdata}\PCAP_Sentry_GPU';
+  LocalAppDataFolder = '{localappdata}\PCAP_Sentry';
   OllamaRuntimeSizeMB = 1536;
-  CudaRuntimeSizeMB = 3072;
 
 var
   OllamaModelsPage: TInputOptionWizardPage;
@@ -71,7 +68,6 @@ var
   OllamaModelSizesMB: array of Integer;
   OllamaSpaceNote: TNewStaticText;
   OllamaModelsHint: TNewStaticText;
-  CudaSpaceNote: TNewStaticText;
   OllamaRemoveModeCheck: TNewCheckBox;
   TasksClickHandlerSet: Boolean;
 
@@ -155,29 +151,9 @@ begin
     ' (free: ' + FormatSizeMB(Round(FreeBytes / 1024 / 1024)) + ').';
 end;
 
-procedure UpdateCudaSpaceNote;
-var
-  FreeBytes: Int64;
-begin
-  if CudaSpaceNote = nil then
-    exit;
-
-  if not WizardIsTaskSelected('installcuda') then
-  begin
-    CudaSpaceNote.Caption := 'Additional space for CUDA: not selected.';
-    exit;
-  end;
-
-  FreeBytes := GetFreeSpaceBytes(ExpandConstant('{pf}'));
-  CudaSpaceNote.Caption :=
-    'Additional space required for CUDA: ' + FormatSizeMB(CudaRuntimeSizeMB) +
-    ' (free: ' + FormatSizeMB(Round(FreeBytes / 1024 / 1024)) + ').';
-end;
-
 procedure HandleSelectionChange(Sender: TObject);
 begin
   UpdateOllamaSpaceNote;
-  UpdateCudaSpaceNote;
 end;
 
 procedure AddOllamaModel(const ModelId, LabelText: String; SizeMB: Integer; DefaultChecked: Boolean);
@@ -224,13 +200,6 @@ begin
   OllamaSpaceNote.Width := WizardForm.SelectTasksPage.ClientWidth;
   OllamaSpaceNote.Caption := '';
 
-  CudaSpaceNote := TNewStaticText.Create(WizardForm);
-  CudaSpaceNote.Parent := WizardForm.SelectTasksPage;
-  CudaSpaceNote.Left := ScaleX(0);
-  CudaSpaceNote.Top := OllamaSpaceNote.Top + ScaleY(16);
-  CudaSpaceNote.Width := WizardForm.SelectTasksPage.ClientWidth;
-  CudaSpaceNote.Caption := '';
-
   OllamaModelsHint := TNewStaticText.Create(WizardForm);
   OllamaModelsHint.Parent := OllamaModelsPage.Surface;
   OllamaModelsHint.Left := ScaleX(0);
@@ -248,7 +217,6 @@ begin
   OllamaRemoveModeCheck.OnClick := @HandleSelectionChange;
 
   UpdateOllamaSpaceNote;
-  UpdateCudaSpaceNote;
 
   if not TasksClickHandlerSet then
   begin
@@ -338,19 +306,6 @@ begin
     exit;
   end;
   Result := 'ollama.exe';
-end;
-
-function BuildCudaSetupScript: String;
-var
-  Script: String;
-begin
-  Script := '$ErrorActionPreference = ''Stop''' + #13#10 +
-    '$installer = Join-Path $env:TEMP ''cuda_setup.exe''' + #13#10 +
-    'if (-not (Test-Path $installer)) {' + #13#10 +
-    '  Invoke-WebRequest -Uri ' + #39 + '{#CudaInstallerUrl}' + #39 + ' -OutFile $installer' + #13#10 +
-    '}' + #13#10 +
-    'Start-Process -FilePath $installer' + #13#10;
-  Result := Script;
 end;
 
 function CountSelectedOllamaModels: Integer;
@@ -671,21 +626,10 @@ begin
 
       SetOllamaInstallProgress('Ollama setup complete.', TotalSteps, TotalSteps);
     end;
-    if WizardIsTaskSelected('installcuda') then
-    begin
-      ScriptPath := ExpandConstant('{tmp}\pcap_cuda_setup.ps1');
-      SaveStringToFile(ScriptPath, BuildCudaSetupScript, False);
-      MsgBox(
-        'The NVIDIA CUDA installer will launch after setup closes.' + #13#10 +
-        'Admin rights may be required. You can cancel it if not needed.',
-        mbInformation, MB_OK);
-      Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -File "' + ScriptPath + '"', '', SW_HIDE, ewNoWait, ResultCode);
-    end;
   end;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
   UpdateOllamaSpaceNote;
-  UpdateCudaSpaceNote;
 end;

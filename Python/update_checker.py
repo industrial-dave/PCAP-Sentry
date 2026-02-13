@@ -149,9 +149,9 @@ class UpdateChecker:
                 if not name.lower().endswith(".exe"):
                     continue
                 if "setup" in name.lower() or "install" in name.lower():
-                    if "PCAP_Sentry_GPU" in name:
+                    if "PCAP_Sentry" in name:
                         installer_url = asset["browser_download_url"]
-                elif "PCAP_Sentry_GPU" in name:
+                elif "PCAP_Sentry" in name:
                     standalone_url = asset["browser_download_url"]
 
             if installer_url:
@@ -211,7 +211,7 @@ class UpdateChecker:
     def get_app_data_dir() -> str:
         """Get the app data directory (aligned with GUI's LOCALAPPDATA path)."""
         app_data = os.getenv("LOCALAPPDATA") or os.getenv("APPDATA") or os.path.expanduser("~")
-        app_dir = os.path.join(app_data, "PCAP_Sentry_GPU")
+        app_dir = os.path.join(app_data, "PCAP_Sentry")
         os.makedirs(app_dir, exist_ok=True)
         return app_dir
 

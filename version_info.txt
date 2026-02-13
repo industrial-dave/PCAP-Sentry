@@ -18,11 +18,11 @@ VSVersionInfo(
           '040904B0',
           [
             StringStruct('CompanyName', 'PCAP Sentry'),
-            StringStruct('FileDescription', 'PCAP Sentry (GPU) - Malware Analysis Console'),
+            StringStruct('FileDescription', 'PCAP Sentry - Malware Analysis Console'),
             StringStruct('FileVersion', '2026.02.13-14'),
-            StringStruct('InternalName', 'PCAP_Sentry_GPU'),
-            StringStruct('OriginalFilename', 'PCAP_Sentry_GPU.exe'),
-            StringStruct('ProductName', 'PCAP Sentry (GPU)'),
+            StringStruct('InternalName', 'PCAP_Sentry'),
+            StringStruct('OriginalFilename', 'PCAP_Sentry.exe'),
+            StringStruct('ProductName', 'PCAP Sentry'),
             StringStruct('ProductVersion', '2026.02.13-14')
           ]
         )
