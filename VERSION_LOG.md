@@ -3,22 +3,17 @@
 
 
 
+## 2026.02.13-38 - 2026-02-13
 
+### LLM Server Download Progress Enhancements
+- **Download speed indicator** — LLM server installer downloads now show real-time speed in MB/s, updated every 0.5 seconds
+- **ETA display** — Estimated time remaining shown during download (e.g., "45s left" or "1.2m left") based on current throughput
+- **Window title progress** — The application title bar now reflects download/install progress (e.g., "PCAP Sentry - 45% Downloading Ollama") so progress is visible even when the app is minimized or in the taskbar
+- **Indeterminate activity in title** — Non-percentage tasks (winget installs, elevated installer execution) also update the title bar with the current activity
+- **Speed display for unknown-size downloads** — Downloads without a Content-Length header now also show speed in MB/s
 
-
-
-## 2026.02.13-37 - 2026-02-13
-- Minor tweaks and improvements
-## 2026.02.13-36 - 2026-02-13
-- Minor tweaks and improvements
-## 2026.02.13-35 - 2026-02-13
-- Minor tweaks and improvements
-## 2026.02.13-34 - 2026-02-13
-- Minor tweaks and improvements
-## 2026.02.13-33 - 2026-02-13
-- Minor tweaks and improvements
-## 2026.02.13-32 - 2026-02-13
-- Minor tweaks and improvements
+### General Progress Bar Improvements
+- **`_set_progress()` title updates** — All task types (analysis, export, model training, LLM install) now update the window title with progress, not just the status bar
 ## 2026.02.13-31 - 2026-02-13
 
 ### Installer Fixes

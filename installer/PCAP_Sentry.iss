@@ -3,7 +3,7 @@
 #define IncludeVCRedist
 #endif
 
-#define AppVer "2026.02.13-37"
+#define AppVer "2026.02.13-38"
 
 [Setup]
 AppId={{91EFC8EF-E9F8-42FC-9D82-479C14FBE67D}
