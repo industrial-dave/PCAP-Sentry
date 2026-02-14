@@ -115,7 +115,7 @@ begin
     { Force-remove the install directory and any leftover files }
     DelTree(ExpandConstant('{app}'), True, True, True);
 
-    { Check if {app} still exists and notify user }
+    // Check if install dir still exists and notify user
     if DirExists(ExpandConstant('{app}')) then
     begin
       MsgBox(
