@@ -176,7 +176,7 @@ DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
 
 
-_EMBEDDED_VERSION = "2026.02.13-41"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.13-42"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -333,17 +333,22 @@ def _get_app_icon_path(prefer_png=False):
     base_dir = _get_app_base_dir()
     candidates = []
     frozen_dir = getattr(sys, "_MEIPASS", None)
-    ext = "pcap_sentry_48.png" if prefer_png else "pcap_sentry.ico"
-    if frozen_dir:
-        candidates.append(os.path.join(frozen_dir, "assets", ext))
-        candidates.append(os.path.join(frozen_dir, ext))
-    candidates.extend(
-        [
-            os.path.join(base_dir, "assets", ext),
-            os.path.abspath(os.path.join(base_dir, "..", "assets", ext)),
-            os.path.join(base_dir, ext),
-        ]
-    )
+    if prefer_png:
+        # Prefer high-res 256px PNG, fall back to 48px
+        png_names = ["pcap_sentry_256.png", "pcap_sentry_48.png"]
+    else:
+        png_names = ["pcap_sentry.ico"]
+    for ext in png_names:
+        if frozen_dir:
+            candidates.append(os.path.join(frozen_dir, "assets", ext))
+            candidates.append(os.path.join(frozen_dir, ext))
+        candidates.extend(
+            [
+                os.path.join(base_dir, "assets", ext),
+                os.path.abspath(os.path.join(base_dir, "..", "assets", ext)),
+                os.path.join(base_dir, ext),
+            ]
+        )
     for path in candidates:
         if os.path.exists(path):
             return path
