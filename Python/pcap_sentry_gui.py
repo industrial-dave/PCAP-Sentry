@@ -5430,6 +5430,10 @@ class PCAPSentryApp:
             # No percentage — switch to / keep indeterminate spinner
             if label:
                 self.status_var.set(label)
+                # Update window title to show current activity (truncated for readability)
+                if self.busy_count > 0:
+                    short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
+                    self.root.title(f"{self.root_title} - {short_label}")
             # Cancel any running determinate animation
             if self._progress_anim_id is not None:
                 self.root.after_cancel(self._progress_anim_id)
@@ -5459,6 +5463,10 @@ class PCAPSentryApp:
             if processed is not None and total:
                 status_text = f"{label} {percent:.0f}% ({_format_bytes(processed)} / {_format_bytes(total)})"
             self.status_var.set(status_text)
+            # Update window title with progress percentage (short label)
+            if self.busy_count > 0:
+                short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
+                self.root.title(f"{self.root_title} - {percent:.0f}% {short_label}")
 
     def _animate_progress(self):
         """Smoothly interpolate the progress bar toward _progress_target."""
@@ -6931,6 +6939,10 @@ class PCAPSentryApp:
                         if total_size > _MAX_INSTALLER_BYTES:
                             raise RuntimeError(f"Installer too large ({total_size} bytes).")
                         downloaded = 0
+                        dl_start_time = time.time()
+                        last_speed_time = dl_start_time
+                        last_speed_bytes = 0
+                        current_speed = 0.0
                         with open(installer_path, "wb") as f:
                             while True:
                                 chunk = resp.read(65536)
@@ -6940,14 +6952,33 @@ class PCAPSentryApp:
                                 downloaded += len(chunk)
                                 if downloaded > _MAX_INSTALLER_BYTES:
                                     raise RuntimeError("Installer download exceeded 500 MB limit.")
+                                # Calculate download speed (update every 0.5s)
+                                now = time.time()
+                                speed_interval = now - last_speed_time
+                                if speed_interval >= 0.5:
+                                    current_speed = (downloaded - last_speed_bytes) / speed_interval
+                                    last_speed_bytes = downloaded
+                                    last_speed_time = now
+                                speed_mb = current_speed / (1024 * 1024)
                                 if total_size > 0:
                                     pct = (downloaded / total_size) * 100
                                     dl_mb = downloaded / (1024 * 1024)
                                     total_mb = total_size / (1024 * 1024)
-                                    progress_cb(pct, label=f"Downloading {name} — {dl_mb:.1f} / {total_mb:.1f} MB")
+                                    # Calculate ETA
+                                    eta_str = ""
+                                    if current_speed > 0:
+                                        remaining = total_size - downloaded
+                                        eta_secs = remaining / current_speed
+                                        if eta_secs < 60:
+                                            eta_str = f" — {eta_secs:.0f}s left"
+                                        else:
+                                            eta_str = f" — {eta_secs / 60:.1f}m left"
+                                    speed_str = f" ({speed_mb:.1f} MB/s)" if current_speed > 0 else ""
+                                    progress_cb(pct, label=f"Downloading {name} — {dl_mb:.1f} / {total_mb:.1f} MB{speed_str}{eta_str}")
                                 else:
                                     dl_mb = downloaded / (1024 * 1024)
-                                    progress_cb(None, label=f"Downloading {name} — {dl_mb:.1f} MB")
+                                    speed_str = f" ({speed_mb:.1f} MB/s)" if current_speed > 0 else ""
+                                    progress_cb(None, label=f"Downloading {name} — {dl_mb:.1f} MB{speed_str}")
                     finally:
                         resp.close()
 
