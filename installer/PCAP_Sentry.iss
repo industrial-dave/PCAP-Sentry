@@ -3,14 +3,14 @@
 #define IncludeVCRedist
 #endif
 
-#define AppVer "2026.02.13-44"
+#define AppVer "2026.02.13-45"
 
 [Setup]
 AppId={{91EFC8EF-E9F8-42FC-9D82-479C14FBE67D}
 AppName=PCAP Sentry
 AppVersion={#AppVer}
 AppVerName=PCAP Sentry {#AppVer}
-VersionInfoVersion=2026.2.13.44
+VersionInfoVersion=2026.2.13.45
 AppPublisher=industrial-dave
 AppSupportURL=https://github.com/industrial-dave/PCAP-Sentry
 DefaultDirName={autopf}\PCAP Sentry
@@ -32,6 +32,7 @@ MinVersion=10.0
 
 [Files]
 Source: "..\dist\PCAP_Sentry.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\assets\pcap_sentry.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 #ifdef IncludeVCRedist
@@ -39,8 +40,8 @@ Source: "{#VCRedistPath}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 #endif
 
 [Icons]
-Name: "{group}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"
-Name: "{commondesktop}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"; Tasks: desktopicon
+Name: "{group}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"; IconFilename: "{app}\pcap_sentry.ico"
+Name: "{commondesktop}\PCAP Sentry"; Filename: "{app}\PCAP_Sentry.exe"; IconFilename: "{app}\pcap_sentry.ico"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
