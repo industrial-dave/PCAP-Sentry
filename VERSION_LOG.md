@@ -12,6 +12,9 @@
 
 
 
+
+## 2026.02.13-52 - 2026-02-13
+- Always bundle VC++ runtime
 ## 2026.02.13-51 - 2026-02-13
 - Require admin for VC++ runtime install
 ## 2026.02.13-50 - 2026-02-13
