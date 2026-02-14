@@ -6,6 +6,9 @@
 
 
 
+
+## 2026.02.13-42 - 2026-02-13
+- Regenerated app icon at 512px source resolution for crisp display at all sizes
 ## 2026.02.13-41 - 2026-02-13
 - Fix update dialog buttons, bundle update_checker module
 ## 2026.02.13-40 - 2026-02-13
