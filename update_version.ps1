@@ -76,16 +76,16 @@ if (-not $DryRun) {
     Write-Host "Would update version_info.txt to $newVersion"
 }
 
-# Update APP_VERSION in pcap_sentry_gui.py
+# Update _EMBEDDED_VERSION in pcap_sentry_gui.py
 $guiFile = "Python\pcap_sentry_gui.py"
 if (Test-Path $guiFile) {
     $guiContent = Get-Content $guiFile -Raw
     if (-not $DryRun) {
-        $updatedGui = $guiContent -replace 'APP_VERSION\s*=\s*"[^"]+"', "APP_VERSION = `"$newVersion`""
+        $updatedGui = $guiContent -replace '_EMBEDDED_VERSION\s*=\s*"[^"]+"', "_EMBEDDED_VERSION = `"$newVersion`""
         Set-Content -Path $guiFile -Value $updatedGui -NoNewline
-        Write-Host "Updated Python/pcap_sentry_gui.py APP_VERSION to $newVersion"
+        Write-Host "Updated Python/pcap_sentry_gui.py _EMBEDDED_VERSION to $newVersion"
     } else {
-        Write-Host "Would update Python/pcap_sentry_gui.py APP_VERSION to $newVersion"
+        Write-Host "Would update Python/pcap_sentry_gui.py _EMBEDDED_VERSION to $newVersion"
     }
 } else {
     Write-Host "Warning: Python/pcap_sentry_gui.py not found" -ForegroundColor Yellow
