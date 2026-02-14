@@ -466,6 +466,7 @@ PCAP Sentry integrates with free, public threat intelligence sources to enhance 
 |------|-----------|---|
 | 👽 **AlienVault OTX** | IP/domain reputation, threat pulses | Not required |
 | 🔗 **URLhaus** | Malicious URL database | Not required |
+| 🛡️ **AbuseIPDB** | IP abuse/reputation reports | Optional (free tier) |
 
 ### How It Works
 
@@ -490,6 +491,7 @@ Example output:
 Flagged IPs (from public threat feeds):
   - 192.0.2.55: risk score 85/100
     (AlienVault OTX: 12 pulses)
+    (AbuseIPDB: 94% confidence, 237 reports)
 
 Flagged Domains (from public threat feeds):
   - malicious.example.com: risk score 92/100
@@ -794,7 +796,7 @@ PCAP Sentry uses date-based versioning: `YYYY.MM.DD` (e.g., `2026.02.13`). If mu
 
 - Ensure you have **internet connectivity**.
 - Verify **Offline mode** is not enabled in Preferences.
-- Check that public APIs are reachable (AlienVault OTX, URLhaus).
+- Check that public APIs are reachable (AlienVault OTX, URLhaus, AbuseIPDB).
 - API rate limits may temporarily block lookups — try again later.
 
 ### LLM Not Working
