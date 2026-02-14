@@ -70,15 +70,16 @@ The system supports multiple version formats:
 #### Release Requirements
 
 For updates to work, GitHub releases must include:
-1. A release with a tag (e.g., `v2.1.0` or `2026.02.11-1`)
-2. An executable named `PCAP_Sentry.exe` or containing "PCAP_Sentry" in the filename
+1. A release with a tag (e.g., `v2026.2.13-39` or `2026.02.11-1`)
+2. An executable named `PCAP_Sentry.exe` or `PCAP_Sentry_Setup.exe` (installer preferred)
 3. Release notes (body text)
 
 Example release structure:
 ```
-Release: v2.1.1
+Release: v2026.2.13-39
 Assets:
-  - PCAP_Sentry.exe (the application)
+  - PCAP_Sentry.exe (standalone application)
+  - PCAP_Sentry_Setup.exe (installer, preferred by updater)
 Description: 
   - Fixed bug X
   - Added feature Y
@@ -138,23 +139,27 @@ To test the update system:
 
 ### Building Release Versions
 
-When preparing a release:
+The build process is fully automated via `build_exe.bat`. Version numbers use **date-based format** (`YYYY.MM.DD-BuildNumber`) and are managed by `update_version.ps1` — no manual version editing is required.
 
-1. Update version numbers:
-   - `APP_VERSION` in `pcap_sentry_gui.py`
-   - `version_info.txt` for Windows properties
-   - Tag in git: `git tag v2.X.X`
-
-2. Build with PyInstaller:
+1. Build, commit, push, and create a GitHub release in one step:
    ```batch
-   build_exe.bat
+   build_exe.bat -Notes "Description of changes"
    ```
+   This automatically:
+   - Bumps the build number in `version_info.txt`, `pcap_sentry_gui.py`, and `installer/PCAP_Sentry.iss`
+   - Builds the EXE with PyInstaller
+   - Commits and pushes to GitHub
+   - Creates a tagged GitHub release with the EXE attached
 
-3. Create GitHub release with built executable:
+2. Optional flags:
+   - `-NoPush` — Build only, skip git commit/push and release creation
+   - `-NoBump` — Skip version increment (rebuild with current version)
+
+3. Example output:
    ```
-   Tag: v2.X.X
-   Title: Version 2.X.X
-   Assets: Attach PCAP_Sentry.exe from dist/ folder
+   Tag: v2026.2.13-39
+   Title: PCAP Sentry v2026.2.13-39
+   Assets: PCAP_Sentry.exe from dist/ folder
    ```
 
 ## Troubleshooting
