@@ -5726,6 +5726,14 @@ class PCAPSentryApp:
             foreground=[("active", text), ("disabled", muted)],
         )
 
+        # ── Radiobuttons ─────────────────────────────────────────
+        style.configure("TRadiobutton", background=bg, foreground=text,
+                        font=("Segoe UI", 11))
+        style.map("TRadiobutton",
+            background=[("active", bg), ("focus", bg)],
+            foreground=[("active", text), ("disabled", muted)],
+        )
+
         # ── LabelFrame ───────────────────────────────────────────
         style.configure("TLabelframe", background=bg, foreground=text,
                         bordercolor=border_light, relief="groove",
@@ -6742,6 +6750,224 @@ class PCAPSentryApp:
 
         self._run_task(task, done, on_error=failed, message="Removing Ollama model...")
 
+    # -- Ollama model download after install --------------------------------
+
+    _OLLAMA_SUGGESTED_MODELS = [
+        ("llama3.2:3b",       "3B — fast, good for most tasks (~2 GB)"),
+        ("llama3.2:1b",       "1B — ultra-light, minimal RAM (~1 GB)"),
+        ("llama3.1:8b",       "8B — higher quality, needs ~5 GB RAM (~4.7 GB)"),
+        ("deepseek-r1:1.5b",  "1.5B — compact reasoning model (~1.1 GB)"),
+        ("deepseek-r1:7b",    "7B — strong reasoning & analysis (~4.7 GB)"),
+        ("deepseek-r1:14b",   "14B — top-tier reasoning, needs ~9 GB RAM (~9 GB)"),
+        ("qwen2.5:3b",        "3B — multilingual, strong reasoning (~1.9 GB)"),
+        ("phi4-mini:3.8b",    "3.8B — Microsoft, strong on analysis (~2.4 GB)"),
+        ("mistral:7b",        "7B — solid all-rounder (~4.1 GB)"),
+        ("gemma3:4b",         "4B — Google, fast & capable (~3.3 GB)"),
+    ]
+
+    def _offer_ollama_model_download(self):
+        """Show a dialog to pick and download an Ollama model right after install."""
+        window = tk.Toplevel(self.root)
+        window.title("Download Ollama Model")
+        window.resizable(False, False)
+        window.configure(bg=self.colors["bg"])
+        self._set_dark_titlebar(window)
+
+        frame = ttk.Frame(window, padding=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frame, text="Download a Model", style="Heading.TLabel").pack(anchor="w", pady=(0, 4))
+        ttk.Label(
+            frame,
+            text="Ollama needs at least one model to work. "
+                 "Select a model below or enter a custom name.",
+            style="Hint.TLabel", wraplength=460,
+        ).pack(anchor="w", pady=(0, 12))
+
+        selected_var = tk.StringVar()
+
+        for model_name, desc in self._OLLAMA_SUGGESTED_MODELS:
+            row = ttk.Frame(frame)
+            row.pack(fill=tk.X, pady=2)
+
+            rb = ttk.Radiobutton(
+                row, variable=selected_var, value=model_name, text="",
+            )
+            rb.pack(side=tk.LEFT)
+
+            name_lbl = ttk.Label(row, text=model_name, font=("Segoe UI", 11, "bold"))
+            name_lbl.pack(side=tk.LEFT)
+            # Clicking the name also selects the radio button
+            name_lbl.bind("<Button-1>", lambda e, v=model_name: selected_var.set(v))
+
+            desc_lbl = ttk.Label(row, text=f"  {desc}", style="Hint.TLabel")
+            desc_lbl.pack(side=tk.LEFT)
+            desc_lbl.bind("<Button-1>", lambda e, v=model_name: selected_var.set(v))
+
+        # Pre-select the first model
+        selected_var.set(self._OLLAMA_SUGGESTED_MODELS[0][0])
+
+        ttk.Separator(frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=(8, 4))
+
+        # Custom model name entry
+        custom_row = ttk.Frame(frame)
+        custom_row.pack(fill=tk.X, pady=4)
+        custom_rb = ttk.Radiobutton(
+            custom_row, text="", variable=selected_var, value="__custom__",
+        )
+        custom_rb.pack(side=tk.LEFT)
+        ttk.Label(custom_row, text="Custom:", font=("Segoe UI", 11, "bold")).pack(side=tk.LEFT)
+        custom_entry = ttk.Entry(custom_row, width=25)
+        custom_entry.pack(side=tk.LEFT, padx=(8, 0))
+        custom_entry.bind("<FocusIn>", lambda e: selected_var.set("__custom__"))
+
+        # Link to Ollama model library
+        link_label = tk.Label(
+            frame, text="\U0001F517  Browse models at ollama.com/library",
+            fg=self.colors.get("accent", "#58a6ff"),
+            bg=self.colors.get("bg", "#0d1117"),
+            font=("Segoe UI", 10, "underline"),
+            cursor="hand2",
+        )
+        link_label.pack(anchor="w", pady=(8, 0))
+        link_label.bind("<Button-1>", lambda e: self._open_url("https://ollama.com/library"))
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(fill=tk.X, pady=(16, 0))
+
+        def _do_download():
+            choice = selected_var.get()
+            if choice == "__custom__":
+                choice = custom_entry.get().strip()
+            if not choice:
+                messagebox.showwarning("Ollama", "Enter or select a model name.")
+                return
+            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:\-/]*', choice):
+                messagebox.showwarning("Ollama", "Invalid model name. Only letters, digits, '.', ':', '-', '_', '/' are allowed.")
+                return
+            window.destroy()
+            self._pull_ollama_model(choice)
+
+        def _skip():
+            window.destroy()
+            messagebox.showinfo(
+                "Ollama",
+                "You can download models later from the LLM model dropdown "
+                "or by running 'ollama pull <model>' in a terminal.",
+            )
+
+        ttk.Button(btn_frame, text="Download", command=_do_download).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="Skip", style="Secondary.TButton", command=_skip).pack(side=tk.LEFT, padx=(8, 0))
+
+        window.transient(self.root)
+        window.grab_set()
+
+    def _pull_ollama_model(self, model_name):
+        """Pull (download) an Ollama model with progress feedback."""
+
+        def task(progress_cb):
+            # Ensure ollama serve is running
+            try:
+                subprocess.Popen(
+                    ["ollama", "serve"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except Exception:
+                pass
+            time.sleep(1)  # Give serve a moment to start
+
+            progress_cb(0, label=f"Pulling {model_name}...")
+
+            # Use the Ollama REST API to pull with streaming progress
+            endpoint = self._normalize_ollama_endpoint("http://localhost:11434")
+            url = endpoint.rstrip("/") + "/api/pull"
+            body = json.dumps({"name": model_name, "stream": True}).encode("utf-8")
+            req = urllib.request.Request(
+                url,
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                resp = urllib.request.urlopen(req, timeout=1800)  # 30 min timeout
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Could not connect to Ollama at {endpoint}.\n"
+                    f"Ensure 'ollama serve' is running.\n\nDetails: {exc}"
+                )
+
+            last_status = ""
+            try:
+                for raw_line in resp:
+                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line:
+                        continue
+                    try:
+                        msg = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    status = msg.get("status", "")
+                    total = msg.get("total", 0)
+                    completed = msg.get("completed", 0)
+
+                    if msg.get("error"):
+                        raise RuntimeError(msg["error"])
+
+                    if total and total > 0:
+                        pct = (completed / total) * 100
+                        done_mb = completed / (1024 * 1024)
+                        total_mb = total / (1024 * 1024)
+                        progress_cb(
+                            pct,
+                            label=f"{status} — {done_mb:.1f} / {total_mb:.1f} MB",
+                        )
+                    else:
+                        if status != last_status:
+                            progress_cb(None, label=status or f"Pulling {model_name}...")
+                    last_status = status
+            finally:
+                resp.close()
+
+            # Stop the headless serve we started
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", "ollama.exe"],
+                    capture_output=True, timeout=5,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except Exception:
+                pass
+
+            return model_name
+
+        def done(result_name):
+            self.status_var.set(f"\u2714 Downloaded Ollama model: {result_name}")
+            # Auto-configure the LLM settings
+            self.llm_provider_var.set("ollama")
+            self.llm_endpoint_var.set("http://localhost:11434")
+            self.llm_model_var.set(result_name)
+            messagebox.showinfo(
+                "Ollama",
+                f"Model '{result_name}' downloaded successfully!\n\n"
+                f"LLM settings have been configured automatically.",
+            )
+
+        def failed(err):
+            self.status_var.set("Model download failed")
+            messagebox.showerror(
+                "Ollama",
+                f"Failed to download model '{model_name}'.\n\n"
+                f"You can try manually: ollama pull {model_name}\n\n"
+                f"Error: {err}",
+            )
+
+        self._run_task(task, done, on_error=failed,
+                      message=f"Downloading {model_name}...",
+                      progress_label=f"Pulling {model_name}")
+        self.cancel_button.pack_forget()
+
     def _open_install_llm_dialog(self):
         """Open a dialog to install a local LLM server."""
         _SERVERS = [
@@ -7131,12 +7357,27 @@ class PCAPSentryApp:
                             winreg.CloseKey(key)
                     except Exception:
                         pass
-                messagebox.showinfo(
-                    name,
-                    f"{name} installed successfully.\n\n"
-                    f"Select '{server_info['name']}' from the LLM server dropdown, "
-                    f"refresh models, and test the connection.",
-                )
+                if "ollama" in name.lower():
+                    if messagebox.askyesno(
+                        name,
+                        f"{name} installed successfully!\n\n"
+                        f"Would you like to download a model now?\n"
+                        f"Ollama needs at least one model to work.",
+                    ):
+                        self.root.after(100, self._offer_ollama_model_download)
+                    else:
+                        messagebox.showinfo(
+                            name,
+                            f"You can download models later from the LLM model dropdown "
+                            f"or by running 'ollama pull <model>' in a terminal.",
+                        )
+                else:
+                    messagebox.showinfo(
+                        name,
+                        f"{name} installed successfully.\n\n"
+                        f"Select '{server_info['name']}' from the LLM server dropdown, "
+                        f"refresh models, and test the connection.",
+                    )
             else:
                 self.status_var.set(f"{name}: manual install needed")
                 messagebox.showinfo(
