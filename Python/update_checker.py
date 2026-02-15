@@ -443,6 +443,8 @@ class UpdateChecker:
             update_dir = self.get_update_dir()
             script_path = os.path.join(update_dir, "apply_update.bat")
             backup_path = current_exe_path + ".backup"
+            exe_dir = os.path.dirname(current_exe_path)
+            exe_name = os.path.basename(current_exe_path)
 
             # Simple batch script to replace executable
             script = f'''@echo off
@@ -468,8 +470,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Launch updated executable
-start "" "{current_exe_path}"
+REM Launch updated executable from its directory
+cd /D "{exe_dir}"
+start "" "{exe_name}"
 
 REM Clean up
 del "%~f0"

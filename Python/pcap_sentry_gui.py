@@ -176,7 +176,7 @@ DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
 
 
-_EMBEDDED_VERSION = "2026.02.14-6"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.14-7"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -3790,7 +3790,8 @@ class PCAPSentryApp:
                                 "The installer has been downloaded.\n\n"
                                 "The installer will now launch to update all files\n"
                                 "(executable, documentation, runtime libraries).\n\n"
-                                "PCAP Sentry will close so the update can proceed.",
+                                "PCAP Sentry will close. After the installer completes,\n"
+                                "you can relaunch PCAP Sentry from your Start menu or desktop.",
                             )
                             if checker.launch_installer(dest_path):
                                 self.root.quit()
