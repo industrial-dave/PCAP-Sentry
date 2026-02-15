@@ -176,7 +176,7 @@ DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
 
 
-_EMBEDDED_VERSION = "2026.02.15-11"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.15-12"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -3314,10 +3314,15 @@ class PCAPSentryApp:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Enable mouse wheel scrolling
+        # Enable mouse wheel scrolling (widget-scoped, not global)
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        def _bind_mousewheel(_event):
+            canvas.bind("<MouseWheel>", _on_mousewheel)
+        def _unbind_mousewheel(_event):
+            canvas.unbind("<MouseWheel>")
+        canvas.bind("<Enter>", _bind_mousewheel)
+        canvas.bind("<Leave>", _unbind_mousewheel)
 
         frame = ttk.Frame(scrollable_frame, padding=16)
         frame.pack(fill=tk.BOTH, expand=True)
@@ -6206,6 +6211,16 @@ class PCAPSentryApp:
             spacing1=2,
             spacing3=2,
         )
+        
+        # Add mouse wheel scrolling support
+        def _on_mousewheel(event):
+            widget.yview_scroll(int(-1*(event.delta/120)), "units")
+        def _bind_mousewheel(_event):
+            widget.bind("<MouseWheel>", _on_mousewheel)
+        def _unbind_mousewheel(_event):
+            widget.unbind("<MouseWheel>")
+        widget.bind("<Enter>", _bind_mousewheel)
+        widget.bind("<Leave>", _unbind_mousewheel)
 
     def _show_overlay(self, message):
         pass
@@ -8177,10 +8192,15 @@ class PCAPSentryApp:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Enable mouse wheel scrolling
+        # Enable mouse wheel scrolling (widget-scoped, not global)
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        def _bind_mousewheel(_event):
+            canvas.bind("<MouseWheel>", _on_mousewheel)
+        def _unbind_mousewheel(_event):
+            canvas.unbind("<MouseWheel>")
+        canvas.bind("<Enter>", _bind_mousewheel)
+        canvas.bind("<Leave>", _unbind_mousewheel)
 
         frame = ttk.Frame(scrollable_frame, padding=24)
         frame.pack(fill=tk.BOTH, expand=True)
