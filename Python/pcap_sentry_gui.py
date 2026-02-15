@@ -8370,7 +8370,6 @@ class PCAPSentryApp:
             self._set_llm_test_status("Disabled", self.colors.get("muted", "#8b949e"))
             return
 
-        self.sample_note_var.set("LLM: testing...")
         self._set_llm_test_status("Testing...", self.colors.get("muted", "#8b949e"))
         test_stats = {
             "packet_count": 0,
@@ -8406,7 +8405,6 @@ class PCAPSentryApp:
             return self._request_llm_label(test_stats, test_summary)
 
         def done(suggestion):
-            self.sample_note_var.set("")
             self._set_llm_test_status("OK", self.colors.get("success", "#3fb950"))
             label = suggestion.get("label") if suggestion else "unknown"
             confidence = suggestion.get("confidence")
@@ -8418,7 +8416,6 @@ class PCAPSentryApp:
             messagebox.showinfo("LLM Test", f"LLM connection OK.\n\n{detail}")
 
         def failed(err):
-            self.sample_note_var.set("")
             self._set_llm_test_status("FAIL", self.colors.get("danger", "#f85149"))
             _write_error_log("LLM test failed", err)
 
