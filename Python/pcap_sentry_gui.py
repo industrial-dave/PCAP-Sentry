@@ -195,7 +195,7 @@ DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
 
 
-_EMBEDDED_VERSION = "2026.02.15-21"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.15-22"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -2933,16 +2933,40 @@ class PCAPSentryApp:
         # Stop animations
         self._logo_spinning = False
         
-        # Give callbacks time to see shutdown flag and exit cleanly (prevent hang)
-        self.root.update_idletasks()
+        # Save settings snapshot before destroying window
+        try:
+            settings_snapshot = {
+                "max_rows": int(self.max_rows_var.get()),
+                "parse_http": bool(self.parse_http_var.get()),
+                "use_high_memory": bool(self.use_high_memory_var.get()),
+                "use_local_model": bool(self.use_local_model_var.get()),
+                "use_multithreading": bool(self.use_multithreading_var.get()),
+                "turbo_parse": bool(self.turbo_parse_var.get()),
+                "offline_mode": bool(self.offline_mode_var.get()),
+                "backup_dir": self.backup_dir_var.get().strip(),
+                "llm_provider": self.llm_provider_var.get().strip().lower() or "disabled",
+                "llm_model": self.llm_model_var.get().strip() or "llama3",
+                "llm_endpoint": self.llm_endpoint_var.get().strip() or "http://localhost:11434",
+                "llm_api_key": self.llm_api_key_var.get().strip(),
+                "otx_api_key": self.otx_api_key_var.get().strip(),
+                "llm_auto_detect": False,
+                "theme": self.theme_var.get().strip().lower() or "system",
+                "app_data_notice_shown": bool(self.settings.get("app_data_notice_shown")),
+            }
+        except:
+            settings_snapshot = self.settings
         
-        _backup_knowledge_base()
-        # Persist LLM status and all settings
-        self._save_settings_from_vars()
-
-        # Skip LLM server prompt during close to prevent hang
-        # (messagebox would block the close operation)
-
+        # Perform file I/O in background thread to avoid blocking UI
+        def _cleanup_thread():
+            try:
+                _backup_knowledge_base()
+                save_settings(settings_snapshot)
+            except:
+                pass  # Best effort, don't block shutdown
+        
+        threading.Thread(target=_cleanup_thread, daemon=True).start()
+        
+        # Destroy window immediately without waiting for file I/O
         self.root.destroy()
 
     # ── Local-server process names keyed by display / provider id ──

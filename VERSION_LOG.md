@@ -31,6 +31,9 @@
 
 
 
+
+## 2026.02.15-22 - 2026-02-15
+- Fix: Window hang on close (file I/O blocking). Moved KB backup and settings save to background thread for instant window closure.
 ## 2026.02.15-21 - 2026-02-15
 - Fix: Window hang on close (resolved blocking messagebox). Removed LLM server stop prompt during shutdown to prevent UI freeze.
 ## 2026.02.15-20 - 2026-02-15
