@@ -33,6 +33,7 @@ PCAP Sentry parses network captures (`.pcap` / `.pcapng`), summarizes traffic st
 | ♻️ | **LLM status is now saved and restored automatically** |
 | 🔒 | **Security hardened** with SHA-256 download verification, HMAC model integrity, OS credential storage, path-traversal guards, input sanitization, response-size limits, and API-key-over-HTTP protection |
 | ⚡ | **Optimized analysis engine** with cached vector computations, mask-based filtering, and centralized LLM retry logic |
+| 🐍 | **Python 3.14 compatible** with onedir build architecture for reliable DLL loading and dependency management |
 
 ## Quick Start
 
@@ -112,7 +113,11 @@ assets/
 ├── vcredist_x64.exe           # Optional bundled VC++ redistributable (if downloaded)
 installer/
 ├── PCAP_Sentry.iss            # Inno Setup installer (uninstall prompts, KB cleanup)
-dist/                          # Build outputs (PCAP_Sentry.exe, PCAP_Sentry_Setup.exe)
+dist/
+├── PCAP_Sentry/               # Onedir build (Python 3.14+ compatible)
+│   ├── PCAP_Sentry.exe        # Main executable
+│   └── _internal/             # Dependencies (Python DLLs, libraries)
+└── PCAP_Sentry_Setup.exe      # Installer (includes all files)
 ```
 
 ## Testing

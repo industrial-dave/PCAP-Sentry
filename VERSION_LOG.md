@@ -9,7 +9,13 @@
 
 
 ## 2026.02.14-12 - 2026-02-14
-- Minor tweaks and improvements
+**Stable Release - Python 3.14 Compatible**
+- Fixed LLM indicator button to run connection test (instead of toggle)
+- Fixed Python 3.14 DLL loading issues by switching to onedir build mode
+- Fixed update system relaunch with proper working directory
+- Improved installer update messaging for clarity
+- Disabled UPX compression for Python 3.14+ compatibility
+- All dependencies now properly bundled in `_internal/` folder
 ## 2026.02.14-11 - 2026-02-14
 - Minor tweaks and improvements
 ## 2026.02.14-10 - 2026-02-14
