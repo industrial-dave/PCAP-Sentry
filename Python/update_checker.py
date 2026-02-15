@@ -470,6 +470,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Refresh Windows icon cache to show new logo
+echo Refreshing desktop icons...
+ie4uinit.exe -show >nul 2>&1
+timeout /t 1 /nobreak >nul
+
+REM Force Explorer to refresh all icons
+powershell -NoProfile -Command "$code = '[DllImport(\\"shell32.dll\\")]public static extern void SHChangeNotify(int wEventId,int uFlags,IntPtr dwItem1,IntPtr dwItem2);'; $type = Add-Type -MemberDefinition $code -Name IconRefresh -PassThru; $type::SHChangeNotify(0x8000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)" >nul 2>&1
+
 REM Launch updated executable from its directory
 cd /D "{exe_dir}"
 start "" "{exe_name}"

@@ -166,9 +166,24 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  RC: Integer;
 begin
   if CurStep = ssInstall then
     InstallVCRuntime;
+  
+  if CurStep = ssPostInstall then
+  begin
+    { Refresh Windows icon cache to display new logo }
+    Exec(ExpandConstant('{cmd}'),
+      '/C ie4uinit.exe -show',
+      '', SW_HIDE, ewWaitUntilTerminated, RC);
+      
+    { Force Explorer to refresh all icons via PowerShell }
+    Exec('powershell.exe',
+      '-NoProfile -Command "$code = ''[DllImport(\\"shell32.dll\\")]public static extern void SHChangeNotify(int wEventId,int uFlags,IntPtr dwItem1,IntPtr dwItem2);''; $type = Add-Type -MemberDefinition $code -Name IconRefresh -PassThru; $type::SHChangeNotify(0x8000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)"',
+      '', SW_HIDE, ewWaitUntilTerminated, RC);
+  end;
 end;
 
 { ── Process management ───────────────────────────────────────── }
