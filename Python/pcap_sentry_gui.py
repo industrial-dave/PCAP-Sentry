@@ -195,7 +195,7 @@ DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
 
 
-_EMBEDDED_VERSION = "2026.02.15-22"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.15-23"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -3454,7 +3454,8 @@ class PCAPSentryApp:
         ttk.Separator(self.root, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=16)
         status = ttk.Frame(self.root, padding=(16, 10))
         status.pack(fill=tk.X)
-        self.progress = ttk.Progressbar(status, mode="indeterminate", length=200)
+        # Longer progress bar for better visibility
+        self.progress = ttk.Progressbar(status, mode="indeterminate", length=300)
         self.progress.pack(side=tk.LEFT, padx=(0, 10))
         ttk.Label(status, textvariable=self.progress_percent_var, style="Hint.TLabel").pack(side=tk.LEFT)
         # Cancel button (hidden by default)
@@ -5675,7 +5676,7 @@ class PCAPSentryApp:
                 self._cancel_event.clear()
                 self.status_var.set(message)
                 self._reset_progress()
-                self.progress.start(10)
+                self.progress.start(8)  # Smoother animation at 8ms interval
                 self.root.configure(cursor="watch")
                 self.root.title(f"{self.root_title} - Working...")
                 self._start_logo_spin()
@@ -5749,7 +5750,7 @@ class PCAPSentryApp:
             if current_mode != "indeterminate":
                 self.progress.configure(mode="indeterminate", maximum=100)
                 self.progress["value"] = 0
-                self.progress.start(10)
+                self.progress.start(8)  # Smoother animation
             self.progress_percent_var.set("")
             return
         self.progress.stop()
@@ -5777,7 +5778,7 @@ class PCAPSentryApp:
         current = self._progress_current
         diff = target - current
 
-        if abs(diff) < 0.5:
+        if abs(diff) < 0.3:
             # Close enough – snap to target
             self._progress_current = target
             self.progress["value"] = target
@@ -5786,10 +5787,10 @@ class PCAPSentryApp:
             self._progress_anim_id = None
             return
 
-        # Ease toward target: move ~25 % of remaining distance per tick
-        step = diff * 0.25
-        if abs(step) < 0.5:
-            step = 0.5 if diff > 0 else -0.5
+        # Ease toward target: move ~40% of remaining distance per tick for smoother animation
+        step = diff * 0.4
+        if abs(step) < 0.3:
+            step = 0.3 if diff > 0 else -0.3
 
         new_val = current + step
         self._progress_current = new_val
@@ -5797,7 +5798,7 @@ class PCAPSentryApp:
         self.progress_percent_var.set(f"{new_val:.0f}%")
 
         self._progress_animating = True
-        self._progress_anim_id = self.root.after(30, self._animate_progress)
+        self._progress_anim_id = self.root.after(20, self._animate_progress)
 
     def _apply_theme(self):
         theme = self._resolve_theme()
@@ -6437,11 +6438,11 @@ class PCAPSentryApp:
             import time as _time
             current_time = _time.time()
             
-            # Send update if: significant change (>2%), enough time passed (>150ms), or final (100%)
+            # Send update if: significant change (>0.5%), enough time passed (>100ms), or final (100%)
             time_delta = current_time - last_progress_time[0]
             progress_delta = abs(percent - last_progress_value[0])
             
-            if percent >= 100 or progress_delta >= 2.0 or time_delta >= 0.15:
+            if percent >= 100 or progress_delta >= 0.5 or time_delta >= 0.1:
                 last_progress_time[0] = current_time
                 last_progress_value[0] = percent
                 q.put(
@@ -6490,7 +6491,7 @@ class PCAPSentryApp:
             error_tb = None
             latest_progress = None
             try:
-                for _ in range(20):  # Reduced from 50 to 20 to prevent UI blocking
+                for _ in range(10):  # Process batch of messages without blocking
                     msg = q.get_nowait()
                     status = msg[0]
                     if status == "progress":
@@ -6531,12 +6532,11 @@ class PCAPSentryApp:
                     self._set_progress(100, label="Complete")
                     self.root.after(600, lambda: self._finish_task(error, payload, error_tb, on_success, on_error))
             else:
-                # Poll faster while cancel is pending for snappier response
-                # Increased from 100ms to 150ms to reduce UI thread overhead
-                interval = 30 if self._cancel_event.is_set() else 150
+                # Poll at 100ms for smooth progress updates
+                interval = 30 if self._cancel_event.is_set() else 100
                 self.root.after(interval, check)
 
-        self.root.after(150, check)
+        self.root.after(100, check)
 
     def _finish_task(self, error, payload, error_tb, on_success, on_error):
         """Called after the 100% progress hold to clean up and deliver results."""

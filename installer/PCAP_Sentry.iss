@@ -1,13 +1,13 @@
 #define VCRedistPath "..\assets\vcredist_x64.exe"
 
-#define AppVer "2026.02.15-22"
+#define AppVer "2026.02.15-23"
 
 [Setup]
 AppId={{91EFC8EF-E9F8-42FC-9D82-479C14FBE67D}
 AppName=PCAP Sentry
 AppVersion={#AppVer}
 AppVerName=PCAP Sentry {#AppVer}
-VersionInfoVersion=2026.2.15.22
+VersionInfoVersion=2026.2.15.23
 AppPublisher=industrial-dave
 AppSupportURL=https://github.com/industrial-dave/PCAP-Sentry
 DefaultDirName={autopf}\PCAP Sentry

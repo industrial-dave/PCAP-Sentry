@@ -32,6 +32,9 @@
 
 
 
+
+## 2026.02.15-23 - 2026-02-15
+- Enhancement: Smoother progress updates. Reduced thresholds (0.5, 100ms vs 150ms), faster animation (40 easing, 20ms ticks), longer progress bar (300px), smoother spinner (8ms).
 ## 2026.02.15-22 - 2026-02-15
 - Fix: Window hang on close (file I/O blocking). Moved KB backup and settings save to background thread for instant window closure.
 ## 2026.02.15-21 - 2026-02-15
