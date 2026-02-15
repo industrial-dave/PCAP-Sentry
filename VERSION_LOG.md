@@ -1,5 +1,8 @@
 # Version Log
 
+
+## 2026.02.14-5 - 2026-02-14
+- Minor tweaks and improvements
 ## 2026.02.14-8 - 2026-02-14
 - Move LLM configuration to dedicated LLM Settings dialog
 - LLM button in header now toggles LLM on/off for quick access
