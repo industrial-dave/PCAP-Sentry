@@ -7,9 +7,15 @@ __pycache__/
 .venv/
 venv/
 
+# Testing
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+
 # Build artifacts
 build/
-dist/*.exe
+dist/
 installer/dist/
 logs/
 logo_previews/
