@@ -195,7 +195,7 @@ DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
 
 
-_EMBEDDED_VERSION = "2026.02.15-17"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.15-18"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -3092,25 +3092,66 @@ class PCAPSentryApp:
 
     def _start_logo_spin(self):
         """Begin spinning the header logo (called when processing starts)."""
-        if not self._spin_frames or self._logo_spinning:
+        if self._logo_spinning or not self._spin_src_img:
             return
         self._logo_spinning = True
-        self._animate_logo_spin()
+        self.root.after(50, self._animate_logo_spin)
 
     def _stop_logo_spin(self):
         """Stop spinning and reset the logo to its static frame."""
         self._logo_spinning = False
-        if self._spin_frames and self._brand_label:
+        if self._brand_label and self._header_icon_image:
             self._spin_index = 0
-            self._brand_label.configure(image=self._spin_frames[0])
+            # Reset to first frame if generated, otherwise use static image
+            if self._spin_frames:
+                self._brand_label.configure(image=self._spin_frames[0])
+            else:
+                self._brand_label.configure(image=self._header_icon_image)
 
     def _animate_logo_spin(self):
         """Advance one frame of the vertical-axis spin animation."""
-        if not self._logo_spinning or not self._spin_frames or not self._brand_label:
+        if not self._logo_spinning or not self._brand_label:
             return
+        
+        # Generate animation frames on first use to avoid startup delay
+        if not self._spin_frames_generated and self._spin_src_img:
+            self._generate_spin_frames()
+        
+        if not self._spin_frames:
+            return
+        
         self._spin_index = (self._spin_index + 1) % len(self._spin_frames)
         self._brand_label.configure(image=self._spin_frames[self._spin_index])
         self.root.after(50, self._animate_logo_spin)
+    
+    def _generate_spin_frames(self):
+        """Generate logo spin animation frames on demand to avoid startup delay."""
+        if self._spin_frames_generated or not self._spin_src_img:
+            return
+        
+        try:
+            from PIL import Image, ImageTk
+            import math as _math
+            
+            src = self._spin_src_img
+            num_frames = 36
+            self._spin_frames = []
+            
+            for i in range(num_frames):
+                angle = 2 * _math.pi * i / num_frames
+                scale_x = abs(_math.cos(angle))
+                w = max(int(self._brand_icon_size * scale_x), 1)
+                h = self._brand_icon_size
+                squeezed = src.resize((w, h), Image.LANCZOS)
+                if _math.cos(angle) < 0:
+                    squeezed = squeezed.transpose(Image.FLIP_LEFT_RIGHT)
+                canvas = Image.new("RGBA", (self._brand_icon_size, self._brand_icon_size), (0, 0, 0, 0))
+                canvas.paste(squeezed, ((self._brand_icon_size - w) // 2, 0))
+                self._spin_frames.append(ImageTk.PhotoImage(canvas))
+            
+            self._spin_frames_generated = True
+        except Exception:
+            pass
 
     def _build_menu_bar(self):
         """Create the application menu bar with File, Edit, and Help menus."""
@@ -3225,6 +3266,7 @@ class PCAPSentryApp:
         self._header_icon_image = None
         self._brand_icon_size = 0
         self._spin_frames = []
+        self._spin_frames_generated = False
         self._spin_index = 0
         self._spin_src_img = None
         self._logo_spinning = False
@@ -3236,23 +3278,8 @@ class PCAPSentryApp:
                 self._brand_icon_size = 70
                 src = src.resize((self._brand_icon_size, self._brand_icon_size), Image.LANCZOS)
                 self._spin_src_img = src
-                # Pre-generate frames simulating vertical-axis (Y) rotation
-                num_frames = 36
-                import math as _math
-                for i in range(num_frames):
-                    angle = 2 * _math.pi * i / num_frames
-                    scale_x = abs(_math.cos(angle))
-                    w = max(int(self._brand_icon_size * scale_x), 1)
-                    h = self._brand_icon_size
-                    # Squeeze horizontally, then paste centered on transparent canvas
-                    squeezed = src.resize((w, h), Image.LANCZOS)
-                    # When cos < 0 (back side), mirror the image for realism
-                    if _math.cos(angle) < 0:
-                        squeezed = squeezed.transpose(Image.FLIP_LEFT_RIGHT)
-                    canvas = Image.new("RGBA", (self._brand_icon_size, self._brand_icon_size), (0, 0, 0, 0))
-                    canvas.paste(squeezed, ((self._brand_icon_size - w) // 2, 0))
-                    self._spin_frames.append(ImageTk.PhotoImage(canvas))
-                self._header_icon_image = self._spin_frames[0]
+                # Create initial static frame only - defer animation generation
+                self._header_icon_image = ImageTk.PhotoImage(src)
             except Exception:
                 pass
         self._brand_label = None
@@ -5606,12 +5633,18 @@ class PCAPSentryApp:
                 self.root.configure(cursor="watch")
                 self.root.title(f"{self.root_title} - Working...")
                 self._start_logo_spin()
+                # Batch widget state changes for better performance
                 self.widget_states = {w: str(w["state"]) for w in self.busy_widgets}
                 for widget in self.busy_widgets:
-                    widget.configure(state=tk.DISABLED)
+                    try:
+                        widget.configure(state=tk.DISABLED)
+                    except tk.TclError:
+                        pass  # Widget may be destroyed
                 # Show cancel button
                 self.cancel_button.configure(state=tk.NORMAL)
                 self.cancel_button.pack(side=tk.LEFT, padx=(4, 0))
+                # Force a single UI update after all changes
+                self.root.update_idletasks()
             else:
                 self.status_var.set(message)
         else:
@@ -5621,11 +5654,17 @@ class PCAPSentryApp:
                 self.root.configure(cursor="")
                 self.root_title = self._get_window_title()
                 self.root.title(self.root_title)
+                # Batch widget state restoration
                 for widget in self.busy_widgets:
                     prior = self.widget_states.get(widget, "normal")
-                    widget.configure(state=prior)
+                    try:
+                        widget.configure(state=prior)
+                    except tk.TclError:
+                        pass  # Widget may be destroyed
                 # Hide cancel button
                 self.cancel_button.pack_forget()
+                # Force a single UI update after all changes
+                self.root.update_idletasks()
 
     def _reset_progress(self):
         self.progress.stop()
@@ -6156,7 +6195,8 @@ class PCAPSentryApp:
     def _schedule_draw_background(self, event=None):
         if self._bg_draw_pending is not None:
             self.root.after_cancel(self._bg_draw_pending)
-        self._bg_draw_pending = self.root.after(100, self._draw_background)
+        # Increased delay to reduce redraw frequency during resizing
+        self._bg_draw_pending = self.root.after(150, self._draw_background)
 
     def _draw_background(self, _event=None):
         self._bg_draw_pending = None
@@ -6172,8 +6212,8 @@ class PCAPSentryApp:
         theme = self._resolve_theme()
 
         if theme == "dark":
-            # Smooth dark gradient
-            steps = 32
+            # Optimized gradient with fewer rectangles (8 instead of 32)
+            steps = 8
             for i in range(steps):
                 ratio = i / max(steps - 1, 1)
                 r = int(13 + (18 - 13) * ratio)
@@ -6182,16 +6222,16 @@ class PCAPSentryApp:
                 color = f"#{r:02x}{g:02x}{b:02x}"
                 y0 = int(h * i / steps)
                 y1 = int(h * (i + 1) / steps)
-                self.bg_canvas.create_rectangle(0, y0, w, y1, fill=color, outline=color)
+                self.bg_canvas.create_rectangle(0, y0, w, y1, fill=color, outline="")
 
-            # Subtle dot grid (cleaner than lines)
+            # Reduced dot grid density for better performance
             dot_color = "#161d28"
-            for x in range(40, w, 60):
-                for y in range(40, h, 60):
-                    self.bg_canvas.create_oval(x, y, x + 1, y + 1, fill=dot_color, outline=dot_color)
+            for x in range(60, w, 80):
+                for y in range(60, h, 80):
+                    self.bg_canvas.create_oval(x, y, x + 1, y + 1, fill=dot_color, outline="")
         else:
-            # Light theme: clean minimal gradient
-            steps = 16
+            # Light theme: optimized gradient (8 instead of 16 steps)
+            steps = 8
             for i in range(steps):
                 ratio = i / max(steps - 1, 1)
                 r = int(240 + (235 - 240) * ratio)
@@ -6219,7 +6259,13 @@ class PCAPSentryApp:
                 return
             try:
                 widget.drop_target_register(DND_FILES)
-                widget.dnd_bind("<<Drop>>", lambda e: setter(self._extract_drop_path(e.data)))
+                def on_drop(event):
+                    path = self._extract_drop_path(event.data)
+                    if path:
+                        setter(path)
+                        return "copy"
+                    return "none"
+                widget.dnd_bind("<<Drop>>", on_drop)
             except tk.TclError:
                 return
 
