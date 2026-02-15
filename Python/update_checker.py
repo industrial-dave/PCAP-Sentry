@@ -561,10 +561,9 @@ exit /b 0
             with open(script_path, "w", encoding="utf-8") as f:
                 f.write(script)
 
-            # Launch update script
+            # Launch update script with visible window so user can see progress/errors
             subprocess.Popen(
                 ["cmd.exe", "/c", script_path],
-                creationflags=subprocess.CREATE_NO_WINDOW,
                 cwd=update_dir,
             )
 
