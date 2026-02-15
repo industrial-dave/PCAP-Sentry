@@ -155,29 +155,55 @@ def test_credential_security():
     """Test credential storage functions"""
     print("\n=== Testing Credential Security ===")
 
-    from pcap_sentry_gui import _delete_api_key, _keyring_available, _load_api_key, _store_api_key  # noqa: PLC0415
+    from pcap_sentry_gui import (  # noqa: PLC0415
+        _delete_api_key,
+        _delete_otx_api_key,
+        _keyring_available,
+        _load_api_key,
+        _load_otx_api_key,
+        _store_api_key,
+        _store_otx_api_key,
+    )
 
     keyring_avail = _keyring_available()
     print(f"ℹ️  Keyring available: {keyring_avail}")  # noqa: RUF001
 
     if keyring_avail:
-        # Test storing and loading
-        test_key = "test_api_key_12345"
-        _store_api_key(test_key)
-        loaded = _load_api_key()
+        # Test LLM API key storing and loading
+        test_llm_key = "test_llm_api_key_12345"
+        _store_api_key(test_llm_key)
+        loaded_llm = _load_api_key()
 
-        if loaded == test_key:
-            print("✅ Keyring store/load works")
+        if loaded_llm == test_llm_key:
+            print("✅ Keyring store/load works for LLM API key")
         else:
-            print(f"⚠️  Keyring store/load mismatch (stored: {test_key}, loaded: {loaded})")
+            print(f"⚠️  Keyring store/load mismatch for LLM key (stored: {test_llm_key}, loaded: {loaded_llm})")
 
-        # Cleanup
+        # Test OTX API key storing and loading
+        test_otx_key = "test_otx_api_key_67890"
+        _store_otx_api_key(test_otx_key)
+        loaded_otx = _load_otx_api_key()
+
+        if loaded_otx == test_otx_key:
+            print("✅ Keyring store/load works for OTX API key")
+        else:
+            print(f"⚠️  Keyring store/load mismatch for OTX key (stored: {test_otx_key}, loaded: {loaded_otx})")
+
+        # Cleanup LLM key
         _delete_api_key()
-        after_delete = _load_api_key()
-        if not after_delete:
-            print("✅ Keyring delete works")
+        after_delete_llm = _load_api_key()
+        if not after_delete_llm:
+            print("✅ Keyring delete works for LLM API key")
         else:
-            print(f"⚠️  Keyring delete incomplete (still has: {after_delete})")
+            print(f"⚠️  Keyring delete incomplete for LLM key (still has: {after_delete_llm})")
+
+        # Cleanup OTX key
+        _delete_otx_api_key()
+        after_delete_otx = _load_otx_api_key()
+        if not after_delete_otx:
+            print("✅ Keyring delete works for OTX API key")
+        else:
+            print(f"⚠️  Keyring delete incomplete for OTX key (still has: {after_delete_otx})")
     else:
         print("ℹ️  Keyring not available - tests skipped (this is OK)")  # noqa: RUF001
 
