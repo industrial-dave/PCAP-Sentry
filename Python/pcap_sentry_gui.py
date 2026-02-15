@@ -176,7 +176,7 @@ DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
 
 
-_EMBEDDED_VERSION = "2026.02.15-1"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.15-3"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -3171,13 +3171,39 @@ class PCAPSentryApp:
         ).pack(anchor=tk.W)
         ttk.Label(
             text_col,
-            text=f"Malware Analysis Console  \u2022  v{APP_VERSION}",
+            text=f"Malware Analysis and Education Console  \u2022  v{APP_VERSION}",
             style="Hint.TLabel",
         ).pack(anchor=tk.W)
 
-        # LLM status indicator pill
+        # Online/Offline status indicator pill
         _llm_ind_bg = self.colors.get("panel", "#161b22")
         _llm_ind_border = self.colors.get("border", "#21262d")
+        self.online_header_indicator = tk.Frame(
+            top_row,
+            bg=_llm_ind_bg,
+            highlightbackground=_llm_ind_border,
+            highlightthickness=1,
+            padx=8, pady=4,
+        )
+        self.online_header_indicator.pack(side=tk.RIGHT, padx=(0, 4))
+        self.online_header_label = tk.Button(
+            self.online_header_indicator,
+            text="Online",
+            font=("Segoe UI", 9),
+            fg=self.colors.get("success", "#3fb950"),
+            bg=_llm_ind_bg,
+            bd=0,
+            relief=tk.FLAT,
+            activebackground=_llm_ind_bg,
+            activeforeground=self.colors.get("accent", "#58a6ff"),
+            cursor="hand2",
+            command=self._toggle_online_mode,
+            width=9
+        )
+        self.online_header_label.pack()
+        self._update_online_header_indicator()
+
+        # LLM status indicator pill
         self.llm_header_indicator = tk.Frame(
             top_row,
             bg=_llm_ind_bg,
@@ -3197,7 +3223,8 @@ class PCAPSentryApp:
             activebackground=_llm_ind_bg,
             activeforeground=self.colors.get("accent", "#58a6ff"),
             cursor="hand2",
-            command=self._test_llm_connection
+            command=self._test_llm_connection,
+            width=8
         )
         self.llm_header_label.pack()
         self._update_llm_header_indicator()
@@ -3389,7 +3416,8 @@ class PCAPSentryApp:
             frame,
             text="Offline mode (disable threat intelligence & cloud LLMs)",
             variable=self.offline_mode_var,
-            style="Quiet.TCheckbutton"
+            style="Quiet.TCheckbutton",
+            command=self._on_offline_mode_changed
         )
         offline_check.grid(row=9, column=0, sticky="w", pady=4, columnspan=2)
         self._help_icon_grid(frame, "Disables online threat intelligence lookups (AlienVault OTX, AbuseIPDB, etc.) "
@@ -3529,7 +3557,7 @@ class PCAPSentryApp:
 
         # Description
         desc_text = (
-            "Malware Analysis Console for Network Packet Captures\n\n"
+            "Malware Analysis and Education Console for Network Packet Captures\n\n"
             "PCAP Sentry analyzes PCAP/PCAPNG files for signs of malicious activity, "
             "providing heuristic signals, behavioral anomaly detection, and threat intelligence "
             "integration to help triage suspicious network traffic."
@@ -6609,6 +6637,23 @@ class PCAPSentryApp:
         self.llm_header_label.configure(text=text, fg=fg, bg=bg)
         self.llm_header_indicator.configure(bg=bg, highlightbackground=border)
 
+    def _update_online_header_indicator(self):
+        """Update the online/offline indicator in the header."""
+        if self.online_header_label is None:
+            return
+        is_offline = self.offline_mode_var.get()
+        bg = self.colors.get("panel", "#161b22")
+        if is_offline:
+            text = "Offline"
+            fg = self.colors.get("warning", "#d29922")
+            border = self.colors.get("warning", "#d29922")
+        else:
+            text = "\u2714 Online"
+            fg = self.colors.get("success", "#3fb950")
+            border = self.colors.get("success", "#3fb950")
+        self.online_header_label.configure(text=text, fg=fg, bg=bg)
+        self.online_header_indicator.configure(bg=bg, highlightbackground=border)
+
     def _toggle_llm(self):
         """Toggle LLM on/off using the header button."""
         current_provider = self.llm_provider_var.get().strip().lower()
@@ -6634,6 +6679,30 @@ class PCAPSentryApp:
         # Save settings and update indicator
         self._save_settings_from_vars()
         self._update_llm_header_indicator()
+
+    def _toggle_online_mode(self):
+        """Toggle online/offline mode using the header button."""
+        current_offline = self.offline_mode_var.get()
+        self.offline_mode_var.set(not current_offline)
+        
+        # Save settings and update indicators
+        self._save_settings_from_vars()
+        self._update_online_header_indicator()
+        self._update_llm_header_indicator()  # LLM status may depend on offline mode
+        
+        # Update window title to reflect offline status
+        self.root_title = self._get_window_title()
+        self.root.title(self.root_title)
+
+    def _on_offline_mode_changed(self):
+        """Called when offline mode checkbox is toggled in preferences."""
+        # Update indicators to reflect current state
+        self._update_online_header_indicator()
+        self._update_llm_header_indicator()  # LLM status may depend on offline mode
+        
+        # Update window title to reflect offline status
+        self.root_title = self._get_window_title()
+        self.root.title(self.root_title)
 
     _PROBE_MAX_BYTES = 5 * 1024 * 1024  # 5 MB safety cap for probe responses
 
@@ -8406,14 +8475,6 @@ class PCAPSentryApp:
 
         def done(suggestion):
             self._set_llm_test_status("OK", self.colors.get("success", "#3fb950"))
-            label = suggestion.get("label") if suggestion else "unknown"
-            confidence = suggestion.get("confidence")
-            conf_text = f"{confidence:.2f}" if isinstance(confidence, (int, float)) else "n/a"
-            rationale = suggestion.get("rationale", "").strip()
-            detail = f"Label: {label}\nConfidence: {conf_text}"
-            if rationale:
-                detail += f"\nRationale: {rationale}"
-            messagebox.showinfo("LLM Test", f"LLM connection OK.\n\n{detail}")
 
         def failed(err):
             self._set_llm_test_status("FAIL", self.colors.get("danger", "#f85149"))
@@ -8443,7 +8504,7 @@ class PCAPSentryApp:
 
             messagebox.showerror("LLM Test", f"LLM test failed: {err}")
 
-        self._run_task(task, done, on_error=failed, message="Testing LLM...")
+        self._run_task(task, done, on_error=failed)
 
     def _apply_label_to_kb(self, label, stats, features, summary, title, message):
         add_to_knowledge_base(label, stats, features, summary)
