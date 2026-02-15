@@ -10,6 +10,15 @@ import traceback
 import tracemalloc
 from pathlib import Path
 
+# Set UTF-8 encoding for Windows console to handle emoji characters
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except (AttributeError, OSError):
+        # Fall back to ASCII-safe symbols if reconfigure fails
+        pass
+
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "Python"))
 
