@@ -1,0 +1,119 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in PCAP Sentry
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us investigate.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of PCAP Sentry are you running? (Help > About or check the title bar)
+      placeholder: "e.g., v2026.2.15-13"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: Which Windows version are you using?
+      options:
+        - Windows 11 (latest)
+        - Windows 11 (older)
+        - Windows 10 (latest)
+        - Windows 10 (older)
+        - Other Windows version
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Installation Method
+      description: How did you install PCAP Sentry?
+      options:
+        - Installer (PCAP_Sentry_Setup.exe)
+        - Running from source (Python)
+        - Built from source (EXE)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clear and concise description of what the bug is
+      placeholder: "When I try to analyze a PCAP file with..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the behavior
+      placeholder: |
+        1. Open PCAP Sentry
+        2. Click 'Select PCAP File...'
+        3. Load file 'test.pcap'
+        4. Click 'Analyze'
+        5. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: "The analysis should complete and show results..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: "The application crashes with..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or Error Messages
+      description: |
+        Include any error messages, stack traces, or relevant log entries.
+        Logs are located in `%LOCALAPPDATA%\PCAP_Sentry\*.log`
+      placeholder: "Paste error messages or log snippets here"
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: |
+        Any other context about the problem:
+        - PCAP file size/characteristics (if relevant)
+        - LLM configuration (if using AI features)
+        - Screenshots (if helpful)
+        - Does it happen with all PCAP files or just specific ones?
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please verify these before submitting
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I am using the latest version of PCAP Sentry
+          required: true
+        - label: I have included all requested information above
+          required: true

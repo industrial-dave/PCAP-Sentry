@@ -163,6 +163,19 @@ Both scripts auto-increment the version and build artifacts; publish behavior is
 - `build_release.bat`: recommended for publishing both EXE and installer to the same version tag. It lets `build_exe.bat` bump once, then reuses that version for the installer.
 - Both scripts support `-Notes "description"` for version log/release notes text.
 
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- How to report bugs and request features
+- Development setup and coding standards
+- Pull request process
+- Security vulnerability reporting
+
+Quick links:
+- [Report a Bug](https://github.com/industrial-dave/PCAP-Sentry/issues/new?template=bug_report.yml)
+- [Request a Feature](https://github.com/industrial-dave/PCAP-Sentry/issues/new?template=feature_request.yml)
+- [View All Issues](https://github.com/industrial-dave/PCAP-Sentry/issues)
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.

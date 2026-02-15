@@ -1,0 +1,110 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for PCAP Sentry
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please provide as much detail as possible.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What area does this feature relate to?
+      options:
+        - Analysis / Detection (new heuristics, behavioral detection)
+        - Threat Intelligence (new data sources, integrations)
+        - Machine Learning (ML model improvements)
+        - User Interface (GUI improvements, visualization)
+        - LLM / Chat (AI assistant features)
+        - Performance (speed, memory optimization)
+        - Security (hardening, vulnerability mitigation)
+        - Import/Export (file formats, data extraction)
+        - Documentation (guides, examples)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What pain point does it address?
+      placeholder: "When analyzing large PCAP files, I need to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you like this feature to work?
+      placeholder: "Add a feature that allows users to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternative solutions or workarounds have you considered?
+      placeholder: "I currently work around this by..."
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case / Example
+      description: Provide a concrete example or scenario where this feature would be useful
+      placeholder: |
+        Example scenario:
+        1. User loads a PCAP with 1M+ packets
+        2. User wants to filter to only suspicious DNS queries
+        3. Feature would allow...
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority (Your Assessment)
+      description: How important is this feature to you?
+      options:
+        - Critical (blocks my workflow)
+        - High (significantly improves my workflow)
+        - Medium (nice to have)
+        - Low (minor improvement)
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Benefits
+      description: Who would benefit from this feature? How would it improve PCAP Sentry?
+      placeholder: |
+        - Security analysts would benefit by...
+        - Improves detection accuracy for...
+        - Reduces time spent on...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: |
+        Any other context, mockups, screenshots, or references:
+        - Links to similar features in other tools
+        - Research papers or techniques
+        - Screenshots or mockups
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please verify these before submitting
+      options:
+        - label: I have searched existing issues and feature requests
+          required: true
+        - label: This feature aligns with PCAP Sentry's focus on malware detection and network analysis
+          required: true
+        - label: I have provided sufficient detail above
+          required: true
