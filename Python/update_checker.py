@@ -519,7 +519,11 @@ class UpdateChecker:
 
             # Simple batch script to replace executable
             script = f'''@echo off
-echo Applying PCAP Sentry update...
+echo ========================================
+echo PCAP Sentry Update Installer
+echo ========================================
+echo.
+echo Waiting for PCAP Sentry to close...
 timeout /t 2 /nobreak >nul
 
 REM Wait for app to close
@@ -530,16 +534,28 @@ if "%ERRORLEVEL%"=="0" (
     goto wait_loop
 )
 
-REM Backup current executable
-copy /Y "{current_exe_path}" "{backup_path}" >nul 2>&1
+echo Backing up current version...
+copy /Y "{current_exe_path}" "{backup_path}"
+if errorlevel 1 (
+    echo WARNING: Could not create backup! Continuing anyway...
+)
 
-REM Replace with new version
+echo Installing new version...
 move /Y "{new_exe_path}" "{current_exe_path}"
 if errorlevel 1 (
-    echo Update failed!
+    echo.
+    echo ERROR: Failed to replace executable!
+    echo This may be due to insufficient permissions.
+    echo.
+    echo Update file is at: {new_exe_path}
+    echo Target location: {current_exe_path}
+    echo.
     pause
     exit /b 1
 )
+
+echo Update successful!
+echo.
 
 REM Refresh Windows icon cache to show new logo
 echo Refreshing desktop icons...
@@ -550,10 +566,12 @@ REM Force Explorer to refresh all icons
 powershell -NoProfile -Command "$code = '[DllImport(\\"shell32.dll\\")]public static extern void SHChangeNotify(int wEventId,int uFlags,IntPtr dwItem1,IntPtr dwItem2);'; $type = Add-Type -MemberDefinition $code -Name IconRefresh -PassThru; $type::SHChangeNotify(0x8000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)" >nul 2>&1
 
 REM Launch updated executable from its directory
+echo Launching PCAP Sentry...
 cd /D "{exe_dir}"
 start "" "{exe_name}"
 
 REM Clean up
+timeout /t 2 /nobreak >nul
 del "%~f0"
 exit /b 0
 '''
@@ -561,14 +579,31 @@ exit /b 0
             with open(script_path, "w", encoding="utf-8") as f:
                 f.write(script)
 
-            # Launch update script with visible window so user can see progress/errors
-            subprocess.Popen(
-                ["cmd.exe", "/c", script_path],
-                cwd=update_dir,
-            )
-
-            print(f"Update script launched: {script_path}")
-            return True
+            # Launch update script with administrator elevation
+            # Use ShellExecute with 'runas' verb to request UAC elevation
+            import ctypes
+            try:
+                # SW_SHOWNORMAL = 1
+                result = ctypes.windll.shell32.ShellExecuteW(
+                    None,                  # hwnd
+                    "runas",               # operation (request elevation)
+                    "cmd.exe",             # file
+                    f'/c "{script_path}"', # parameters
+                    update_dir,            # directory
+                    1                      # show command (SW_SHOWNORMAL)
+                )
+                # ShellExecute returns >32 on success, <=32 on error
+                if result <= 32:
+                    self._last_error = f"Failed to launch update script with elevation (error code: {result})"
+                    print(f"ShellExecute failed with code: {result}")
+                    return False
+                
+                print(f"Update script launched with elevation: {script_path}")
+                return True
+            except Exception as e:
+                self._last_error = f"Failed to request elevation: {e!s}"
+                print(f"Error launching with elevation: {e}")
+                return False
 
         except Exception as e:
             self._last_error = f"Failed to prepare update: {e!s}"
