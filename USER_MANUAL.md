@@ -8,7 +8,7 @@
 
 ![Version](https://img.shields.io/badge/Version-Date_Based_(YYYY.MM.DD)-58a6ff?style=for-the-badge&labelColor=0d1117)
 ![Platform](https://img.shields.io/badge/Platform-Windows-58a6ff?style=for-the-badge&logo=windows&logoColor=white&labelColor=0d1117)
-![License](https://img.shields.io/badge/License-See_LICENSE.txt-58a6ff?style=for-the-badge&labelColor=0d1117)
+![License](https://img.shields.io/badge/License-GPL_v3-58a6ff?style=for-the-badge&labelColor=0d1117)
 
 *Malware Analysis and Education Console for Network Packet Captures*
 
@@ -1093,7 +1093,7 @@ The analysis engine evaluates numerous heuristic signals including:
 
 - **GitHub:** [github.com/industrial-dave/PCAP-Sentry](https://github.com/industrial-dave/PCAP-Sentry)
 - **Issues:** Report bugs or request features via [GitHub Issues](https://github.com/industrial-dave/PCAP-Sentry/issues)
-- **License:** See [LICENSE.txt](LICENSE.txt) for license terms
+- **License:** GNU General Public License v3.0 - see [LICENSE](LICENSE) file. Copyright (C) 2026 David Howansky
 
 ---
 

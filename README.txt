@@ -34,6 +34,8 @@ See VERSION_LOG.md for the changelog.
 
 License
 -------
-See LICENSE.txt for license terms.
+This project is licensed under the GNU General Public License v3.0.
+See LICENSE file for details.
+Copyright (C) 2026 David Howansky
 
 GitHub: https://github.com/industrial-dave/PCAP-Sentry
