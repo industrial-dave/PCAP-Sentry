@@ -9,6 +9,7 @@
 ![Version](https://img.shields.io/badge/Version-Date_Based_(YYYY.MM.DD)-58a6ff?style=for-the-badge&labelColor=0d1117)
 ![Platform](https://img.shields.io/badge/Platform-Windows-58a6ff?style=for-the-badge&logo=windows&logoColor=white&labelColor=0d1117)
 ![License](https://img.shields.io/badge/License-GPL_v3-58a6ff?style=for-the-badge&labelColor=0d1117)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/XXXXX/badge)](https://www.bestpractices.dev/projects/XXXXX)
 
 </div>
 
