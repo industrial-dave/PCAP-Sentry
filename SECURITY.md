@@ -55,6 +55,7 @@ PCAP Sentry implements multiple security controls:
 ### Input Validation
 - Path traversal protection for file operations
 - PCAP file signature verification
+- URL scheme validation (centralized `_safe_urlopen()` wrapper blocks file://, ftp://, etc.)
 - URL validation and sanitization
 - Size limits on API responses (10MB)
 

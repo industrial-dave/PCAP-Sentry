@@ -33,19 +33,31 @@ Fixes #
 
 <!-- Describe how you tested these changes -->
 
+**Testing Policy Compliance:**
+- [ ] **REQUIRED for major functionality:** This PR includes automated tests (see [Testing Policy](../CONTRIBUTING.md#testing-policy))
+- [ ] Tests are not required for this PR (documentation/formatting/minor UI changes only)
+
 **Test Environment:**
 - OS: <!-- e.g., Windows 11 -->
 - Python Version: <!-- e.g., 3.14 -->
 - Installation Method: <!-- Source / Built EXE -->
 
 **Tests Performed:**
-- [ ] Ran existing test suite (`test_stability.py` and `test_stress.py`)
-- [ ] Added new tests for this functionality
+- [ ] Ran existing test suite: `pytest tests/` (all tests pass)
+- [ ] Added new automated tests for this functionality
 - [ ] Manually tested the changes
-- [ ] Tested with various PCAP files
+- [ ] Tested with various PCAP files (if applicable)
 
 **Test Results:**
-<!-- Describe test outcomes, attach screenshots if relevant -->
+<!-- Describe test outcomes, paste pytest output if applicable, attach screenshots if relevant -->
+```
+# Example: paste pytest output here
+$ pytest tests/ -v
+======================== test session starts ========================
+collected X items
+...
+==================== X passed in Y.YYs ====================
+```
 
 ## Security Considerations
 
@@ -57,6 +69,29 @@ Fixes #
 - [ ] Security implications documented below
 
 <!-- If security implications exist, describe them here -->
+
+## OpenSSF Best Practices Compliance
+
+<!-- PCAP Sentry follows OpenSSF Best Practices for secure software development -->
+<!-- See: https://bestpractices.coreinfrastructure.org/ and OPENSSF_BADGE_CHECKLIST.md -->
+
+**This PR maintains OpenSSF compliance:**
+
+- [ ] ✅ **Tests Added**: Major functionality includes automated tests (MUST requirement)
+- [ ] ✅ **Static Analysis Passed**: Ruff linter and Bandit security scanner pass (checked by CI/CD)
+- [ ] ✅ **No New Vulnerabilities**: No medium+ severity security issues introduced
+- [ ] ✅ **Security Review**: Security-sensitive changes reviewed and documented
+- [ ] ✅ **Dependencies Safe**: New dependencies (if any) are from trusted sources and scanned
+- [ ] ✅ **Documentation Updated**: Changes reflected in relevant documentation
+
+**CI/CD will automatically verify:**
+- 🧪 Test suite passes (17 tests × 6 configurations)
+- 🔍 Ruff linter passes (700+ rules)
+- 🔒 Bandit security scanner passes (30+ checks)
+- 🛡️ CodeQL semantic analysis passes
+- 📦 Safety dependency scanner passes
+
+**Note:** PRs that fail OpenSSF compliance checks cannot be merged. See [CONTRIBUTING.md - OpenSSF Best Practices](../CONTRIBUTING.md#openssf-best-practices-compliance) for details.
 
 ## Documentation
 

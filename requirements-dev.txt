@@ -1,0 +1,17 @@
+# Development Dependencies
+# Install with: pip install -r requirements-dev.txt
+
+# Testing
+pytest>=8.0
+pytest-cov>=6.0
+
+# Code Quality
+ruff>=0.3.0          # Fast Python linter and formatter
+bandit>=1.7.0        # Security linter
+safety>=3.0.0        # Dependency vulnerability scanner
+
+# Type Checking (optional but recommended)
+# mypy>=1.8.0
+
+# Build Tools
+pyinstaller>=6.0.0   # For building executables

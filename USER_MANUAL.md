@@ -917,7 +917,7 @@ PCAP Sentry includes a comprehensive test suite to ensure stability, security, a
 
 ### Test Suite Overview
 
-**Total Tests:** 17 | **Pass Rate:** 100% | **Security Score:** 100/100
+**Total Tests:** 17 | **Pass Rate:** 100% | **Code Coverage:** 7% | **Security Score:** 100/100
 
 | Test Suite | Tests | Purpose |
 |------------|-------|----------|
@@ -929,9 +929,14 @@ PCAP Sentry includes a comprehensive test suite to ensure stability, security, a
 If running from source:
 
 ```bash
-python tests/test_stability.py   # Core functionality tests
-python tests/test_stress.py      # Performance tests
+pytest tests/                     # Run all tests with coverage report
+pytest tests/test_stability.py    # Core functionality tests
+pytest tests/test_stress.py       # Performance tests
+pytest -v                         # Verbose output
 ```
+
+After running tests, open `htmlcov/index.html` to view detailed coverage report.
+See [TEST_COVERAGE.md](TEST_COVERAGE.md) for coverage improvement roadmap.
 
 ### Stability Tests
 
@@ -989,7 +994,7 @@ Performance and scalability validation:
 For developers and security auditors, see:
 
 - **[TEST_SUMMARY.md](TEST_SUMMARY.md)** — Complete test results with performance benchmarks
-- **[CODE_REVIEW_REPORT.md](CODE_REVIEW_REPORT.md)** — Comprehensive security audit, optimization analysis, and recommendations
+- **[SECURITY_REVIEW_2026-02-15.md](SECURITY_REVIEW_2026-02-15.md)** — Comprehensive security audit with 95/100 security rating (0 medium/high vulnerabilities)
 
 ### Continuous Quality
 

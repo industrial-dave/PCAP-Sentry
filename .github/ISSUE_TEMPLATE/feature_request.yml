@@ -7,6 +7,8 @@ body:
     attributes:
       value: |
         Thanks for suggesting a feature! Please provide as much detail as possible.
+        
+        **Note:** If you plan to implement this feature yourself via a pull request, please review our [Testing Policy](../../CONTRIBUTING.md#testing-policy) — all major new functionality requires automated tests.
 
   - type: dropdown
     id: category

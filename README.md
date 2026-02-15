@@ -9,7 +9,8 @@
 ![Version](https://img.shields.io/badge/Version-Date_Based_(YYYY.MM.DD)-58a6ff?style=for-the-badge&labelColor=0d1117)
 ![Platform](https://img.shields.io/badge/Platform-Windows-58a6ff?style=for-the-badge&logo=windows&logoColor=white&labelColor=0d1117)
 ![License](https://img.shields.io/badge/License-GPL_v3-58a6ff?style=for-the-badge&labelColor=0d1117)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/XXXXX/badge)](https://www.bestpractices.dev/projects/XXXXX)
+[![CI](https://github.com/industrial-dave/PCAP-Sentry/actions/workflows/ci.yml/badge.svg)](https://github.com/industrial-dave/PCAP-Sentry/actions/workflows/ci.yml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11952/badge)](https://www.bestpractices.dev/projects/11952)
 
 </div>
 
@@ -78,16 +79,26 @@ python Python/pcap_sentry_gui.py
 - **[Update System Simplified](UPDATE_SYSTEM_SIMPLIFIED.md)** — Recent simplification improvements for reliability
 - **[Version Log](VERSION_LOG.md)** — Changelog
 - **[Test Summary](TEST_SUMMARY.md)** — Comprehensive test results and performance benchmarks
-- **[Code Review Report](CODE_REVIEW_REPORT.md)** — Security audit and code quality assessment (95% security score)
+- **[Test Coverage](TEST_COVERAGE.md)** — Coverage analysis and improvement roadmap
+- **[Test Policy Evidence](TEST_POLICY_EVIDENCE.md)** — Proof that testing policy is followed for all major changes
+- **[CI/CD](CI_CD.md)** — Continuous integration and automated testing infrastructure
+- **[Code Quality](CODE_QUALITY.md)** — Linting and static analysis tools (Ruff, Bandit, Safety)
+- **[Linting Policy](LINTING_POLICY.md)** — Maximum strictness approach and pragmatic exceptions
+- **[Linter Evidence](LINTER_EVIDENCE.md)** — Proof that linter tools are configured and actively used
+- **[Secure Design Evidence](SECURE_DESIGN_EVIDENCE.md)** — Proof that developers know how to design secure software (OWASP, CWE coverage, cryptographic compliance)
+- **[Security Review (2026-02-15)](SECURITY_REVIEW_2026-02-15.md)** — Comprehensive security audit and code quality assessment (95/100 security rating, 0 medium/high vulnerabilities)
 
 ## Security Automation
 
-- **CodeQL scanning** runs on pushes, pull requests, and a weekly schedule via `.github/workflows/codeql.yml`.
-- **Release checksums** are generated locally by `build_release.bat` after all assets are uploaded and published as `SHA256SUMS.txt`; a manual-trigger GitHub Actions workflow (`.github/workflows/release-checksums.yml`) is available as a fallback.
-- **Download verification**: The built-in updater automatically verifies downloaded EXE files against the published `SHA256SUMS.txt` hashes before execution, with a second verification at launch time (TOCTOU prevention).
-- **ML model integrity**: Trained models are signed with HMAC-SHA256 using a persisted random secret key and verified before loading to prevent deserialization attacks.
-- **Credential storage**: LLM API keys are stored in the OS credential manager (Windows Credential Manager via `keyring`) when available, with automatic migration from plaintext settings.
-- **LLM endpoint validation**: Only `http://` and `https://` schemes are accepted; plaintext HTTP to non-localhost hosts is blocked.
+- **CI/CD Pipeline**: GitHub Actions runs automated tests, code quality checks, and security scans on every push and pull request (see [CI_CD.md](CI_CD.md))
+- **CodeQL scanning** runs on pushes, pull requests, and a weekly schedule via `.github/workflows/codeql.yml`
+- **Dependency scanning**: Safety and Bandit security tools scan for vulnerabilities in CI
+- **Release checksums** are generated locally by `build_release.bat` after all assets are uploaded and published as `SHA256SUMS.txt`; a manual-trigger GitHub Actions workflow (`.github/workflows/release-checksums.yml`) is available as a fallback
+- **Download verification**: The built-in updater automatically verifies downloaded EXE files against the published `SHA256SUMS.txt` hashes before execution, with a second verification at launch time (TOCTOU prevention)
+- **ML model integrity**: Trained models are signed with HMAC-SHA256 using a persisted random secret key and verified before loading to prevent deserialization attacks
+- **Credential storage**: LLM API keys are stored in the OS credential manager (Windows Credential Manager via `keyring`) when available, with automatic migration from plaintext settings
+- **LLM endpoint validation**: Only `http://` and `https://` schemes are accepted; plaintext HTTP to non-localhost hosts is blocked
+- **URL scheme validation**: Centralized `_safe_urlopen()` wrapper prevents file:// and other dangerous URL schemes (CWE-22 defense-in-depth)
 - **Atomic file writes**: Settings and knowledge base saves use `tempfile.mkstemp` + `os.replace` to prevent symlink/race attacks.
 - Users can verify downloaded artifacts against the published SHA-256 checksum file.
 
@@ -126,16 +137,19 @@ dist/
 ### Run Tests
 
 ```bash
-python tests/test_stability.py   # Core functionality and security (10 tests)
-python tests/test_stress.py      # Performance and scalability (7 tests)
+pytest tests/                     # Run all tests (17 tests)
+pytest tests/test_stability.py    # Core functionality and security (10 tests)
+pytest tests/test_stress.py       # Performance and scalability (7 tests)
+pytest -v                         # Verbose output
 ```
 
-**Test Coverage:** 17 tests (100% pass rate)
+**Test Coverage:** 17 tests (100% pass rate), 7% code coverage
 - ✅ Stability tests validate core functionality, input validation, and security features
 - ✅ Stress tests verify performance (783K items/sec), memory efficiency (100% cleanup), and thread safety
 - ✅ Security score: 100/100 (production-ready)
+- 📊 Coverage report: `pytest tests/` generates htmlcov/index.html
 
-See [TEST_SUMMARY.md](TEST_SUMMARY.md) for detailed results and [CODE_REVIEW_REPORT.md](CODE_REVIEW_REPORT.md) for the complete security audit.
+See [TEST_SUMMARY.md](TEST_SUMMARY.md) for detailed results and [SECURITY_REVIEW_2026-02-15.md](SECURITY_REVIEW_2026-02-15.md) for the complete security audit.
 
 ## Building
 
