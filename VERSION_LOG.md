@@ -28,6 +28,9 @@
 
 
 
+
+## 2026.02.15-19 - 2026-02-15
+- Fix: UI stuttering during analysis (progress throttling). Performance: Optimized update frequency and reduced UI thread overhead.
 ## 2026.02.15-18 - 2026-02-15
 - Bug fix: Drag and drop file handling. Performance: Reduced startup time and UI stuttering (optimized gradient rendering, deferred animation loading, improved widget batching).
 ## 2026.02.15-17 - 2026-02-15
