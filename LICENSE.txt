@@ -1,5 +1,0 @@
-PCAP Sentry License
-
-This software is provided for use by the recipient only. All rights reserved.
-Unauthorized copying, distribution, or modification of this software is
-prohibited without prior written permission from the author.

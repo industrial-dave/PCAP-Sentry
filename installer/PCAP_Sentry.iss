@@ -20,7 +20,7 @@ SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
 SetupIconFile=..\assets\pcap_sentry.ico
-LicenseFile=..\LICENSE.txt
+LicenseFile=..\LICENSE
 InfoBeforeFile=..\README.txt
 UninstallDisplayIcon={app}\PCAP_Sentry.exe
 UninstallDisplayName=PCAP Sentry {#AppVer}
@@ -32,7 +32,7 @@ MinVersion=10.0
 Source: "..\dist\PCAP_Sentry\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\assets\pcap_sentry.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#VCRedistPath}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Icons]
