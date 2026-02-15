@@ -195,7 +195,7 @@ DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
 
 
-_EMBEDDED_VERSION = "2026.02.15-20"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.15-21"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -2940,8 +2940,8 @@ class PCAPSentryApp:
         # Persist LLM status and all settings
         self._save_settings_from_vars()
 
-        # Offer to stop a running local LLM server
-        self._maybe_stop_llm_server()
+        # Skip LLM server prompt during close to prevent hang
+        # (messagebox would block the close operation)
 
         self.root.destroy()
 

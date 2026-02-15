@@ -30,6 +30,9 @@
 
 
 
+
+## 2026.02.15-21 - 2026-02-15
+- Fix: Window hang on close (resolved blocking messagebox). Removed LLM server stop prompt during shutdown to prevent UI freeze.
 ## 2026.02.15-20 - 2026-02-15
 - Fix: Window hang on close. Added proper cleanup of pending callbacks and animations before window destruction.
 ## 2026.02.15-19 - 2026-02-15
