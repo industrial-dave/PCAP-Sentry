@@ -350,7 +350,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.16-11"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.16-12"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -3267,7 +3267,7 @@ class PCAPSentryApp:
                 "llm_endpoint": self.llm_endpoint_var.get().strip() or "http://localhost:11434",
                 "llm_api_key": self.llm_api_key_var.get().strip(),
                 "otx_api_key": self.otx_api_key_var.get().strip(),
-                "llm_auto_detect": False,
+                "llm_auto_detect": self.settings.get("llm_auto_detect", True),
                 "theme": self.theme_var.get().strip().lower() or "system",
                 "app_data_notice_shown": bool(self.settings.get("app_data_notice_shown")),
             }
@@ -4068,7 +4068,7 @@ class PCAPSentryApp:
             "llm_endpoint": self.llm_endpoint_var.get().strip() or "http://localhost:11434",
             "llm_api_key": self.llm_api_key_var.get().strip(),
             "otx_api_key": self.otx_api_key_var.get().strip(),
-            "llm_auto_detect": False,
+            "llm_auto_detect": self.settings.get("llm_auto_detect", True),
             "theme": self.theme_var.get().strip().lower() or "system",
             "app_data_notice_shown": bool(self.settings.get("app_data_notice_shown")),
         }
@@ -8986,9 +8986,14 @@ class PCAPSentryApp:
 
     def _auto_detect_llm(self):
         try:
-            if self.llm_provider_var.get().strip().lower() != "disabled":
+            provider = self.llm_provider_var.get().strip().lower()
+            
+            # If LLM is already configured, verify it works
+            if provider not in ("", "disabled"):
+                self._verify_llm_at_startup()
                 return
-            # Skip auto-detect if user explicitly set provider to disabled
+            
+            # Skip auto-detect if user explicitly disabled it
             if not self.settings.get("llm_auto_detect", True):
                 return
 
@@ -9035,6 +9040,50 @@ class PCAPSentryApp:
             threading.Thread(target=run, daemon=True).start()
         except Exception:
             pass  # Don't crash startup if LLM auto-detect fails to initialize
+
+    def _verify_llm_at_startup(self):
+        """Verify that a configured LLM is reachable at startup."""
+        try:
+            def worker():
+                try:
+                    provider = self.llm_provider_var.get().strip().lower()
+                    endpoint = self.llm_endpoint_var.get().strip()
+                    
+                    if provider == "ollama":
+                        if not endpoint:
+                            endpoint = "http://localhost:11434"
+                        # Try to probe Ollama
+                        self._probe_ollama(endpoint)
+                        return True
+                    elif provider == "openai_compatible":
+                        if endpoint:
+                            # Try to probe OpenAI-compatible endpoint
+                            api_key = self.llm_api_key_var.get().strip()
+                            self._probe_openai_compat(endpoint, api_key=api_key)
+                            return True
+                except Exception:
+                    pass
+                return False
+            
+            def apply_result(success):
+                try:
+                    if success:
+                        self._set_llm_test_status("Auto", self.colors.get("accent", "#58a6ff"))
+                    else:
+                        self._set_llm_test_status("Not tested", self.colors.get("muted", "#8b949e"))
+                except Exception:
+                    pass
+            
+            def run():
+                try:
+                    success = worker()
+                    self.root.after(0, lambda: apply_result(success))
+                except Exception:
+                    pass
+            
+            threading.Thread(target=run, daemon=True).start()
+        except Exception:
+            pass  # Don't crash startup
 
     def _open_llm_settings(self):
         """Open LLM configuration dialog."""
