@@ -5675,8 +5675,7 @@ class PCAPSentryApp:
             if self.busy_count == 1:
                 self._cancel_event.clear()
                 self.status_var.set(message)
-                self._reset_progress()
-                self.progress.start(8)  # Smoother animation at 8ms interval
+                self._reset_progress()  # Starts pulsing progress bar
                 self.root.configure(cursor="watch")
                 self.root.title(f"{self.root_title} - Working...")
                 self._start_logo_spin()
@@ -5717,6 +5716,7 @@ class PCAPSentryApp:
         self.progress.stop()
         self.progress.configure(mode="indeterminate", maximum=100)
         self.progress["value"] = 0
+        self.progress.start(10)  # Start pulsing animation immediately
         self.progress_percent_var.set("")
         self._progress_target = 0.0
         self._progress_current = 0.0
@@ -5728,21 +5728,13 @@ class PCAPSentryApp:
 
     def _set_progress(self, percent, eta_seconds=None, label=None, processed=None, total=None):
         if percent is None:
-            # No percentage — switch to / keep indeterminate spinner
+            # No percentage — keep indeterminate pulsing mode
             if label:
                 self.status_var.set(label)
-                # Update window title to show current activity (truncated for readability)
                 if self.busy_count > 0:
                     short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
                     self.root.title(f"{self.root_title} - {short_label}")
-            # Cancel any running determinate animation
-            if self._progress_anim_id is not None:
-                self.root.after_cancel(self._progress_anim_id)
-                self._progress_anim_id = None
-            self._progress_animating = False
-            self._progress_target = 0.0
-            self._progress_current = 0.0
-            # Switch to indeterminate mode with spinner if not already
+            # Ensure we're in indeterminate mode (pulsing)
             try:
                 current_mode = str(self.progress.cget("mode"))
             except Exception:
@@ -5750,40 +5742,28 @@ class PCAPSentryApp:
             if current_mode != "indeterminate":
                 self.progress.configure(mode="indeterminate", maximum=100)
                 self.progress["value"] = 0
-                self.progress.start(8)  # Smoother animation
+                self.progress.start(10)  # Constant pulse animation
             self.progress_percent_var.set("")
             return
+        
+        # We have actual progress - switch to determinate mode
         self.progress.stop()
         self.progress.configure(mode="determinate", maximum=100)
         percent_value = min(max(percent, 0.0), 100.0)
         
-        # Don't show progress bar movement until there's meaningful progress (>0.5%)
-        # This prevents the bar from moving before the percentage text appears
-        if percent_value < 0.5:
-            self._progress_current = 0.0
-            self.progress["value"] = 0
-            self.progress_percent_var.set("")
-            # Show label without percentage when below threshold
-            if label:
-                self.status_var.set(label)
-                if self.busy_count > 0:
-                    short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
-                    self.root.title(f"{self.root_title} - {short_label}")
-        else:
-            # Direct update for smooth, immediate progress tracking (no animation lag)
-            self._progress_current = percent_value
-            self.progress["value"] = percent_value
-            self.progress_percent_var.set(f"{percent_value:.0f}%")
-            
-            if label:
-                status_text = f"{label} {percent:.0f}%"
-                if processed is not None and total:
-                    status_text = f"{label} {percent:.0f}% ({_format_bytes(processed)} / {_format_bytes(total)})"
-                self.status_var.set(status_text)
-                # Update window title with progress percentage (short label)
-                if self.busy_count > 0:
-                    short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
-                    self.root.title(f"{self.root_title} - {percent:.0f}% {short_label}")
+        # Show actual progress immediately
+        self._progress_current = percent_value
+        self.progress["value"] = percent_value
+        self.progress_percent_var.set(f"{percent_value:.0f}%")
+        
+        if label:
+            status_text = f"{label} {percent:.0f}%"
+            if processed is not None and total:
+                status_text = f"{label} {percent:.0f}% ({_format_bytes(processed)} / {_format_bytes(total)})"
+            self.status_var.set(status_text)
+            if self.busy_count > 0:
+                short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
+                self.root.title(f"{self.root_title} - {percent:.0f}% {short_label}")
 
     def _animate_progress(self):
         """Smoothly interpolate the progress bar toward _progress_target."""
@@ -6444,34 +6424,20 @@ class PCAPSentryApp:
         q = queue.Queue()
         last_progress_time = [0.0]  # Mutable to allow closure modification
         last_progress_value = [0.0]
-        startup_time = [None]  # Track when first update happens
 
         def progress_cb(percent, eta_seconds=None, processed=None, total=None, label=None):
             # Check for cancellation on every progress update
             if self._cancel_event.is_set():
                 raise AnalysisCancelledError("Analysis cancelled by user.")
             
-            # Throttle progress updates to prevent UI flooding
+            # Light throttling to prevent excessive updates while maintaining responsiveness
             import time as _time
             current_time = _time.time()
-            
-            # Initialize startup time on first call
-            if startup_time[0] is None:
-                startup_time[0] = current_time
-            
-            # During initial startup (first 2 seconds or 5%), require more aggressive throttling
-            elapsed_since_start = current_time - startup_time[0]
-            is_startup_phase = elapsed_since_start < 2.0 or percent < 5.0
-            
-            # Send update if: significant change (>0.5%), enough time passed (>100ms), or final (100%)
             time_delta = current_time - last_progress_time[0]
             progress_delta = abs(percent - last_progress_value[0])
             
-            # More aggressive throttling during startup to prevent initial stuttering
-            if is_startup_phase:
-                should_update = percent >= 100 or progress_delta >= 2.0 or time_delta >= 0.25
-            else:
-                should_update = percent >= 100 or progress_delta >= 0.5 or time_delta >= 0.1
+            # Send update if: significant change (>1%), enough time passed (>150ms), or final (100%)
+            should_update = percent >= 100 or progress_delta >= 1.0 or time_delta >= 0.15
             
             if should_update:
                 last_progress_time[0] = current_time
@@ -10093,19 +10059,11 @@ class PCAPSentryApp:
                 return {"credentials": [], "hosts": {}}
 
         def _core_analysis(df, stats, extracted, sample_info, t_start, progress_cb=None):
-            """Shared analysis logic used by both sequential and multi threaded paths."""
+            """Shared analysis logic used by both sequential and multithreaded paths."""
 
             def _report(pct, label="Analyzing..."):
                 if progress_cb:
-                    # Scale analysis progress: 32-95% becomes 30-100%
-                    # Formula: 30 + ((pct - 32) / (95 - 32)) * 70 = 30 + ((pct - 32) / 63) * 70
-                    if pct <= 32:
-                        scaled_pct = 30.0
-                    elif pct >= 95:
-                        scaled_pct = 100.0
-                    else:
-                        scaled_pct = 30.0 + ((pct - 32) / 63.0) * 70.0
-                    progress_cb(scaled_pct, label=label)
+                    progress_cb(pct, label=label)
 
             def _do_threat_intel():
                 if offline_mode or not _check_threat_intel():
@@ -10331,20 +10289,13 @@ class PCAPSentryApp:
         def task(progress_cb=None):
             t_start = time.time()
             
-            # Wrap progress callback to scale parsing (0-99%) to first 30% of total progress
-            def parse_progress_cb(pct, eta=None, processed=None, total=None):
-                if progress_cb and pct is not None:
-                    # Scale parsing progress: 0-99% becomes 0-30%
-                    scaled_pct = (pct / 100.0) * 30.0
-                    progress_cb(scaled_pct, eta, processed, total, label="Parsing PCAP")
-            
             if use_multithreading:
                 # ── Phase 1: Parse + extract in parallel ──
                 with ThreadPoolExecutor(max_workers=2) as pool:
                     parse_future = pool.submit(
                         _parser, path,
                         max_rows=max_rows, parse_http=parse_http,
-                        progress_cb=parse_progress_cb, use_high_memory=use_high_memory,
+                        progress_cb=progress_cb, use_high_memory=use_high_memory,
                         cancel_event=cancel_event,
                     )
                     extract_future = pool.submit(
@@ -10355,7 +10306,7 @@ class PCAPSentryApp:
             else:
                 parse_result = _parser(
                     path, max_rows=max_rows, parse_http=parse_http,
-                    progress_cb=parse_progress_cb, use_high_memory=use_high_memory,
+                    progress_cb=progress_cb, use_high_memory=use_high_memory,
                     cancel_event=cancel_event,
                 )
                 extracted = _safe_extract(path, use_high_memory)
