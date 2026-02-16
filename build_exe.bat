@@ -102,8 +102,8 @@ REM Stage and commit version changes
 git add version_info.txt VERSION_LOG.md installer\PCAP_Sentry.iss Python\pcap_sentry_gui.py Python\update_checker.py Python\threat_intelligence.py Python\enhanced_ml_trainer.py >> "%LOG_PATH%" 2>&1
 git commit -m "EXE Build: Version %VERSION% - !BUILD_NOTES!" >> "%LOG_PATH%" 2>&1
 
-REM Push to GitHub
-git push origin main >> "%LOG_PATH%" 2>&1
+REM Push to GitHub (develop branch)
+git push origin develop >> "%LOG_PATH%" 2>&1
 if errorlevel 1 (
 	echo Warning: Failed to push to GitHub. See %LOG_PATH% for details.
 ) else (
