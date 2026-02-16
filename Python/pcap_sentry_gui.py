@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# PCAP Sentry - Malware Analysis and Education Console for Network Packet Captures
+# PCAP Sentry - Learn Malware Network Traffic Analysis (Beginner-Friendly Educational Tool)
 # Copyright (C) 2026 industrial-dave
 #
 # This program is free software: you can redistribute it and/or modify
@@ -350,7 +350,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.16-13"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.16-14"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -3220,13 +3220,13 @@ class PCAPSentryApp:
 
         # Backup knowledge base on close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-        
+
         # Run startup checks in background (wrapped in try-except for safety)
         try:
             self.root.after(200, self._check_internet_and_set_offline)
         except Exception:
             pass  # Don't crash if internet check can't be scheduled
-        
+
         try:
             self.root.after(400, self._auto_detect_llm)
         except Exception:
@@ -3680,7 +3680,7 @@ class PCAPSentryApp:
         ).pack(anchor=tk.W)
         ttk.Label(
             text_col,
-            text=f"Malware Analysis and Education Console  \u2022  v{APP_VERSION}",
+            text=f"Learn Malware Network Traffic Analysis  \u2022  v{APP_VERSION}",
             style="Hint.TLabel",
         ).pack(anchor=tk.W)
 
@@ -4144,7 +4144,8 @@ class PCAPSentryApp:
 
         # Description
         desc_text = (
-            "Malware Analysis and Education Console for Network Packet Captures\n\n"
+            "Learn Malware Network Traffic Analysis\n"
+            "Beginner-Friendly Educational Tool\n\n"
             "PCAP Sentry analyzes PCAP/PCAPNG files for signs of malicious activity, "
             "providing heuristic signals, behavioral anomaly detection, and threat intelligence "
             "integration to help triage suspicious network traffic."
@@ -4206,7 +4207,7 @@ class PCAPSentryApp:
         """Display update check result (always runs on the main thread)."""
         if not result.get("success"):
             error_msg = result.get("error", "Unknown error")
-            
+
             # Handle specific error cases with helpful messages
             if "404" in str(error_msg) or "HTTP 404" in str(error_msg):
                 messagebox.showinfo(
@@ -4218,20 +4219,17 @@ class PCAPSentryApp:
             elif "Network error" in str(error_msg) or "URLError" in str(error_msg):
                 messagebox.showerror(
                     "Check for Updates",
-                    f"Network connection failed:\n{error_msg}\n\n"
-                    "Please check your internet connection and try again.",
+                    f"Network connection failed:\n{error_msg}\n\nPlease check your internet connection and try again.",
                 )
             elif "Blocked unsafe URL scheme" in str(error_msg):
                 messagebox.showerror(
                     "Check for Updates",
-                    f"Security error:\n{error_msg}\n\n"
-                    "The update URL failed security validation.",
+                    f"Security error:\n{error_msg}\n\nThe update URL failed security validation.",
                 )
             elif "HTTP" in str(error_msg):
                 messagebox.showerror(
                     "Check for Updates",
-                    f"GitHub API error:\n{error_msg}\n\n"
-                    "GitHub may be temporarily unavailable. Try again later.",
+                    f"GitHub API error:\n{error_msg}\n\nGitHub may be temporarily unavailable. Try again later.",
                 )
             else:
                 messagebox.showerror(
@@ -8987,12 +8985,12 @@ class PCAPSentryApp:
     def _auto_detect_llm(self):
         try:
             provider = self.llm_provider_var.get().strip().lower()
-            
+
             # If LLM is already configured, verify it works
             if provider not in ("", "disabled"):
                 self._verify_llm_at_startup()
                 return
-            
+
             # Skip auto-detect if user explicitly disabled it
             if not self.settings.get("llm_auto_detect", True):
                 return
@@ -9044,27 +9042,27 @@ class PCAPSentryApp:
     def _verify_llm_at_startup(self):
         """Verify that a configured LLM is reachable at startup."""
         try:
+
             def worker():
                 try:
                     provider = self.llm_provider_var.get().strip().lower()
                     endpoint = self.llm_endpoint_var.get().strip()
-                    
+
                     if provider == "ollama":
                         if not endpoint:
                             endpoint = "http://localhost:11434"
                         # Try to probe Ollama
                         self._probe_ollama(endpoint)
                         return True
-                    elif provider == "openai_compatible":
-                        if endpoint:
-                            # Try to probe OpenAI-compatible endpoint
-                            api_key = self.llm_api_key_var.get().strip()
-                            self._probe_openai_compat(endpoint, api_key=api_key)
-                            return True
+                    if provider == "openai_compatible" and endpoint:
+                        # Try to probe OpenAI-compatible endpoint
+                        api_key = self.llm_api_key_var.get().strip()
+                        self._probe_openai_compat(endpoint, api_key=api_key)
+                        return True
                 except Exception:
                     pass
                 return False
-            
+
             def apply_result(success):
                 try:
                     # Check if root still exists before updating UI
@@ -9076,14 +9074,14 @@ class PCAPSentryApp:
                         self._set_llm_test_status("Not tested", self.colors.get("muted", "#8b949e"))
                 except Exception:
                     pass
-            
+
             def run():
                 try:
                     success = worker()
                     self.root.after(0, lambda: apply_result(success))
                 except Exception:
                     pass
-            
+
             threading.Thread(target=run, daemon=True).start()
         except Exception:
             pass  # Don't crash startup
@@ -9443,28 +9441,19 @@ class PCAPSentryApp:
             return
 
         self._set_llm_test_status("Testing...", self.colors.get("muted", "#8b949e"))
-        test_stats = {
-            "packet_count": 0,
-            "avg_size": 0.0,
-            "median_size": 0.0,
-            "protocol_counts": {},
-            "top_ports": [],
-            "unique_src": 0,
-            "unique_dst": 0,
-            "dns_query_count": 0,
-            "http_request_count": 0,
-            "tls_packet_count": 0,
-            "top_dns": [],
-            "top_tls_sni": [],
-        }
-        test_summary = "No traffic sample. This is a connection test only."
 
         def task():
             provider = self.llm_provider_var.get().strip().lower()
+            endpoint = self.llm_endpoint_var.get().strip()
+            
             if provider == "ollama":
+                if not endpoint:
+                    endpoint = "http://localhost:11434"
                 try:
-                    self._probe_ollama(self.llm_endpoint_var.get() or "http://localhost:11434")
+                    model_name = self._probe_ollama(endpoint)
+                    return {"success": True, "model": model_name}
                 except Exception:
+                    # Try to start Ollama and retry
                     try:
                         subprocess.Popen(
                             ["ollama", "serve"],
@@ -9473,11 +9462,20 @@ class PCAPSentryApp:
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                         )
                         time.sleep(1.2)
+                        model_name = self._probe_ollama(endpoint)
+                        return {"success": True, "model": model_name}
                     except Exception:
-                        pass
-            return self._request_llm_label(test_stats, test_summary)
+                        raise
+            elif provider == "openai_compatible":
+                if not endpoint:
+                    raise ValueError("OpenAI-compatible endpoint is required")
+                api_key = self.llm_api_key_var.get().strip()
+                model_id = self._probe_openai_compat(endpoint, api_key=api_key)
+                return {"success": True, "model": model_id}
+            else:
+                raise ValueError(f"Unsupported LLM provider: {provider}")
 
-        def done(suggestion):
+        def done(result):
             self._set_llm_test_status("OK", self.colors.get("success", "#3fb950"))
 
         def failed(err):

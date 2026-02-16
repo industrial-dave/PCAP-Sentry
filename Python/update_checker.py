@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# PCAP Sentry - Malware Analysis and Education Console for Network Packet Captures
+# PCAP Sentry - Learn Malware Network Traffic Analysis (Beginner-Friendly Educational Tool)
 # Copyright (C) 2026 industrial-dave
 #
 # This program is free software: you can redistribute it and/or modify
@@ -251,13 +251,14 @@ class UpdateChecker:
             print(f"Network error fetching latest release: {e.reason}")
             return False
         except json.JSONDecodeError as e:
-            self._last_error = f"Invalid JSON response from GitHub API"
+            self._last_error = "Invalid JSON response from GitHub API"
             print(f"JSON decode error: {e}")
             return False
         except Exception as e:
             self._last_error = f"Unexpected error: {type(e).__name__}: {e!s}"
             print(f"Error fetching latest release: {type(e).__name__}: {e}")
             import traceback
+
             traceback.print_exc()
             return False
 

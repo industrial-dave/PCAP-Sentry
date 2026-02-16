@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# PCAP Sentry - Malware Analysis and Education Console for Network Packet Captures
+# PCAP Sentry - Learn Malware Network Traffic Analysis (Beginner-Friendly Educational Tool)
 # Copyright (C) 2026 industrial-dave
 #
 # This program is free software: you can redistribute it and/or modify
