@@ -350,7 +350,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.16-9"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.16-10"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -3220,8 +3220,17 @@ class PCAPSentryApp:
 
         # Backup knowledge base on close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-        self.root.after(200, self._check_internet_and_set_offline)
-        self.root.after(400, self._auto_detect_llm)
+        
+        # Run startup checks in background (wrapped in try-except for safety)
+        try:
+            self.root.after(200, self._check_internet_and_set_offline)
+        except Exception:
+            pass  # Don't crash if internet check can't be scheduled
+        
+        try:
+            self.root.after(400, self._auto_detect_llm)
+        except Exception:
+            pass  # Don't crash if LLM auto-detect can't be scheduled
 
     def _on_close(self):
         """Handle window close – cancel timers, backup KB, persist LLM status, then destroy."""
@@ -7401,43 +7410,49 @@ class PCAPSentryApp:
         self._run_task(task, done, on_error=failed, message="Contacting LLM...")
 
     def _set_llm_test_status(self, text, color):
-        self.llm_test_status_var.set(text)
-        if self.llm_test_status_label is not None:
-            self.llm_test_status_label.configure(fg=color, bg=self.colors.get("bg", "#0d1117"))
-        self._update_llm_header_indicator()
+        try:
+            self.llm_test_status_var.set(text)
+            if self.llm_test_status_label is not None:
+                self.llm_test_status_label.configure(fg=color, bg=self.colors.get("bg", "#0d1117"))
+            self._update_llm_header_indicator()
+        except Exception:
+            pass  # Don't crash if LLM status update fails
 
     def _update_llm_header_indicator(self):
-        if self.llm_header_label is None:
-            return
-        provider = self.llm_provider_var.get().strip().lower()
-        status = self.llm_test_status_var.get().strip()
-        bg = self.colors.get("panel", "#161b22")
-        if provider in ("", "disabled"):
-            text = "LLM: off"
-            fg = self.colors.get("muted", "#8b949e")
-            border = self.colors.get("border", "#21262d")
-        elif status == "OK":
-            text = "\u2714 LLM"
-            fg = self.colors.get("success", "#3fb950")
-            border = self.colors.get("success", "#3fb950")
-        elif status == "FAIL":
-            text = "\u2718 LLM"
-            fg = self.colors.get("danger", "#f85149")
-            border = self.colors.get("danger", "#f85149")
-        elif status == "Auto":
-            text = "\u2714 LLM"
-            fg = self.colors.get("accent", "#58a6ff")
-            border = self.colors.get("accent", "#58a6ff")
-        elif "Testing" in status or "testing" in status:
-            text = "\u25cf LLM"
-            fg = self.colors.get("warning", "#d29922")
-            border = self.colors.get("warning", "#d29922")
-        else:
-            text = "\u25cb LLM"
-            fg = self.colors.get("muted", "#8b949e")
-            border = self.colors.get("border", "#21262d")
-        self.llm_header_label.configure(text=text, fg=fg, bg=bg)
-        self.llm_header_indicator.configure(bg=bg, highlightbackground=border)
+        try:
+            if self.llm_header_label is None:
+                return
+            provider = self.llm_provider_var.get().strip().lower()
+            status = self.llm_test_status_var.get().strip()
+            bg = self.colors.get("panel", "#161b22")
+            if provider in ("", "disabled"):
+                text = "LLM: off"
+                fg = self.colors.get("muted", "#8b949e")
+                border = self.colors.get("border", "#21262d")
+            elif status == "OK":
+                text = "\u2714 LLM"
+                fg = self.colors.get("success", "#3fb950")
+                border = self.colors.get("success", "#3fb950")
+            elif status == "FAIL":
+                text = "\u2718 LLM"
+                fg = self.colors.get("danger", "#f85149")
+                border = self.colors.get("danger", "#f85149")
+            elif status == "Auto":
+                text = "\u2714 LLM"
+                fg = self.colors.get("accent", "#58a6ff")
+                border = self.colors.get("accent", "#58a6ff")
+            elif "Testing" in status or "testing" in status:
+                text = "\u25cf LLM"
+                fg = self.colors.get("warning", "#d29922")
+                border = self.colors.get("warning", "#d29922")
+            else:
+                text = "\u25cb LLM"
+                fg = self.colors.get("muted", "#8b949e")
+                border = self.colors.get("border", "#21262d")
+            self.llm_header_label.configure(text=text, fg=fg, bg=bg)
+            self.llm_header_indicator.configure(bg=bg, highlightbackground=border)
+        except Exception:
+            pass  # Don't crash if LLM header update fails
 
     def _update_online_header_indicator(self):
         """Update the online/offline indicator in the header."""
@@ -8930,77 +8945,95 @@ class PCAPSentryApp:
 
     def _check_internet_and_set_offline(self):
         """Check internet connectivity at startup; auto-enable offline mode if unreachable."""
-        if self.offline_mode_var.get():
-            return  # Already offline, nothing to check
+        try:
+            if self.offline_mode_var.get():
+                return  # Already offline, nothing to check
 
-        def _probe():
-            try:
-                req = urllib.request.Request(
-                    "https://www.google.com",
-                    method="HEAD",
-                    headers={"User-Agent": "PCAP-Sentry/connectivity-check"},
-                )
-                _safe_urlopen(req, timeout=4)
-                return True
-            except Exception:
-                return False
+            def _probe():
+                try:
+                    req = urllib.request.Request(
+                        "https://www.google.com",
+                        method="HEAD",
+                        headers={"User-Agent": "PCAP-Sentry/connectivity-check"},
+                    )
+                    _safe_urlopen(req, timeout=4)
+                    return True
+                except Exception:
+                    return False
 
-        def _apply(online):
-            if not online and not self.offline_mode_var.get():
-                self.offline_mode_var.set(True)
-                self._save_settings_from_vars()
-                self.root_title = self._get_window_title()
-                self.root.title(self.root_title)
-                self.status_var.set("No internet detected — offline mode enabled automatically.")
+            def _apply(online):
+                try:
+                    if not online and not self.offline_mode_var.get():
+                        self.offline_mode_var.set(True)
+                        self._save_settings_from_vars()
+                        self.root_title = self._get_window_title()
+                        self.root.title(self.root_title)
+                        self.status_var.set("No internet detected — offline mode enabled automatically.")
+                except Exception:
+                    pass  # Don't crash startup if we can't set offline mode
 
-        def _run():
-            online = _probe()
-            self.root.after(0, lambda: _apply(online))
+            def _run():
+                try:
+                    online = _probe()
+                    self.root.after(0, lambda: _apply(online))
+                except Exception:
+                    pass  # Don't crash startup
 
-        threading.Thread(target=_run, daemon=True).start()
+            threading.Thread(target=_run, daemon=True).start()
+        except Exception:
+            pass  # Don't crash startup if internet check fails to initialize
 
     def _auto_detect_llm(self):
-        if self.llm_provider_var.get().strip().lower() != "disabled":
-            return
-        # Skip auto-detect if user explicitly set provider to disabled
-        if not self.settings.get("llm_auto_detect", True):
-            return
-
-        ports = [1234, 8000, 8080, 5000, 5001]
-
-        def worker():
-            try:
-                ollama_base = "http://localhost:11434"
-                model_name = self._probe_ollama(ollama_base)
-                if model_name:
-                    return {"provider": "ollama", "endpoint": ollama_base, "model": model_name}
-            except Exception:
-                pass
-            for port in ports:
-                base = f"http://localhost:{port}"
-                try:
-                    model_id = self._probe_openai_compat(base)
-                except Exception:
-                    continue
-                if model_id:
-                    return {"provider": "openai_compatible", "endpoint": base, "model": model_id}
-            return None
-
-        def apply_result(result):
-            if not result:
+        try:
+            if self.llm_provider_var.get().strip().lower() != "disabled":
                 return
-            self.llm_provider_var.set(result["provider"])
-            self.llm_endpoint_var.set(result["endpoint"])
-            self.llm_model_var.set(result["model"])
-            self._set_llm_test_status("Auto", self.colors.get("accent", "#58a6ff"))
-            self._save_settings_from_vars()
+            # Skip auto-detect if user explicitly set provider to disabled
+            if not self.settings.get("llm_auto_detect", True):
+                return
 
-        def run():
-            result = worker()
-            if result:
-                self.root.after(0, lambda: apply_result(result))
+            ports = [1234, 8000, 8080, 5000, 5001]
 
-        threading.Thread(target=run, daemon=True).start()
+            def worker():
+                try:
+                    ollama_base = "http://localhost:11434"
+                    model_name = self._probe_ollama(ollama_base)
+                    if model_name:
+                        return {"provider": "ollama", "endpoint": ollama_base, "model": model_name}
+                except Exception:
+                    pass
+                for port in ports:
+                    base = f"http://localhost:{port}"
+                    try:
+                        model_id = self._probe_openai_compat(base)
+                    except Exception:
+                        continue
+                    if model_id:
+                        return {"provider": "openai_compatible", "endpoint": base, "model": model_id}
+                return None
+
+            def apply_result(result):
+                try:
+                    if not result:
+                        return
+                    self.llm_provider_var.set(result["provider"])
+                    self.llm_endpoint_var.set(result["endpoint"])
+                    self.llm_model_var.set(result["model"])
+                    self._set_llm_test_status("Auto", self.colors.get("accent", "#58a6ff"))
+                    self._save_settings_from_vars()
+                except Exception:
+                    pass  # Don't crash if we can't apply auto-detected LLM settings
+
+            def run():
+                try:
+                    result = worker()
+                    if result:
+                        self.root.after(0, lambda: apply_result(result))
+                except Exception:
+                    pass  # Don't crash startup
+
+            threading.Thread(target=run, daemon=True).start()
+        except Exception:
+            pass  # Don't crash startup if LLM auto-detect fails to initialize
 
     def _open_llm_settings(self):
         """Open LLM configuration dialog."""
