@@ -195,7 +195,7 @@ DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
 
 
-_EMBEDDED_VERSION = "2026.02.15-24"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.15-25"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -6431,6 +6431,7 @@ class PCAPSentryApp:
         q = queue.Queue()
         last_progress_time = [0.0]  # Mutable to allow closure modification
         last_progress_value = [0.0]
+        startup_time = [None]  # Track when first update happens
 
         def progress_cb(percent, eta_seconds=None, processed=None, total=None, label=None):
             # Check for cancellation on every progress update
@@ -6441,11 +6442,25 @@ class PCAPSentryApp:
             import time as _time
             current_time = _time.time()
             
+            # Initialize startup time on first call
+            if startup_time[0] is None:
+                startup_time[0] = current_time
+            
+            # During initial startup (first 2 seconds or 5%), require more aggressive throttling
+            elapsed_since_start = current_time - startup_time[0]
+            is_startup_phase = elapsed_since_start < 2.0 or percent < 5.0
+            
             # Send update if: significant change (>0.5%), enough time passed (>100ms), or final (100%)
             time_delta = current_time - last_progress_time[0]
             progress_delta = abs(percent - last_progress_value[0])
             
-            if percent >= 100 or progress_delta >= 0.5 or time_delta >= 0.1:
+            # More aggressive throttling during startup to prevent initial stuttering
+            if is_startup_phase:
+                should_update = percent >= 100 or progress_delta >= 2.0 or time_delta >= 0.25
+            else:
+                should_update = percent >= 100 or progress_delta >= 0.5 or time_delta >= 0.1
+            
+            if should_update:
                 last_progress_time[0] = current_time
                 last_progress_value[0] = percent
                 q.put(

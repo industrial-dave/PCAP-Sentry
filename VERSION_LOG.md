@@ -34,6 +34,9 @@
 
 
 
+
+## 2026.02.15-25 - 2026-02-15
+- Fix: Eliminate initial analysis stuttering. Added startup grace period with 4x more aggressive throttling (2 to prevent UI flooding while threads spawn.
 ## 2026.02.15-24 - 2026-02-15
 - Fix: Progress bar stuttering. Removed easing animation in favor of direct updates for precise, stutter-free progress tracking during analysis.
 ## 2026.02.15-23 - 2026-02-15
