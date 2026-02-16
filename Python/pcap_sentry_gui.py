@@ -350,7 +350,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.16-12"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.16-13"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -4459,7 +4459,7 @@ class PCAPSentryApp:
                                 "you can relaunch PCAP Sentry from your Start menu or desktop.",
                             )
                             if checker.launch_installer(dest_path):
-                                self.root.quit()
+                                self.root.after(100, self.root.destroy)
                             else:
                                 messagebox.showinfo(
                                     "Download Complete",
@@ -9067,6 +9067,9 @@ class PCAPSentryApp:
             
             def apply_result(success):
                 try:
+                    # Check if root still exists before updating UI
+                    if not self.root or not self.root.winfo_exists():
+                        return
                     if success:
                         self._set_llm_test_status("Auto", self.colors.get("accent", "#58a6ff"))
                     else:
