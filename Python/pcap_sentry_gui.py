@@ -350,7 +350,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.16-8"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.16-9"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -3835,7 +3835,10 @@ class PCAPSentryApp:
 
         # Enable mouse wheel scrolling (widget-scoped, not global)
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            try:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except tk.TclError:
+                pass  # Widget destroyed, ignore scroll event
 
         def _bind_mousewheel(_event):
             canvas.bind("<MouseWheel>", _on_mousewheel)
@@ -4959,7 +4962,10 @@ class PCAPSentryApp:
 
         # Bind mousewheel to canvas for scrolling (widget-scoped, not global)
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            try:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except tk.TclError:
+                pass  # Widget destroyed, ignore scroll event
 
         def _bind_mousewheel(_event):
             canvas.bind("<MouseWheel>", _on_mousewheel)
@@ -6984,7 +6990,10 @@ class PCAPSentryApp:
 
         # Add mouse wheel scrolling support
         def _on_mousewheel(event):
-            widget.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            try:
+                widget.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except tk.TclError:
+                pass  # Widget destroyed, ignore scroll event
 
         def _bind_mousewheel(_event):
             widget.bind("<MouseWheel>", _on_mousewheel)
@@ -9017,7 +9026,10 @@ class PCAPSentryApp:
 
         # Enable mouse wheel scrolling (widget-scoped, not global)
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            try:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except tk.TclError:
+                pass  # Widget destroyed, ignore scroll event
 
         def _bind_mousewheel(_event):
             canvas.bind("<MouseWheel>", _on_mousewheel)
