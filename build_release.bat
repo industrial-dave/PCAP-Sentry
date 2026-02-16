@@ -29,6 +29,27 @@ shift
 goto :parse_args
 :args_done
 
+REM Run pre-deployment validation checks
+echo ==== Running Pre-Deployment Validation ====
+powershell -NoProfile -ExecutionPolicy Bypass -File "pre_deploy_checks.ps1"
+if errorlevel 1 (
+	echo.
+	echo ============================================
+	echo PRE-DEPLOYMENT CHECKS FAILED
+	echo ============================================
+	echo One or more quality gates failed.
+	echo Review the errors above and fix them before deploying.
+	echo.
+	echo To skip checks (NOT RECOMMENDED):
+	echo   set PCAP_SKIP_CHECKS=1
+	echo   build_release.bat
+	echo ============================================
+	if not defined PCAP_SKIP_CHECKS exit /b 1
+	echo WARNING: Proceeding with deployment despite failed checks!
+	timeout /t 5
+)
+echo.
+
 if defined NO_BUMP (
 	call build_exe.bat -NoBump -Notes "!BUILD_NOTES!"
 ) else (

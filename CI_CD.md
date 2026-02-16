@@ -6,20 +6,86 @@ This document describes PCAP Sentry's CI/CD infrastructure for automated testing
 
 [![CI Status](https://github.com/industrial-dave/PCAP-Sentry/actions/workflows/ci.yml/badge.svg)](https://github.com/industrial-dave/PCAP-Sentry/actions/workflows/ci.yml)
 
-PCAP Sentry uses **GitHub Actions** for continuous integration. Every push to `main` and every pull request automatically triggers:
+PCAP Sentry uses **GitHub Actions** for continuous integration. Every push to `main` or `develop` and every pull request automatically triggers:
 
 1. **Test Suite** - Automated tests on multiple OS/Python versions
 2. **Code Quality** - Linting and formatting checks
 3. **Security Scanning** - Vulnerability detection
 4. **Build Verification** - Ensure the application builds successfully
 
+## Pre-Deployment Validation
+
+To ensure every deployment meets quality standards, PCAP Sentry implements **automated deployment gates** that validate:
+
+### Automated Pre-Deployment Script
+
+Run `pre_deploy_checks.ps1` before any deployment:
+
+```powershell
+# Full validation (recommended)
+.\pre_deploy_checks.ps1
+
+# Quick validation (critical checks only)
+.\pre_deploy_checks.ps1 -Fast
+
+# With options
+.\pre_deploy_checks.ps1 -SkipTests  # Not recommended for production
+```
+
+**What it checks:**
+- ✅ **Code Quality** - Ruff linting and formatting
+- ✅ **Security** - Safety (dependencies) + Bandit (code patterns)
+- ✅ **Tests** - Full test suite with coverage requirements
+- ✅ **Performance** - Stress/performance test validation
+- ✅ **Build** - PyInstaller compilation verification
+- ✅ **OpenSSF** - Best practices compliance
+- ✅ **Git Status** - Uncommitted changes, branch status
+
+**Exit codes:**
+- `0` = All checks passed, safe to deploy
+- `1` = One or more checks failed, DO NOT DEPLOY
+
+### Integrated Build Validation
+
+The `build_release.bat` script automatically runs validation before building:
+
+```batch
+build_release.bat
+```
+
+To bypass validation (NOT RECOMMENDED):
+```batch
+set PCAP_SKIP_CHECKS=1
+build_release.bat
+```
+
+### GitHub Actions Deployment Workflow
+
+The `.github/workflows/deploy.yml` workflow enforces all quality gates on tag pushes:
+
+```bash
+git tag v2026.02.16-1
+git push origin v2026.02.16-1
+```
+
+**Deployment Gates:**
+1. **Quality Gates** - Linting, formatting, syntax validation
+2. **Security Gates** - Bandit, Safety, CodeQL analysis
+3. **Test Gates** - Full test suite on Windows & Ubuntu
+4. **Build Gates** - PyInstaller build verification
+5. **OpenSSF Gates** - Documentation and CI compliance
+
+All gates must pass before deployment is approved. View results in the GitHub Actions tab.
+
+**See also:** [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for detailed manual verification steps.
+
 ## GitHub Actions Workflows
 
 ### 1. CI Workflow (`.github/workflows/ci.yml`)
 
 **Triggers:**
-- Push to `main` branch (Python/test files only)
-- Pull requests to `main` branch
+- Push to `main` or `develop` branch (Python/test files only)
+- Pull requests to `main` or `develop` branch
 - Manual workflow dispatch
 
 **Jobs:**
@@ -101,11 +167,101 @@ PCAP Sentry uses **GitHub Actions** for continuous integration. Every push to `m
 
 **Note:** Checksums are primarily generated locally by `build_release.bat`. This workflow serves as a fallback.
 
+### 4. Deployment Workflow (`.github/workflows/deploy.yml`)
+
+**Triggers:**
+- Push to version tags (e.g., `v2026.02.16-1`)
+- Manual workflow dispatch (with optional skip flags)
+
+**Purpose:** Enforce all quality gates before deployment approval
+
+**Jobs:**
+
+#### 1. Quality Gates (`validate-quality`)
+- **Runs on:** Ubuntu Latest
+- **Validates:**
+  - Ruff linting (no errors)
+  - Code formatting consistency
+  - Python syntax correctness
+
+#### 2. Security Gates (`validate-security`)
+- **Runs on:** Ubuntu Latest
+- **Validates:**
+  - Safety dependency scan (no critical vulnerabilities)
+  - Bandit code security scan (no HIGH/MEDIUM issues)
+  - CodeQL semantic analysis
+
+#### 3. Test Gates (`validate-tests`)
+- **Runs on:** Ubuntu + Windows (Python 3.12)
+- **Validates:**
+  - Full test suite passes (100% pass rate)
+  - Code coverage meets minimum 60% threshold
+  - Performance/stress tests complete
+
+#### 4. Build Gates (`validate-build`)
+- **Runs on:** Windows Latest
+- **Validates:**
+  - PyInstaller build succeeds
+  - EXE artifact created and functional
+  - Dependencies properly bundled
+
+#### 5. OpenSSF Gates (`validate-openssf`)
+- **Runs on:** Ubuntu Latest
+- **Validates:**
+  - Required documentation files exist
+  - CI/CD workflows configured
+  - Test suite present and adequate
+
+#### 6. Deployment Ready (`deployment-ready`)
+- **Depends on:** All previous gates
+- **Action:** Creates deployment summary and approves deployment
+- **Fails if:** Any gate fails
+
+**Manual skip options:**
+```bash
+# Trigger manually with test skip (not recommended)
+gh workflow run deploy.yml -f skip_tests=true
+```
+
+**Permissions:**
+- `contents: write` - To upload build artifacts
+- `security-events: write` - For CodeQL analysis
+
+**View deployment status:** GitHub Actions tab → Deploy workflow
+
 ## Local Testing Before Push
 
 To match CI environment locally:
 
-### Run All CI Tests Locally
+### Automated Pre-Deployment Validation (Recommended)
+
+The fastest way to validate everything before deployment:
+
+```powershell
+# Run all checks (matches deployment workflow)
+.\pre_deploy_checks.ps1
+
+# Quick check (critical only)
+.\pre_deploy_checks.ps1 -Fast
+
+# With specific options
+.\pre_deploy_checks.ps1 -SkipTests  # Not recommended for production
+```
+
+This script validates:
+- Code quality (Ruff)
+- Security (Safety + Bandit)
+- Tests with coverage
+- Performance tests
+- Build verification
+- OpenSSF compliance
+- Git status
+
+**Exit code 0 = safe to deploy**
+
+### Run Individual CI Jobs Locally
+
+For troubleshooting specific failures:
 
 ```bash
 # Test suite (matches CI test job)

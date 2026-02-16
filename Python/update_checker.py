@@ -63,13 +63,13 @@ def _safe_urlopen(url, data=None, headers=None, timeout=30, context=None):
     if not (url_lower.startswith("http://") or url_lower.startswith("https://")):
         scheme = url_str.split(":", 1)[0] if ":" in url_str else "unknown"
         raise ValueError(
-            f"Blocked unsafe URL scheme: {scheme}://...\n"
-            "Only http:// and https:// URLs are allowed for security."
+            f"Blocked unsafe URL scheme: {scheme}://...\nOnly http:// and https:// URLs are allowed for security."
         )
 
     # Restrict http:// to localhost only (prevent MitM on external connections)
     if url_lower.startswith("http://"):
         from urllib.parse import urlparse as _urlparse
+
         _host = (_urlparse(url_str).hostname or "").lower()
         _localhost = {"localhost", "127.0.0.1", "::1", "[::1]"}
         if _host not in _localhost:
@@ -81,8 +81,7 @@ def _safe_urlopen(url, data=None, headers=None, timeout=30, context=None):
     # Explicit file:// blocking for defense-in-depth
     if "file:" in url_lower:
         raise ValueError(
-            "file:// scheme is explicitly blocked for security.\n"
-            "Only http:// and https:// URLs are allowed."
+            "file:// scheme is explicitly blocked for security.\nOnly http:// and https:// URLs are allowed."
         )
 
     # Build Request if url is a string
@@ -252,6 +251,7 @@ class UpdateChecker:
     def _is_trusted_download_url(url: str) -> bool:
         """Only allow downloads from known GitHub domains and the expected repo."""
         from urllib.parse import urlparse
+
         try:
             parsed = urlparse(url)
             host = (parsed.hostname or "").lower()
@@ -412,6 +412,7 @@ class UpdateChecker:
             backup_dir = os.path.join(app_dir, "kb_backups")
             os.makedirs(backup_dir, exist_ok=True)
             from datetime import datetime
+
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_path = os.path.join(backup_dir, f"pcap_knowledge_base_{ts}.json")
             shutil.copy2(kb_path, backup_path)
@@ -470,6 +471,7 @@ class UpdateChecker:
             # Schedule cleanup after a delay
             def cleanup_later():
                 import time
+
                 time.sleep(3)
                 try:
                     if os.path.exists(real_path):
@@ -592,22 +594,23 @@ exit /b 0
             # Launch update script with administrator elevation
             # Use ShellExecute with 'runas' verb to request UAC elevation
             import ctypes
+
             try:
                 # SW_SHOWNORMAL = 1
                 result = ctypes.windll.shell32.ShellExecuteW(
-                    None,                  # hwnd
-                    "runas",               # operation (request elevation)
-                    "cmd.exe",             # file
-                    f'/c "{script_path}"', # parameters
-                    update_dir,            # directory
-                    1                      # show command (SW_SHOWNORMAL)
+                    None,  # hwnd
+                    "runas",  # operation (request elevation)
+                    "cmd.exe",  # file
+                    f'/c "{script_path}"',  # parameters
+                    update_dir,  # directory
+                    1,  # show command (SW_SHOWNORMAL)
                 )
                 # ShellExecute returns >32 on success, <=32 on error
                 if result <= 32:
                     self._last_error = f"Failed to launch update script with elevation (error code: {result})"
                     print(f"ShellExecute failed with code: {result}")
                     return False
-                
+
                 print(f"Update script launched with elevation: {script_path}")
                 return True
             except Exception as e:
@@ -632,11 +635,7 @@ exit /b 0
             if not os.path.exists(update_dir):
                 return
 
-            files = [
-                os.path.join(update_dir, f)
-                for f in os.listdir(update_dir)
-                if f.endswith(".exe")
-            ]
+            files = [os.path.join(update_dir, f) for f in os.listdir(update_dir) if f.endswith(".exe")]
             files.sort(key=os.path.getmtime, reverse=True)
 
             for old_file in files[keep_count:]:
@@ -650,9 +649,7 @@ exit /b 0
 class BackgroundUpdateChecker(threading.Thread):
     """Background thread for checking updates without blocking the UI."""
 
-    def __init__(
-        self, current_version: str, callback=None, check_on_startup: bool = False
-    ):
+    def __init__(self, current_version: str, callback=None, check_on_startup: bool = False):
         """
         Initialize the background update checker.
 

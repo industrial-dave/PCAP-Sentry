@@ -45,7 +45,9 @@ from datetime import datetime, timezone
 
 class AnalysisCancelledError(Exception):
     """Raised when the user cancels a running analysis."""
+
     pass
+
 
 import contextlib
 import itertools
@@ -56,11 +58,13 @@ from tkinter import font as tkfont
 # Import update checker
 try:
     from update_checker import BackgroundUpdateChecker, UpdateChecker
+
     _update_checker_available = True
 except ImportError as _uc_err:
     _update_checker_available = False
     # Log the failure so we can diagnose bundling issues
     import traceback as _tb
+
     print(f"[WARN] update_checker import failed: {_uc_err}")
     _tb.print_exc()
 
@@ -75,6 +79,7 @@ def _check_threat_intel():
         return _threat_intel_available
     try:
         from threat_intelligence import ThreatIntelligence
+
         _threat_intel_available = True
         return True
     except ImportError:
@@ -142,10 +147,13 @@ def _handle_exception(exc_type, exc, tb):
             try:
                 root = tk._default_root
                 if root:
-                    root.after(0, lambda: _show_startup_error(
-                        "An unexpected error occurred. See app_errors.log in the app data folder.",
-                        exc,
-                    ))
+                    root.after(
+                        0,
+                        lambda: _show_startup_error(
+                            "An unexpected error occurred. See app_errors.log in the app data folder.",
+                            exc,
+                        ),
+                    )
             except Exception:
                 pass
     except Exception:
@@ -178,6 +186,7 @@ def _check_sklearn():
         import joblib
         import sklearn.feature_extraction
         import sklearn.linear_model
+
         _sklearn_available = True
     except (ImportError, ModuleNotFoundError):
         _sklearn_available = False
@@ -190,6 +199,7 @@ def _check_tkinterdnd2():
         return _tkinterdnd2_available
     try:
         import tkinterdnd2
+
         _tkinterdnd2_available = True
     except (ImportError, ModuleNotFoundError):
         _tkinterdnd2_available = False
@@ -207,33 +217,33 @@ _kb_lock = threading.Lock()
 COMMON_PORTS = {22, 53, 80, 123, 443, 445, 3389, 25, 110, 143, 21, 8080}
 
 PORT_DESCRIPTIONS = {
-    22:   "SSH — Secure remote terminal access",
-    53:   "DNS — Translates domain names to IP addresses",
-    80:   "HTTP — Unencrypted web traffic",
-    123:  "NTP — Time synchronization between computers",
-    443:  "HTTPS — Encrypted web traffic (standard for modern websites)",
-    445:  "SMB — Windows file sharing (often targeted by ransomware)",
+    22: "SSH — Secure remote terminal access",
+    53: "DNS — Translates domain names to IP addresses",
+    80: "HTTP — Unencrypted web traffic",
+    123: "NTP — Time synchronization between computers",
+    443: "HTTPS — Encrypted web traffic (standard for modern websites)",
+    445: "SMB — Windows file sharing (often targeted by ransomware)",
     3389: "RDP — Remote Desktop (lets someone control a PC remotely)",
-    25:   "SMTP — Sending email",
-    110:  "POP3 — Downloading email from a mail server",
-    143:  "IMAP — Syncing email across devices",
-    21:   "FTP — File transfers (sends passwords in plain text!)",
+    25: "SMTP — Sending email",
+    110: "POP3 — Downloading email from a mail server",
+    143: "IMAP — Syncing email across devices",
+    21: "FTP — File transfers (sends passwords in plain text!)",
     8080: "HTTP-Alt — Alternate web port, often used by proxies",
 }
 
 # Short-form descriptions for compact UI areas
 PORT_DESCRIPTIONS_SHORT = {
-    22:   "SSH (Secure Shell)",
-    53:   "DNS (Domain Name System)",
-    80:   "HTTP (Unencrypted Web)",
-    123:  "NTP (Time Sync)",
-    443:  "HTTPS (Encrypted Web)",
-    445:  "SMB (Windows File Sharing)",
+    22: "SSH (Secure Shell)",
+    53: "DNS (Domain Name System)",
+    80: "HTTP (Unencrypted Web)",
+    123: "NTP (Time Sync)",
+    443: "HTTPS (Encrypted Web)",
+    445: "SMB (Windows File Sharing)",
     3389: "RDP (Remote Desktop)",
-    25:   "SMTP (Email Sending)",
-    110:  "POP3 (Email Download)",
-    143:  "IMAP (Email Sync)",
-    21:   "FTP (File Transfer)",
+    25: "SMTP (Email Sending)",
+    110: "POP3 (Email Download)",
+    143: "IMAP (Email Sync)",
+    21: "FTP (File Transfer)",
     8080: "HTTP-Alt (Proxy/Alternate Web)",
 }
 
@@ -328,7 +338,7 @@ PATTERN_EDUCATION = {
 }
 
 # ── Regex for validating LLM model names before passing to subprocess ────
-_MODEL_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.:\-/]{0,127}$')
+_MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:\-/]{0,127}$")
 
 
 def _is_valid_model_name(name: str) -> bool:
@@ -367,7 +377,9 @@ def _compute_app_version():
         since = today.strftime("%Y-%m-%dT00:00:00")
         result = subprocess.run(
             ["git", "log", "--oneline", f"--since={since}"],
-            capture_output=True, text=True, timeout=3,
+            capture_output=True,
+            text=True,
+            timeout=3,
             cwd=os.path.dirname(os.path.abspath(__file__)),
         )
         count = len(result.stdout.strip().splitlines()) if result.returncode == 0 and result.stdout.strip() else 0
@@ -399,17 +411,18 @@ def _get_figure_canvas():
 
 def _get_numpy():
     import numpy as np
+
     return np
 
 
 def _get_scapy():
     try:
         from scapy.all import DNS, DNSQR, IP, TCP, UDP, PcapReader, Raw
+
         return DNS, DNSQR, IP, PcapReader, Raw, TCP, UDP
     except Exception as exc:
         _show_startup_error(
-            "Scapy is required but was not found. Please reinstall PCAP Sentry or "
-            "contact support.",
+            "Scapy is required but was not found. Please reinstall PCAP Sentry or contact support.",
             exc,
         )
         raise exc
@@ -420,6 +433,7 @@ def _get_tls_support():
         from scapy.layers.tls.all import TLS
         from scapy.layers.tls.extensions import TLSExtALPN, TLSExtServerName
         from scapy.layers.tls.handshake import TLSClientHello
+
         return TLS, TLSClientHello, TLSExtServerName, TLSExtALPN
     except Exception:
         return None, None, None, None
@@ -498,12 +512,14 @@ def _get_sklearn():
     from joblib import load as _joblib_load
     from sklearn.feature_extraction import DictVectorizer
     from sklearn.linear_model import LogisticRegression
+
     _sklearn_cache = (_joblib_dump, _joblib_load, DictVectorizer, LogisticRegression)
     return _sklearn_cache
 
 
 def _get_tkinterdnd2():
     from tkinterdnd2 import DND_FILES, TkinterDnD
+
     return DND_FILES, TkinterDnD
 
 
@@ -603,6 +619,7 @@ def _keyring_available():
     """Check if the keyring module is available and functional."""
     try:
         import keyring
+
         return True
     except Exception:
         return False
@@ -615,6 +632,7 @@ def _store_api_key(key: str) -> None:
         return
     try:
         import keyring
+
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME_LLM, key)
     except Exception:
         pass  # Fallback: key stays in settings.json
@@ -627,6 +645,7 @@ def _store_otx_api_key(key: str) -> None:
         return
     try:
         import keyring
+
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME_OTX, key)
     except Exception:
         pass  # Fallback: key stays in settings.json
@@ -636,6 +655,7 @@ def _load_api_key() -> str:
     """Load the LLM API key from the OS credential store, falling back to empty string."""
     try:
         import keyring
+
         val = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME_LLM)
         return val or ""
     except Exception:
@@ -646,6 +666,7 @@ def _load_otx_api_key() -> str:
     """Load the OTX API key from the OS credential store, falling back to empty string."""
     try:
         import keyring
+
         val = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME_OTX)
         return val or ""
     except Exception:
@@ -656,6 +677,7 @@ def _delete_api_key() -> None:
     """Remove the LLM API key from the OS credential store."""
     try:
         import keyring
+
         keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_LLM)
     except Exception:
         pass
@@ -665,6 +687,7 @@ def _delete_otx_api_key() -> None:
     """Remove the OTX API key from the OS credential store."""
     try:
         import keyring
+
         keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_OTX)
     except Exception:
         pass
@@ -736,9 +759,7 @@ def save_settings(settings):
             settings.pop("otx_api_key", None)
         # Use tempfile.mkstemp for atomic write (avoids symlink race on
         # a predictable ".tmp" path).
-        fd, tmp = tempfile.mkstemp(
-            dir=os.path.dirname(SETTINGS_FILE), suffix=".tmp"
-        )
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(SETTINGS_FILE), suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(settings, f, indent=2)
@@ -788,9 +809,7 @@ def load_knowledge_base():
 def save_knowledge_base(data):
     with _kb_lock:
         os.makedirs(os.path.dirname(KNOWLEDGE_BASE_FILE), exist_ok=True)
-        fd, tmp_path = tempfile.mkstemp(
-            dir=os.path.dirname(KNOWLEDGE_BASE_FILE), suffix=".tmp"
-        )
+        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(KNOWLEDGE_BASE_FILE), suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
@@ -902,27 +921,27 @@ def merge_iocs_into_kb(kb, new_iocs):
 def _safe_urlopen(url, data=None, headers=None, timeout=30, context=None):
     """
     Secure wrapper for urllib.request.urlopen that validates URL schemes.
-    
+
     Only allows http:// and https:// schemes to prevent file:// and other
     dangerous protocols. Provides defense-in-depth against URL-based attacks.
-    
+
     Args:
         url: URL string or Request object
         data: Optional POST data (bytes)
         headers: Optional dict of HTTP headers
         timeout: Request timeout in seconds (default: 30)
         context: Optional SSL context
-    
+
     Returns:
         Response object from urllib.request.urlopen
-    
+
     Raises:
         ValueError: If URL scheme is not http:// or https://
     """
     # Extract URL string from Request object if needed
     url_str = url.full_url if hasattr(url, "full_url") else str(url)
     url_lower = url_str.lower()
-    
+
     # Validate scheme - only http(s) allowed
     if not (url_lower.startswith("http://") or url_lower.startswith("https://")):
         # Extract scheme for error message
@@ -932,10 +951,11 @@ def _safe_urlopen(url, data=None, headers=None, timeout=30, context=None):
             "Only http:// and https:// schemes are permitted.\n"
             "This prevents file:// and other potentially dangerous protocols."
         )
-    
+
     # Restrict http:// to localhost only (prevent MitM on external connections)
     if url_lower.startswith("http://"):
         from urllib.parse import urlparse as _urlparse
+
         _host = (_urlparse(url_str).hostname or "").lower()
         _localhost = {"localhost", "127.0.0.1", "::1", "[::1]"}
         if _host not in _localhost:
@@ -943,20 +963,20 @@ def _safe_urlopen(url, data=None, headers=None, timeout=30, context=None):
                 f"Unencrypted http:// connections are only allowed to localhost.\n"
                 f"Use https:// for external host: {_host}"
             )
-    
+
     # Explicit file:// blocking (defense in depth)
     if "file:" in url_lower:
         raise ValueError(
             "file:// scheme is explicitly blocked for security.\n"
             "Local file access through URL schemes is not permitted."
         )
-    
+
     # Build Request object if url is a string
     if isinstance(url, str):
         req = urllib.request.Request(url, data=data, headers=headers or {})
     else:
         req = url  # Already a Request object
-    
+
     # Make the request with validated URL
     if context:
         return urllib.request.urlopen(req, timeout=timeout, context=context)  # nosec B310 - scheme validated above
@@ -964,17 +984,44 @@ def _safe_urlopen(url, data=None, headers=None, timeout=30, context=None):
 
 
 # Well-known malware / C2 ports used by common threats
-MALWARE_PORTS = frozenset({
-    4444, 5555, 6666, 6667, 6668, 6669,  # Meterpreter, IRC C2
-    1337, 31337, 12345, 27374,            # classic backdoors
-    8443, 8880, 9001, 9030, 9050, 9150,   # Tor, alt-HTTPS
-    3127, 3128, 3389,                      # proxy/RDP abuse
-    1080, 1099,                            # SOCKS, RMI
-    2222, 5900, 5985, 5986,               # alt-SSH, VNC, WinRM
-    8081, 8888, 9999, 10000,              # common RAT/C2 ports
-    20, 69,                                # FTP-data, TFTP
-    445, 139, 135,                         # SMB/NetBIOS/RPC abuse
-})
+MALWARE_PORTS = frozenset(
+    {
+        4444,
+        5555,
+        6666,
+        6667,
+        6668,
+        6669,  # Meterpreter, IRC C2
+        1337,
+        31337,
+        12345,
+        27374,  # classic backdoors
+        8443,
+        8880,
+        9001,
+        9030,
+        9050,
+        9150,  # Tor, alt-HTTPS
+        3127,
+        3128,
+        3389,  # proxy/RDP abuse
+        1080,
+        1099,  # SOCKS, RMI
+        2222,
+        5900,
+        5985,
+        5986,  # alt-SSH, VNC, WinRM
+        8081,
+        8888,
+        9999,
+        10000,  # common RAT/C2 ports
+        20,
+        69,  # FTP-data, TFTP
+        445,
+        139,
+        135,  # SMB/NetBIOS/RPC abuse
+    }
+)
 
 FEATURE_NAMES = [
     "packet_count",
@@ -1008,8 +1055,10 @@ FEATURE_NAMES = [
 def _vector_from_features(features):
     proto = features.get("proto_ratio", {})
     top_ports = features.get("top_ports", [])
+
     def port_at(idx):
         return float(top_ports[idx]) if idx < len(top_ports) else 0.0
+
     pkt_count = float(features.get("packet_count", 0.0))
 
     return [
@@ -1052,8 +1101,7 @@ def _compute_normalizer(vectors):
 
 def _normalize_vector(vector, normalizer):
     return [
-        (value - mean) / std
-        for value, mean, std in zip(vector, normalizer["mean"], normalizer["std"], strict=False)
+        (value - mean) / std for value, mean, std in zip(vector, normalizer["mean"], normalizer["std"], strict=False)
     ]
 
 
@@ -1080,7 +1128,9 @@ def _vectorize_kb(kb):
 
 
 def compute_baseline_from_kb(kb, kb_vectors=None):
-    safe_vectors = kb_vectors["safe"] if kb_vectors else [_vector_from_features(entry["features"]) for entry in kb.get("safe", [])]
+    safe_vectors = (
+        kb_vectors["safe"] if kb_vectors else [_vector_from_features(entry["features"]) for entry in kb.get("safe", [])]
+    )
     if not safe_vectors:
         return None
     normalizer = _compute_normalizer(safe_vectors)
@@ -1132,8 +1182,14 @@ def classify_vector(vector, kb, normalizer_cache=None, kb_vectors=None):
         mal_var = kb_vectors.get("_mal_var")
     else:
         # Fallback: compute on the fly
-        safe_vectors = kb_vectors["safe"] if kb_vectors else [_vector_from_features(entry["features"]) for entry in safe_entries]
-        mal_vectors = kb_vectors["malicious"] if kb_vectors else [_vector_from_features(entry["features"]) for entry in mal_entries]
+        safe_vectors = (
+            kb_vectors["safe"] if kb_vectors else [_vector_from_features(entry["features"]) for entry in safe_entries]
+        )
+        mal_vectors = (
+            kb_vectors["malicious"]
+            if kb_vectors
+            else [_vector_from_features(entry["features"]) for entry in mal_entries]
+        )
 
         if normalizer_cache is not None:
             normalizer = normalizer_cache
@@ -1459,7 +1515,9 @@ def _load_local_model():
     vectorizer = meta.get("vectorizer")
     if model is not None and not (hasattr(model, "predict") and hasattr(model, "predict_proba")):
         return None
-    if vectorizer is not None and not (hasattr(vectorizer, "transform") and hasattr(vectorizer, "get_feature_names_out")):
+    if vectorizer is not None and not (
+        hasattr(vectorizer, "transform") and hasattr(vectorizer, "get_feature_names_out")
+    ):
         return None
 
     return meta
@@ -1556,12 +1614,18 @@ def get_top_k_similar_entries(features, kb_entries, k=5):
 
     # Score only candidates, then get top K
     if len(candidates) <= k:
-        scores = [similarity_score(features, e["features"], _target_ports=target_ports, _target_proto=target_proto) for e in candidates]
+        scores = [
+            similarity_score(features, e["features"], _target_ports=target_ports, _target_proto=target_proto)
+            for e in candidates
+        ]
         sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
         return [candidates[i] for i in sorted_indices], [scores[i] for i in sorted_indices]
 
     # Score all candidates and take top K
-    scores = [similarity_score(features, e["features"], _target_ports=target_ports, _target_proto=target_proto) for e in candidates]
+    scores = [
+        similarity_score(features, e["features"], _target_ports=target_ports, _target_proto=target_proto)
+        for e in candidates
+    ]
     top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:k]
     return [candidates[i] for i in top_indices], [scores[i] for i in top_indices]
 
@@ -1572,10 +1636,16 @@ def parse_http_payload(payload):
 
     # Fast check for HTTP methods
     first_bytes = payload[:8]
-    if not (first_bytes.startswith(b"GET ") or first_bytes.startswith(b"POST") or
-            first_bytes.startswith(b"HEAD") or first_bytes.startswith(b"PUT ") or
-            first_bytes.startswith(b"DELETE") or first_bytes.startswith(b"PATCH") or
-            first_bytes.startswith(b"OPTIONS") or first_bytes.startswith(b"CONNECT")):
+    if not (
+        first_bytes.startswith(b"GET ")
+        or first_bytes.startswith(b"POST")
+        or first_bytes.startswith(b"HEAD")
+        or first_bytes.startswith(b"PUT ")
+        or first_bytes.startswith(b"DELETE")
+        or first_bytes.startswith(b"PATCH")
+        or first_bytes.startswith(b"OPTIONS")
+        or first_bytes.startswith(b"CONNECT")
+    ):
         return "", "", ""
 
     try:
@@ -1643,6 +1713,7 @@ def extract_credentials_and_hosts(file_path, use_high_memory=False):
     # Bounded dict to avoid unbounded growth on large PCAPs with many FTP sessions.
     # Uses OrderedDict as a simple LRU; evicts oldest entries when full.
     from collections import OrderedDict
+
     _FTP_STATE_MAX = 2000
     ftp_state = OrderedDict()  # src_ip:src_port -> last USER value
     MAX_CREDS = 5000
@@ -1662,14 +1733,16 @@ def extract_credentials_and_hosts(file_path, use_high_memory=False):
         if key in _seen_creds:
             return
         _seen_creds.add(key)
-        credentials.append({
-            "protocol": protocol,
-            "src": src,
-            "dst": dst,
-            "field": field,
-            "value": value,
-            "detail": detail,
-        })
+        credentials.append(
+            {
+                "protocol": protocol,
+                "src": src,
+                "dst": dst,
+                "field": field,
+                "value": value,
+                "detail": detail,
+            }
+        )
 
     def _try_decode(data):
         if isinstance(data, bytes):
@@ -1701,7 +1774,7 @@ def extract_credentials_and_hosts(file_path, use_high_memory=False):
         if text.startswith(("POST ", "post ")):
             body_start = text.find("\r\n\r\n")
             if body_start != -1:
-                body = text[body_start + 4:body_start + 4 + 2000]
+                body = text[body_start + 4 : body_start + 4 + 2000]
                 for compiled_re in (_RE_FORM_USER, _RE_FORM_PASS):
                     for m in compiled_re.finditer(body):
                         field_name = m.group(0).split("=", 1)[0]
@@ -1822,7 +1895,7 @@ def extract_credentials_and_hosts(file_path, use_high_memory=False):
             idx += 1
             if idx + comm_len > len(payload):
                 return
-            community = payload[idx:idx + comm_len].decode("utf-8", errors="replace")
+            community = payload[idx : idx + comm_len].decode("utf-8", errors="replace")
             if community and community not in ("public", ""):
                 _add_cred("SNMP", src, dst, "Community", community)
             elif community == "public":
@@ -1859,7 +1932,7 @@ def extract_credentials_and_hosts(file_path, use_high_memory=False):
                     idx += 1
                     continue
                 opt_len = payload[idx + 1]
-                opt_data = payload[idx + 2:idx + 2 + opt_len]
+                opt_data = payload[idx + 2 : idx + 2 + opt_len]
                 if opt_type == 12:  # Hostname option
                     hostname = opt_data.decode("utf-8", errors="replace").strip()
                     if hostname:
@@ -2021,6 +2094,7 @@ def _maybe_reservoir_append(items, item, limit, seen_count):
 
 def _resolve_pcap_source(file_path, progress_cb=None):
     """Get the PCAP file path and size."""
+
     def cleanup():
         return None
 
@@ -2031,7 +2105,9 @@ def _resolve_pcap_source(file_path, progress_cb=None):
     return file_path, cleanup, file_size
 
 
-def parse_pcap_path(file_path, max_rows=DEFAULT_MAX_ROWS, parse_http=True, progress_cb=None, use_high_memory=False, cancel_event=None):
+def parse_pcap_path(
+    file_path, max_rows=DEFAULT_MAX_ROWS, parse_http=True, progress_cb=None, use_high_memory=False, cancel_event=None
+):
     DNS, DNSQR, IP, PcapReader, Raw, TCP, UDP = _get_scapy()
     tls_support = _get_tls_support()
     pd = _get_pandas()
@@ -2258,8 +2334,9 @@ def parse_pcap_path(file_path, max_rows=DEFAULT_MAX_ROWS, parse_http=True, progr
     return pd.DataFrame(rows), final_stats, sample_info
 
 
-def _fast_parse_pcap_path(file_path, max_rows=DEFAULT_MAX_ROWS, parse_http=True,
-                          progress_cb=None, use_high_memory=False, cancel_event=None):
+def _fast_parse_pcap_path(
+    file_path, max_rows=DEFAULT_MAX_ROWS, parse_http=True, progress_cb=None, use_high_memory=False, cancel_event=None
+):
     """Fast pcap parser using raw byte-level header parsing.
 
     Avoids full Scapy dissection on every packet.  Only creates Scapy ``IP()``
@@ -2269,6 +2346,7 @@ def _fast_parse_pcap_path(file_path, max_rows=DEFAULT_MAX_ROWS, parse_http=True,
     """
     DNS, DNSQR, IP, _PcapReader, _Raw, _TCP, _UDP = _get_scapy()
     from scapy.utils import RawPcapReader
+
     tls_support = _get_tls_support()
     pd = _get_pandas()
 
@@ -2355,8 +2433,8 @@ def _fast_parse_pcap_path(file_path, max_rows=DEFAULT_MAX_ROWS, parse_http=True,
                 _maybe_reservoir_append(size_samples, pkt_size, SIZE_SAMPLE_LIMIT, packet_count)
 
                 ip_proto = raw_data[ip_start + 9]
-                sb = raw_data[ip_start + 12:ip_start + 16]
-                db = raw_data[ip_start + 16:ip_start + 20]
+                sb = raw_data[ip_start + 12 : ip_start + 16]
+                db = raw_data[ip_start + 16 : ip_start + 20]
                 src_ip = f"{sb[0]}.{sb[1]}.{sb[2]}.{sb[3]}"
                 dst_ip = f"{db[0]}.{db[1]}.{db[2]}.{db[3]}"
                 unique_src.add(src_ip)
@@ -2395,7 +2473,7 @@ def _fast_parse_pcap_path(file_path, max_rows=DEFAULT_MAX_ROWS, parse_http=True,
                 tls_alpn = ""
 
                 # -- DNS (use Scapy for reliable parsing) --
-                if (dport in DNS_PORTS or sport in DNS_PORTS):
+                if dport in DNS_PORTS or sport in DNS_PORTS:
                     try:
                         pkt_obj = IP(bytes(raw_data[ip_start:]))
                         dns_layer = pkt_obj.getlayer(DNS)
@@ -2424,7 +2502,7 @@ def _fast_parse_pcap_path(file_path, max_rows=DEFAULT_MAX_ROWS, parse_http=True,
                     payload_start = transport_start + tcp_data_offset
                     if data_len > payload_start + 14:
                         http_host, http_path, http_method = parse_http_payload(
-                            bytes(raw_data[payload_start:payload_start + 2048])
+                            bytes(raw_data[payload_start : payload_start + 2048])
                         )
 
                 # -- TLS (only inspect likely TLS handshake packets) --
@@ -2614,11 +2692,15 @@ def detect_suspicious_flows(df, kb, max_items=8, flow_df=None):
     if not flow_df["Packets"].empty and len(flow_df) > 1:
         high_pkt_threshold = float(flow_df["Packets"].quantile(0.95))
         median_bytes = float(flow_df["Bytes"].median()) if not flow_df["Bytes"].empty else 0.0
-        flow_df["beacon_like"] = (flow_df["Packets"] >= max(high_pkt_threshold, 6)) & (flow_df["Bytes"] < median_bytes * 2)
+        flow_df["beacon_like"] = (flow_df["Packets"] >= max(high_pkt_threshold, 6)) & (
+            flow_df["Bytes"] < median_bytes * 2
+        )
     else:
         flow_df["beacon_like"] = False
 
-    suspicious = flow_df[flow_df["ioc_match"] | flow_df["high_volume"] | flow_df["malware_port"] | flow_df["beacon_like"]]
+    suspicious = flow_df[
+        flow_df["ioc_match"] | flow_df["high_volume"] | flow_df["malware_port"] | flow_df["beacon_like"]
+    ]
     if suspicious.empty:
         return []
 
@@ -2670,21 +2752,25 @@ def detect_behavioral_anomalies(df, stats, flow_df=None):
     dns_count = stats.get("dns_query_count", 0)
     dns_ratio = dns_count / pkt_count
     if dns_ratio > 0.4 and dns_count > 50:
-        findings.append({
-            "type": "dns_tunneling",
-            "detail": f"DNS queries make up {dns_ratio:.0%} of packets ({dns_count} queries) — possible DNS tunneling",
-            "severity": 70,
-            "risk_boost": 20,
-        })
+        findings.append(
+            {
+                "type": "dns_tunneling",
+                "detail": f"DNS queries make up {dns_ratio:.0%} of packets ({dns_count} queries) — possible DNS tunneling",
+                "severity": 70,
+                "risk_boost": 20,
+            }
+        )
     dns_queries = stats.get("dns_queries", [])
     long_names = [q for q in dns_queries if len(q) > 60]
     if long_names:
-        findings.append({
-            "type": "dns_long_names",
-            "detail": f"{len(long_names)} DNS queries with names >60 chars — possible DNS exfiltration",
-            "severity": 65,
-            "risk_boost": 15,
-        })
+        findings.append(
+            {
+                "type": "dns_long_names",
+                "detail": f"{len(long_names)} DNS queries with names >60 chars — possible DNS exfiltration",
+                "severity": 65,
+                "risk_boost": 15,
+            }
+        )
 
     # ── 2. Beaconing detection via inter-arrival-time regularity ──
     if flow_df is None:
@@ -2725,12 +2811,14 @@ def detect_behavioral_anomalies(df, stats, flow_df=None):
         if beacons:
             beacons.sort(key=lambda x: x[2], reverse=True)
             top = beacons[0]
-            findings.append({
-                "type": "beaconing",
-                "detail": f"Regular callback pattern: {top[0]} — ~{top[1]:.1f}s interval, {top[2]} packets",
-                "severity": 75,
-                "risk_boost": 20,
-            })
+            findings.append(
+                {
+                    "type": "beaconing",
+                    "detail": f"Regular callback pattern: {top[0]} — ~{top[1]:.1f}s interval, {top[2]} packets",
+                    "severity": 75,
+                    "risk_boost": 20,
+                }
+            )
 
     # ── 3. Port scanning: single source hitting many distinct destination ports ──
     if not df.empty and "DPort" in df.columns:
@@ -2739,24 +2827,28 @@ def detect_behavioral_anomalies(df, stats, flow_df=None):
         if not scanners.empty:
             top_scanner = scanners.idxmax()
             n_ports = int(scanners.max())
-            findings.append({
-                "type": "port_scan",
-                "detail": f"{top_scanner} contacted {n_ports} distinct destination ports — possible port scan",
-                "severity": 60,
-                "risk_boost": 15,
-            })
+            findings.append(
+                {
+                    "type": "port_scan",
+                    "detail": f"{top_scanner} contacted {n_ports} distinct destination ports — possible port scan",
+                    "severity": 60,
+                    "risk_boost": 15,
+                }
+            )
 
     # ── 4. Known malware ports in heavy use ──
     top_ports = stats.get("top_ports", [])
     malware_hits = [(p, c) for p, c in top_ports if p in MALWARE_PORTS]
     if malware_hits:
         port_str = ", ".join(f"{p} ({c} pkts)" for p, c in malware_hits)
-        findings.append({
-            "type": "malware_ports",
-            "detail": f"Known malware/C2 ports in top traffic: {port_str}",
-            "severity": 65,
-            "risk_boost": 15,
-        })
+        findings.append(
+            {
+                "type": "malware_ports",
+                "detail": f"Known malware/C2 ports in top traffic: {port_str}",
+                "severity": 65,
+                "risk_boost": 15,
+            }
+        )
 
     # ── 5. Data exfiltration: highly asymmetric upload (one host sends much more than receives) ──
     if not df.empty and len(df) > 20:
@@ -2766,12 +2858,14 @@ def detect_behavioral_anomalies(df, stats, flow_df=None):
             sent = float(src_bytes.get(src_ip, 0))
             received = float(dst_bytes.get(src_ip, 0))
             if sent > 1_000_000 and received > 0 and sent / max(received, 1) > 10:
-                findings.append({
-                    "type": "data_exfil",
-                    "detail": f"{src_ip} sent {_format_bytes(sent)} but received only {_format_bytes(received)} — possible data exfiltration",
-                    "severity": 70,
-                    "risk_boost": 15,
-                })
+                findings.append(
+                    {
+                        "type": "data_exfil",
+                        "detail": f"{src_ip} sent {_format_bytes(sent)} but received only {_format_bytes(received)} — possible data exfiltration",
+                        "severity": 70,
+                        "risk_boost": 15,
+                    }
+                )
                 break  # only report the worst offender
 
     # ── 6. Excessive failed connections (many small SYN-only packets to same dest) ──
@@ -2780,12 +2874,14 @@ def detect_behavioral_anomalies(df, stats, flow_df=None):
         if len(tcp_df) > 10:
             small_tcp = tcp_df[tcp_df["Size"] <= 80]
             if len(small_tcp) > len(tcp_df) * 0.5 and len(small_tcp) > 50:
-                findings.append({
-                    "type": "syn_flood",
-                    "detail": f"{len(small_tcp)} of {len(tcp_df)} TCP packets are ≤80 bytes — possible SYN flood or scan",
-                    "severity": 55,
-                    "risk_boost": 10,
-                })
+                findings.append(
+                    {
+                        "type": "syn_flood",
+                        "detail": f"{len(small_tcp)} of {len(tcp_df)} TCP packets are ≤80 bytes — possible SYN flood or scan",
+                        "severity": 55,
+                        "risk_boost": 10,
+                    }
+                )
 
     return findings
 
@@ -3105,8 +3201,8 @@ class PCAPSentryApp:
         self.extracted_data = None
 
         # Undo support for KB labeling
-        self._last_kb_label = None   # "safe" or "malicious"
-        self._last_kb_entry = None   # the entry dict that was appended
+        self._last_kb_label = None  # "safe" or "malicious"
+        self._last_kb_entry = None  # the entry dict that was appended
 
         # Performance optimization: caching for analysis pipeline
         self.kb_cache = None  # Cache for loaded knowledge base
@@ -3130,10 +3226,10 @@ class PCAPSentryApp:
     def _on_close(self):
         """Handle window close – cancel timers, backup KB, persist LLM status, then destroy."""
         self._shutting_down = True
-        
+
         # Signal all background operations to stop
         self._cancel_event.set()
-        
+
         # Cancel all pending after() callbacks
         self._reset_progress()
         if self._bg_draw_pending is not None:
@@ -3142,10 +3238,10 @@ class PCAPSentryApp:
                 self._bg_draw_pending = None
             except Exception:
                 pass
-        
+
         # Stop animations
         self._logo_spinning = False
-        
+
         # Save settings snapshot before destroying window
         try:
             settings_snapshot = {
@@ -3168,7 +3264,7 @@ class PCAPSentryApp:
             }
         except Exception:
             settings_snapshot = self.settings
-        
+
         # Perform file I/O in a background thread but wait briefly so
         # settings and KB backup are actually written before the process exits.
         def _cleanup_thread():
@@ -3186,22 +3282,17 @@ class PCAPSentryApp:
 
     # ── Local-server process names keyed by display / provider id ──
     _LOCAL_SERVER_PROCESS_MAP = {
-        "ollama":           (["ollama.exe", "ollama app.exe"],
-                             "Ollama"),
-        "lm studio":       (["lms.exe", "LM Studio.exe"],
-                             "LM Studio"),
-        "gpt4all":          (["chat.exe"],
-                             "GPT4All"),
-        "jan":              (["jan.exe", "Jan.exe"],
-                             "Jan"),
-        "localai":          (["local-ai.exe"],
-                             "LocalAI"),
-        "koboldcpp":        (["koboldcpp.exe"],
-                             "KoboldCpp"),
-        "text-gen-webui":   (["python.exe"],  # too generic – skip auto-kill
-                             "text-gen-webui"),
-        "vllm":             (["python.exe"],
-                             "vLLM"),
+        "ollama": (["ollama.exe", "ollama app.exe"], "Ollama"),
+        "lm studio": (["lms.exe", "LM Studio.exe"], "LM Studio"),
+        "gpt4all": (["chat.exe"], "GPT4All"),
+        "jan": (["jan.exe", "Jan.exe"], "Jan"),
+        "localai": (["local-ai.exe"], "LocalAI"),
+        "koboldcpp": (["koboldcpp.exe"], "KoboldCpp"),
+        "text-gen-webui": (
+            ["python.exe"],  # too generic – skip auto-kill
+            "text-gen-webui",
+        ),
+        "vllm": (["python.exe"], "vLLM"),
     }
 
     def _resolve_active_local_server(self):
@@ -3223,11 +3314,11 @@ class PCAPSentryApp:
 
         # Match by endpoint port for openai_compatible providers
         _PORT_MAP = {
-            "1234":  "lm studio",
-            "4891":  "gpt4all",
-            "1337":  "jan",
-            "8080":  "localai",
-            "5001":  "koboldcpp",
+            "1234": "lm studio",
+            "4891": "gpt4all",
+            "1337": "jan",
+            "8080": "localai",
+            "5001": "koboldcpp",
         }
         for port, key in _PORT_MAP.items():
             if f":{port}" in endpoint:
@@ -3369,14 +3460,14 @@ class PCAPSentryApp:
         """Advance one frame of the vertical-axis spin animation."""
         if self._shutting_down or not self._logo_spinning or not self._brand_label:
             return
-        
+
         # Generate animation frames on first use to avoid startup delay
         if not self._spin_frames_generated and self._spin_src_img:
             self._generate_spin_frames()
-        
+
         if not self._spin_frames:
             return
-        
+
         try:
             self._spin_index = (self._spin_index + 1) % len(self._spin_frames)
             self._brand_label.configure(image=self._spin_frames[self._spin_index])
@@ -3389,7 +3480,7 @@ class PCAPSentryApp:
         """Update the initialization counter showing elapsed seconds."""
         if not self._initializing or self._shutting_down:
             return
-        
+
         elapsed = int(time.time() - self._init_start_time)
         self.status_var.set(f"Initializing... {elapsed}s")
         self._init_counter_id = self.root.after(1000, self._update_init_counter)
@@ -3400,20 +3491,20 @@ class PCAPSentryApp:
             self.root.after_cancel(self._init_counter_id)
             self._init_counter_id = None
         self._initializing = False
-    
+
     def _generate_spin_frames(self):
         """Generate logo spin animation frames on demand to avoid startup delay."""
         if self._spin_frames_generated or not self._spin_src_img:
             return
-        
+
         try:
             from PIL import Image, ImageTk
             import math as _math
-            
+
             src = self._spin_src_img
             num_frames = 36
             self._spin_frames = []
-            
+
             for i in range(num_frames):
                 angle = 2 * _math.pi * i / num_frames
                 scale_x = abs(_math.cos(angle))
@@ -3425,7 +3516,7 @@ class PCAPSentryApp:
                 canvas = Image.new("RGBA", (self._brand_icon_size, self._brand_icon_size), (0, 0, 0, 0))
                 canvas.paste(squeezed, ((self._brand_icon_size - w) // 2, 0))
                 self._spin_frames.append(ImageTk.PhotoImage(canvas))
-            
+
             self._spin_frames_generated = True
         except Exception:
             pass
@@ -3445,7 +3536,7 @@ class PCAPSentryApp:
             activebackground=menu_active_bg,
             activeforeground=menu_active_fg,
             borderwidth=0,
-            relief=tk.FLAT
+            relief=tk.FLAT,
         )
         self.root.config(menu=menubar)
 
@@ -3458,11 +3549,13 @@ class PCAPSentryApp:
             activebackground=menu_active_bg,
             activeforeground=menu_active_fg,
             borderwidth=1,
-            relief=tk.FLAT
+            relief=tk.FLAT,
         )
         menubar.add_cascade(label="File", menu=file_menu)
 
-        file_menu.add_command(label="Open PCAP...", command=lambda: self._browse_file(self.target_path_var), accelerator="Ctrl+O")
+        file_menu.add_command(
+            label="Open PCAP...", command=lambda: self._browse_file(self.target_path_var), accelerator="Ctrl+O"
+        )
         file_menu.add_separator()
         file_menu.add_command(label="Import IoC Feed...", command=self._browse_ioc)
         file_menu.add_separator()
@@ -3480,7 +3573,7 @@ class PCAPSentryApp:
             activebackground=menu_active_bg,
             activeforeground=menu_active_fg,
             borderwidth=1,
-            relief=tk.FLAT
+            relief=tk.FLAT,
         )
         menubar.add_cascade(label="Edit", menu=edit_menu)
 
@@ -3504,7 +3597,7 @@ class PCAPSentryApp:
             activebackground=menu_active_bg,
             activeforeground=menu_active_fg,
             borderwidth=1,
-            relief=tk.FLAT
+            relief=tk.FLAT,
         )
         menubar.add_cascade(label="Help", menu=help_menu)
 
@@ -3518,12 +3611,11 @@ class PCAPSentryApp:
         help_menu.add_command(label="About PCAP Sentry", command=self._show_about)
 
         # Bind keyboard shortcuts
-        self.root.bind('<Control-z>', lambda _: self._edit_undo())
-        self.root.bind('<Control-y>', lambda _: self._edit_redo())
-        self.root.bind('<Control-o>', lambda _: self._browse_file(self.target_path_var))
-        self.root.bind('<Control-l>', lambda _: self._clear_input_fields())
-        self.root.bind('<Control-comma>', lambda _: self._open_preferences())
-
+        self.root.bind("<Control-z>", lambda _: self._edit_undo())
+        self.root.bind("<Control-y>", lambda _: self._edit_redo())
+        self.root.bind("<Control-o>", lambda _: self._browse_file(self.target_path_var))
+        self.root.bind("<Control-l>", lambda _: self._clear_input_fields())
+        self.root.bind("<Control-comma>", lambda _: self._open_preferences())
 
     def _build_header(self):
         header = ttk.Frame(self.root)
@@ -3551,6 +3643,7 @@ class PCAPSentryApp:
         if icon_path:
             try:
                 from PIL import Image, ImageTk
+
                 src = Image.open(icon_path).convert("RGBA")
                 self._brand_icon_size = 70
                 src = src.resize((self._brand_icon_size, self._brand_icon_size), Image.LANCZOS)
@@ -3590,7 +3683,8 @@ class PCAPSentryApp:
             bg=_llm_ind_bg,
             highlightbackground=_llm_ind_border,
             highlightthickness=1,
-            padx=8, pady=4,
+            padx=8,
+            pady=4,
         )
         self.online_header_indicator.pack(side=tk.RIGHT, padx=(0, 4))
         self.online_header_label = tk.Button(
@@ -3605,7 +3699,7 @@ class PCAPSentryApp:
             activeforeground=self.colors.get("accent", "#58a6ff"),
             cursor="hand2",
             command=self._toggle_online_mode,
-            width=9
+            width=9,
         )
         self.online_header_label.pack()
         self._update_online_header_indicator()
@@ -3616,7 +3710,8 @@ class PCAPSentryApp:
             bg=_llm_ind_bg,
             highlightbackground=_llm_ind_border,
             highlightthickness=1,
-            padx=8, pady=4,
+            padx=8,
+            pady=4,
         )
         self.llm_header_indicator.pack(side=tk.RIGHT, padx=(0, 4))
         self.llm_header_label = tk.Button(
@@ -3631,7 +3726,7 @@ class PCAPSentryApp:
             activeforeground=self.colors.get("accent", "#58a6ff"),
             cursor="hand2",
             command=self._test_llm_connection,
-            width=8
+            width=8,
         )
         self.llm_header_label.pack()
         self._update_llm_header_indicator()
@@ -3642,16 +3737,22 @@ class PCAPSentryApp:
         toolbar.pack(fill=tk.X)
 
         ttk.Label(toolbar, text="Max packets for visuals:").pack(side=tk.LEFT)
-        self._help_icon(toolbar, "Limits how many packets are loaded for charts and the packet table. "
+        self._help_icon(
+            toolbar,
+            "Limits how many packets are loaded for charts and the packet table. "
             "Higher values give a more complete picture but use more memory and take longer. "
-            "This does NOT affect the analysis verdict — all packets are always scored.")
+            "This does NOT affect the analysis verdict — all packets are always scored.",
+        )
         ttk.Spinbox(toolbar, from_=10000, to=500000, increment=10000, textvariable=self.max_rows_var, width=8).pack(
             side=tk.LEFT, padx=6
         )
         ttk.Checkbutton(toolbar, text="Parse HTTP payloads", variable=self.parse_http_var).pack(side=tk.LEFT, padx=6)
-        self._help_icon(toolbar, "When enabled, the parser extracts HTTP request details (method, host, path) "
+        self._help_icon(
+            toolbar,
+            "When enabled, the parser extracts HTTP request details (method, host, path) "
             "from unencrypted web traffic. This gives you more information in the Packets tab "
-            "but may slow parsing slightly on very large captures.")
+            "but may slow parsing slightly on very large captures.",
+        )
 
         # Accent separator
         accent = ttk.Separator(self.root, orient=tk.HORIZONTAL)
@@ -3690,13 +3791,18 @@ class PCAPSentryApp:
         self.progress.pack(side=tk.LEFT, padx=(0, 8))
         # Percent label (hidden when idle — populated by _set_progress)
         self._progress_pct_label = ttk.Label(
-            status, textvariable=self.progress_percent_var,
-            font=("Segoe UI", 10, "bold"), width=5, anchor="w",
+            status,
+            textvariable=self.progress_percent_var,
+            font=("Segoe UI", 10, "bold"),
+            width=5,
+            anchor="w",
         )
         self._progress_pct_label.pack(side=tk.LEFT, padx=(0, 4))
         # Cancel button (hidden by default)
         self.cancel_button = ttk.Button(
-            status, text="\u2715  Cancel", width=9,
+            status,
+            text="\u2715  Cancel",
+            width=9,
             command=self._request_cancel,
         )
         self.cancel_button.pack(side=tk.LEFT, padx=(4, 0))
@@ -3729,26 +3835,29 @@ class PCAPSentryApp:
 
         # Enable mouse wheel scrolling (widget-scoped, not global)
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
         def _bind_mousewheel(_event):
             canvas.bind("<MouseWheel>", _on_mousewheel)
+
         def _unbind_mousewheel(_event):
             canvas.unbind("<MouseWheel>")
+
         canvas.bind("<Enter>", _bind_mousewheel)
         canvas.bind("<Leave>", _unbind_mousewheel)
 
         frame = ttk.Frame(scrollable_frame, padding=16)
         frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frame, text="Preferences", style="Heading.TLabel").grid(row=0, column=0, sticky="w", columnspan=3, pady=(0, 8))
+        ttk.Label(frame, text="Preferences", style="Heading.TLabel").grid(
+            row=0, column=0, sticky="w", columnspan=3, pady=(0, 8)
+        )
 
         ttk.Label(frame, text="Theme:").grid(row=1, column=0, sticky="w", pady=4)
         theme_combo = ttk.Combobox(frame, textvariable=self.theme_var, values=["system", "dark", "light"], width=10)
         theme_combo.state(["readonly"])
         theme_combo.grid(row=1, column=1, sticky="w", pady=4)
-        ttk.Label(frame, text="(applies after restart)", style="Hint.TLabel").grid(
-            row=1, column=2, sticky="w", pady=4
-        )
+        ttk.Label(frame, text="(applies after restart)", style="Hint.TLabel").grid(row=1, column=2, sticky="w", pady=4)
 
         ttk.Label(frame, text="Max packets for visuals:").grid(row=2, column=0, sticky="w", pady=4)
         max_rows_spin = ttk.Spinbox(
@@ -3760,47 +3869,74 @@ class PCAPSentryApp:
             width=10,
         )
         max_rows_spin.grid(row=2, column=1, sticky="w", pady=4)
-        self._help_icon_grid(frame, "Controls how many packets are loaded for charts and the packet table. "
+        self._help_icon_grid(
+            frame,
+            "Controls how many packets are loaded for charts and the packet table. "
             "Higher values give a more complete picture but use more RAM. "
-            "This does NOT affect the analysis verdict.", row=2, column=2, sticky="w")
-
-        ttk.Checkbutton(frame, text="Parse HTTP payloads", variable=self.parse_http_var, style="Quiet.TCheckbutton").grid(
-            row=3, column=0, sticky="w", pady=4, columnspan=2
+            "This does NOT affect the analysis verdict.",
+            row=2,
+            column=2,
+            sticky="w",
         )
-        self._help_icon_grid(frame, "Extracts HTTP request details (method, host, URL path) from unencrypted "
+
+        ttk.Checkbutton(
+            frame, text="Parse HTTP payloads", variable=self.parse_http_var, style="Quiet.TCheckbutton"
+        ).grid(row=3, column=0, sticky="w", pady=4, columnspan=2)
+        self._help_icon_grid(
+            frame,
+            "Extracts HTTP request details (method, host, URL path) from unencrypted "
             "web traffic. Useful for seeing exactly what URLs were visited. "
-            "May slightly slow parsing on very large captures.", row=3, column=2, sticky="w")
+            "May slightly slow parsing on very large captures.",
+            row=3,
+            column=2,
+            sticky="w",
+        )
 
         ttk.Checkbutton(
             frame,
             text="High memory mode (load PCAP into RAM)",
             variable=self.use_high_memory_var,
-            style="Quiet.TCheckbutton"
+            style="Quiet.TCheckbutton",
         ).grid(row=4, column=0, sticky="w", pady=4, columnspan=2)
-        self._help_icon_grid(frame, "Loads the entire PCAP file into RAM before parsing. "
+        self._help_icon_grid(
+            frame,
+            "Loads the entire PCAP file into RAM before parsing. "
             "This is faster for smaller files (under ~500 MB) but uses more memory. "
-            "For very large captures, leave this off to use streaming mode instead.", row=4, column=2, sticky="w")
+            "For very large captures, leave this off to use streaming mode instead.",
+            row=4,
+            column=2,
+            sticky="w",
+        )
 
         ttk.Checkbutton(
             frame,
             text="Turbo parse (fast raw parsing for large files)",
             variable=self.turbo_parse_var,
-            style="Quiet.TCheckbutton"
+            style="Quiet.TCheckbutton",
         ).grid(row=5, column=0, sticky="w", pady=4, columnspan=2)
-        self._help_icon_grid(frame, "Parses IP/TCP/UDP headers directly from raw bytes instead of full "
+        self._help_icon_grid(
+            frame,
+            "Parses IP/TCP/UDP headers directly from raw bytes instead of full "
             "Scapy dissection. Typically 5-15\u00d7 faster for large captures (>50 MB). "
             "Only uses Scapy for DNS and TLS ClientHello packets that need deep inspection. "
-            "Disable if you see missing data in results.", row=5, column=2, sticky="w")
+            "Disable if you see missing data in results.",
+            row=5,
+            column=2,
+            sticky="w",
+        )
 
         ttk.Checkbutton(
-            frame,
-            text="Enable local ML model",
-            variable=self.use_local_model_var,
-            style="Quiet.TCheckbutton"
+            frame, text="Enable local ML model", variable=self.use_local_model_var, style="Quiet.TCheckbutton"
         ).grid(row=6, column=0, sticky="w", pady=4, columnspan=2)
-        self._help_icon_grid(frame, "Uses a locally trained machine learning model (scikit-learn) for an additional "
+        self._help_icon_grid(
+            frame,
+            "Uses a locally trained machine learning model (scikit-learn) for an additional "
             "verdict alongside the heuristic/knowledge-base scoring. Requires scikit-learn to be "
-            "installed and at least some labeled training data in the knowledge base.", row=6, column=2, sticky="w")
+            "installed and at least some labeled training data in the knowledge base.",
+            row=6,
+            column=2,
+            sticky="w",
+        )
 
         # OTX API Key
         ttk.Label(frame, text="AlienVault OTX API Key:").grid(row=7, column=0, sticky="w", pady=4)
@@ -3811,50 +3947,67 @@ class PCAPSentryApp:
         otx_key_entry = ttk.Entry(otx_key_row, textvariable=self.otx_api_key_var, width=40, show="\u2022")
         otx_key_entry.pack(side=tk.LEFT, padx=(0, 4))
         self._add_clear_x(otx_key_entry, self.otx_api_key_var)
-        verify_btn = ttk.Button(
-            otx_key_row, text="Verify", style="Secondary.TButton",
-            command=self._verify_otx_key
-        )
+        verify_btn = ttk.Button(otx_key_row, text="Verify", style="Secondary.TButton", command=self._verify_otx_key)
         verify_btn.pack(side=tk.LEFT, padx=(0, 4))
 
         # Status label on row below
         self._otx_verify_label = tk.Label(
-            frame, text=" ", font=("Segoe UI", 9), anchor="w", width=30,
+            frame,
+            text=" ",
+            font=("Segoe UI", 9),
+            anchor="w",
+            width=30,
             bg=self.colors.get("bg", "#0d1117"),
-            fg=self.colors.get("muted", "#8b949e")
+            fg=self.colors.get("muted", "#8b949e"),
         )
         self._otx_verify_label.grid(row=8, column=1, sticky="w", pady=(0, 4))
 
-        self._help_icon_grid(frame, "Optional API key for AlienVault OTX threat intelligence. "
+        self._help_icon_grid(
+            frame,
+            "Optional API key for AlienVault OTX threat intelligence. "
             "Provides higher rate limits and more detailed threat data. "
             "Get your free key at otx.alienvault.com. Leave blank to use public endpoints.",
-            row=7, column=2, sticky="w")
+            row=7,
+            column=2,
+            sticky="w",
+        )
 
         offline_check = ttk.Checkbutton(
             frame,
             text="Offline mode (disable threat intelligence & cloud LLMs)",
             variable=self.offline_mode_var,
             style="Quiet.TCheckbutton",
-            command=self._on_offline_mode_changed
+            command=self._on_offline_mode_changed,
         )
         offline_check.grid(row=9, column=0, sticky="w", pady=4, columnspan=2)
-        self._help_icon_grid(frame, "Disables online threat intelligence lookups (AlienVault OTX, AbuseIPDB, etc.) "
+        self._help_icon_grid(
+            frame,
+            "Disables online threat intelligence lookups (AlienVault OTX, AbuseIPDB, etc.) "
             "and cloud LLM providers. "
             "Analysis will be faster and work without an internet connection, but you lose the "
             "ability to check IPs/domains against live public threat feeds "
             "and cannot use cloud-based LLM providers. Configure LLM settings via File → LLM Settings. "
             "Use the LLM button in the header to quickly toggle LLM on/off.",
-            row=9, column=2, sticky="w")
+            row=9,
+            column=2,
+            sticky="w",
+        )
 
         ttk.Checkbutton(
             frame,
             text="Multithreaded analysis (faster, uses more CPU)",
             variable=self.use_multithreading_var,
-            style="Quiet.TCheckbutton"
+            style="Quiet.TCheckbutton",
         ).grid(row=10, column=0, sticky="w", pady=4, columnspan=2)
-        self._help_icon_grid(frame, "Runs analysis tasks in parallel using multiple threads. "
+        self._help_icon_grid(
+            frame,
+            "Runs analysis tasks in parallel using multiple threads. "
             "This can significantly speed up analysis on multi-core systems. "
-            "Disable if you experience stability issues or want to reduce CPU usage.", row=10, column=2, sticky="w")
+            "Disable if you experience stability issues or want to reduce CPU usage.",
+            row=10,
+            column=2,
+            sticky="w",
+        )
 
         # Backup directory row with improved spacing
 
@@ -3867,15 +4020,18 @@ class PCAPSentryApp:
         # Button row under backup directory
         button_frame = ttk.Frame(frame)
         button_frame.grid(row=12, column=1, columnspan=5, sticky="w", pady=(4, 4))
-        ttk.Button(button_frame, text="Browse", style="Secondary.TButton",
-                   command=self._browse_backup_dir).pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(button_frame, text="Cancel", style="Secondary.TButton",
-                   command=window.destroy).pack(side=tk.LEFT)
+        ttk.Button(button_frame, text="Browse", style="Secondary.TButton", command=self._browse_backup_dir).pack(
+            side=tk.LEFT, padx=(0, 4)
+        )
+        ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(
+            side=tk.LEFT, padx=(0, 4)
+        )
+        ttk.Button(button_frame, text="Cancel", style="Secondary.TButton", command=window.destroy).pack(side=tk.LEFT)
 
         # Reset to defaults button
-        ttk.Button(frame, text="Reset to Defaults", style="Danger.TButton",
-               command=self._reset_preferences).grid(row=13, column=1, columnspan=5, sticky="w", pady=(4, 0))
+        ttk.Button(frame, text="Reset to Defaults", style="Danger.TButton", command=self._reset_preferences).grid(
+            row=13, column=1, columnspan=5, sticky="w", pady=(4, 0)
+        )
 
         window.grab_set()
 
@@ -3937,6 +4093,7 @@ class PCAPSentryApp:
     def _open_user_manual(self):
         """Open the user manual in the default web browser."""
         import webbrowser
+
         manual_url = "https://github.com/industrial-dave/PCAP-Sentry/blob/main/USER_MANUAL.md"
         webbrowser.open(manual_url)
 
@@ -3989,6 +4146,7 @@ class PCAPSentryApp:
 
         def open_link(url):
             import webbrowser
+
             webbrowser.open(url)
 
         github_btn = ttk.Button(
@@ -4072,12 +4230,8 @@ class PCAPSentryApp:
                 font=("Segoe UI", 13, "bold"),
             ).pack(anchor="w", pady=(0, 10))
 
-            ttk.Label(
-                frame, text=f"Current version: {current}"
-            ).pack(anchor="w", pady=(0, 5))
-            ttk.Label(
-                frame, text=f"Available version: {latest}"
-            ).pack(anchor="w", pady=(0, 15))
+            ttk.Label(frame, text=f"Current version: {current}").pack(anchor="w", pady=(0, 5))
+            ttk.Label(frame, text=f"Available version: {latest}").pack(anchor="w", pady=(0, 15))
 
             # Button frame at bottom FIRST (pack order matters — bottom before expanding middle)
             button_frame = ttk.Frame(frame)
@@ -4098,9 +4252,7 @@ class PCAPSentryApp:
             scrollbar = ttk.Scrollbar(text_frame)
             scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-            text_widget = tk.Text(
-                text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set, height=10
-            )
+            text_widget = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set, height=10)
             text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
             scrollbar.config(command=text_widget.yview)
             self._style_text(text_widget)
@@ -4143,9 +4295,7 @@ class PCAPSentryApp:
                 scrollbar = ttk.Scrollbar(text_frame)
                 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-                text_widget = tk.Text(
-                    text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set, height=10
-                )
+                text_widget = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set, height=10)
                 text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
                 scrollbar.config(command=text_widget.yview)
                 self._style_text(text_widget)
@@ -4207,22 +4357,28 @@ class PCAPSentryApp:
             try:
                 checker = UpdateChecker(APP_VERSION)
                 if not checker.fetch_latest_release():
-                    self.root.after(0, lambda: (
-                        progress_window.destroy(),
-                        messagebox.showerror(
-                            "Download Failed",
-                            "Failed to fetch release information from GitHub.",
+                    self.root.after(
+                        0,
+                        lambda: (
+                            progress_window.destroy(),
+                            messagebox.showerror(
+                                "Download Failed",
+                                "Failed to fetch release information from GitHub.",
+                            ),
                         ),
-                    ))
+                    )
                     return
 
                 if not checker.download_url:
-                    self.root.after(0, lambda: (
-                        progress_window.destroy(),
-                        messagebox.showerror(
-                            "Download Failed", "No installer or executable found in the latest release."
+                    self.root.after(
+                        0,
+                        lambda: (
+                            progress_window.destroy(),
+                            messagebox.showerror(
+                                "Download Failed", "No installer or executable found in the latest release."
+                            ),
                         ),
-                    ))
+                    )
                     return
 
                 update_dir = checker.get_update_dir()
@@ -4254,6 +4410,7 @@ class PCAPSentryApp:
                         self.root.after(0, _update_dl)
 
                 if checker.download_update(dest_path, progress_callback=progress_callback):
+
                     def on_success():
                         progress_window.destroy()
                         if is_installer:
@@ -4272,8 +4429,7 @@ class PCAPSentryApp:
                             else:
                                 messagebox.showinfo(
                                     "Download Complete",
-                                    f"Update saved to:\n{dest_path}\n\n"
-                                    f"Please run it manually to install.",
+                                    f"Update saved to:\n{dest_path}\n\nPlease run it manually to install.",
                                 )
                         else:
                             # Standalone EXE – replace the currently running
@@ -4295,22 +4451,25 @@ class PCAPSentryApp:
                                     f"Update saved to:\n{dest_path}\n\n"
                                     f"Please install it manually.",
                                 )
+
                     self.root.after(0, on_success)
                 else:
-                    self.root.after(0, lambda: (
-                        progress_window.destroy(),
-                        messagebox.showerror(
-                            "Download Failed", "Failed to download the update."
+                    self.root.after(
+                        0,
+                        lambda: (
+                            progress_window.destroy(),
+                            messagebox.showerror("Download Failed", "Failed to download the update."),
                         ),
-                    ))
+                    )
 
             except Exception as e:
-                self.root.after(0, lambda exc=e: (
-                    progress_window.destroy(),
-                    messagebox.showerror(
-                        "Update Error", f"An error occurred during update: {exc!s}"
+                self.root.after(
+                    0,
+                    lambda exc=e: (
+                        progress_window.destroy(),
+                        messagebox.showerror("Update Error", f"An error occurred during update: {exc!s}"),
                     ),
-                ))
+                )
 
         download_thread = threading.Thread(target=download_in_background, daemon=True)
         download_thread.start()
@@ -4324,7 +4483,7 @@ class PCAPSentryApp:
         """Undo last action in focused widget."""
         try:
             widget = self.root.focus_get()
-            if widget and hasattr(widget, 'edit_undo'):
+            if widget and hasattr(widget, "edit_undo"):
                 widget.edit_undo()
         except Exception:
             pass
@@ -4333,7 +4492,7 @@ class PCAPSentryApp:
         """Redo last undone action in focused widget."""
         try:
             widget = self.root.focus_get()
-            if widget and hasattr(widget, 'edit_redo'):
+            if widget and hasattr(widget, "edit_redo"):
                 widget.edit_redo()
         except Exception:
             pass
@@ -4342,7 +4501,7 @@ class PCAPSentryApp:
         """Cut selected text from focused widget."""
         try:
             widget = self.root.focus_get()
-            if widget and hasattr(widget, 'selection_get'):
+            if widget and hasattr(widget, "selection_get"):
                 widget.event_generate("<<Cut>>")
         except Exception:
             pass
@@ -4351,7 +4510,7 @@ class PCAPSentryApp:
         """Copy selected text from focused widget."""
         try:
             widget = self.root.focus_get()
-            if widget and hasattr(widget, 'selection_get'):
+            if widget and hasattr(widget, "selection_get"):
                 widget.event_generate("<<Copy>>")
         except Exception:
             pass
@@ -4360,7 +4519,7 @@ class PCAPSentryApp:
         """Paste text into focused widget."""
         try:
             widget = self.root.focus_get()
-            if widget and hasattr(widget, 'insert'):
+            if widget and hasattr(widget, "insert"):
                 widget.event_generate("<<Paste>>")
         except Exception:
             pass
@@ -4369,10 +4528,10 @@ class PCAPSentryApp:
         """Select all text in focused widget."""
         try:
             widget = self.root.focus_get()
-            if widget and hasattr(widget, 'select_range'):
+            if widget and hasattr(widget, "select_range"):
                 # For Entry widgets
                 widget.select_range(0, tk.END)
-            elif widget and hasattr(widget, 'tag_add'):
+            elif widget and hasattr(widget, "tag_add"):
                 # For Text widgets
                 widget.tag_add(tk.SEL, "1.0", tk.END)
                 widget.mark_set(tk.INSERT, "1.0")
@@ -4397,8 +4556,9 @@ class PCAPSentryApp:
         header = ttk.Frame(container)
         header.pack(fill=tk.X, pady=(0, 8))
         ttk.Label(header, text="Chat Assistant", style="Heading.TLabel").pack(side=tk.LEFT)
-        self._help_icon(header, "Ask questions about the current analysis or general usage. "
-            "Chat uses the configured LLM provider.")
+        self._help_icon(
+            header, "Ask questions about the current analysis or general usage. Chat uses the configured LLM provider."
+        )
 
         disabled_label = ttk.Label(container, textvariable=self.chat_disabled_var, style="Hint.TLabel")
         disabled_label.pack(anchor=tk.W, pady=(0, 6))
@@ -4417,8 +4577,9 @@ class PCAPSentryApp:
         self.chat_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.chat_send_button = ttk.Button(input_frame, text="Send", command=self._send_chat_message)
         self.chat_send_button.pack(side=tk.LEFT, padx=6)
-        self.chat_clear_button = ttk.Button(input_frame, text="Clear", style="Secondary.TButton",
-                                           command=self._clear_chat)
+        self.chat_clear_button = ttk.Button(
+            input_frame, text="Clear", style="Secondary.TButton", command=self._clear_chat
+        )
         self.chat_clear_button.pack(side=tk.LEFT)
 
         self.chat_entry.bind("<Return>", lambda _e: self._send_chat_message())
@@ -4540,12 +4701,7 @@ class PCAPSentryApp:
                 history_lines.append(f"Assistant: {content}")
 
         history_block = "\n".join(history_lines)
-        return (
-            "Context JSON:\n"
-            f"{json.dumps(context, indent=2)}\n\n"
-            f"Conversation:\n{history_block}\n"
-            f"User: {user_message}"
-        )
+        return f"Context JSON:\n{json.dumps(context, indent=2)}\n\nConversation:\n{history_block}\nUser: {user_message}"
 
     def _normalize_openai_endpoint(self, endpoint):
         base = endpoint.strip().rstrip("/")
@@ -4568,13 +4724,13 @@ class PCAPSentryApp:
         url_lower = url.lower()
         if not (url_lower.startswith("http://") or url_lower.startswith("https://")):
             raise RuntimeError(
-                f"Unsupported URL scheme: {url.split(':', 1)[0]}://\n"
-                "Only http:// and https:// endpoints are supported."
+                f"Unsupported URL scheme: {url.split(':', 1)[0]}://\nOnly http:// and https:// endpoints are supported."
             )
         # Block sending data (PCAP analysis, sensitive network info) over
         # plain HTTP to non-local hosts, even without an API key.
         if url_lower.startswith("http://"):
             from urllib.parse import urlparse
+
             host = urlparse(url).hostname or ""
             if host not in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):  # nosec B104 - security check comparing hostnames, not binding
                 raise RuntimeError(
@@ -4592,7 +4748,7 @@ class PCAPSentryApp:
                 with _safe_urlopen(req, timeout=timeout) as resp:
                     raw = resp.read(max_bytes + 1)
                     if len(raw) > max_bytes:
-                        raise RuntimeError(f"LLM response exceeded {max_bytes // (1024*1024)} MB limit.")
+                        raise RuntimeError(f"LLM response exceeded {max_bytes // (1024 * 1024)} MB limit.")
                     return raw.decode("utf-8")
             except urllib.error.HTTPError as exc:
                 body = ""
@@ -4601,7 +4757,9 @@ class PCAPSentryApp:
                 # Retry on 5xx server errors only
                 if exc.code >= 500 and attempt < max_retries:
                     time.sleep(1.0 * (attempt + 1))
-                    last_exc = RuntimeError(f"LLM connection failed ({url}): HTTP {exc.code} {exc.reason}. {body}".strip())
+                    last_exc = RuntimeError(
+                        f"LLM connection failed ({url}): HTTP {exc.code} {exc.reason}. {body}".strip()
+                    )
                     continue
                 raise RuntimeError(f"LLM connection failed ({url}): HTTP {exc.code} {exc.reason}. {body}".strip())
             except (urllib.error.URLError, OSError) as exc:
@@ -4686,53 +4844,71 @@ class PCAPSentryApp:
 
         safe_frame = ttk.LabelFrame(container, text="  Known Safe PCAP  ", padding=12)
         safe_frame.pack(fill=tk.X, pady=10)
-        self._help_icon(safe_frame, "Add a PCAP file that you KNOW contains only normal, harmless traffic "
+        self._help_icon(
+            safe_frame,
+            "Add a PCAP file that you KNOW contains only normal, harmless traffic "
             "(e.g., regular web browsing or office network traffic). The app learns what 'normal' "
             "looks like so it can spot abnormal patterns in future analyses. The more safe examples "
-            "you add, the smarter the detection becomes.")
+            "you add, the smarter the detection becomes.",
+        )
 
         self.safe_path_var = tk.StringVar()
         self.safe_entry = ttk.Entry(safe_frame, textvariable=self.safe_path_var, width=90)
         self.safe_entry.pack(side=tk.LEFT, padx=6)
         self._add_clear_x(self.safe_entry, self.safe_path_var)
-        self.safe_browse = ttk.Button(safe_frame, text="Browse", style="Secondary.TButton",
-                                      command=lambda: self._browse_file(self.safe_path_var))
+        self.safe_browse = ttk.Button(
+            safe_frame, text="Browse", style="Secondary.TButton", command=lambda: self._browse_file(self.safe_path_var)
+        )
         self.safe_browse.pack(side=tk.LEFT, padx=6)
         self.safe_add_button = ttk.Button(safe_frame, text="Add to Safe", command=lambda: self._train("safe"))
         self.safe_add_button.pack(side=tk.LEFT, padx=6)
-        self.undo_safe_button = ttk.Button(safe_frame, text="↩ Undo", style="Secondary.TButton",
-                                            command=lambda: self._undo_last_kb_entry("safe"),
-                                            state=tk.DISABLED)
+        self.undo_safe_button = ttk.Button(
+            safe_frame,
+            text="↩ Undo",
+            style="Secondary.TButton",
+            command=lambda: self._undo_last_kb_entry("safe"),
+            state=tk.DISABLED,
+        )
         self.undo_safe_button.pack(side=tk.LEFT, padx=6)
 
-        ttk.Label(container, text="\u2913  You can also drag and drop a .pcap file here",
-                  style="Hint.TLabel").pack(anchor=tk.W, padx=16, pady=(0, 4))
+        ttk.Label(container, text="\u2913  You can also drag and drop a .pcap file here", style="Hint.TLabel").pack(
+            anchor=tk.W, padx=16, pady=(0, 4)
+        )
 
         mal_frame = ttk.LabelFrame(container, text="  Known Malware PCAP  ", padding=12)
         mal_frame.pack(fill=tk.X, pady=10)
-        self._help_icon(mal_frame, "Add a PCAP file that contains KNOWN malicious traffic "
+        self._help_icon(
+            mal_frame,
+            "Add a PCAP file that contains KNOWN malicious traffic "
             "(e.g., malware samples from malware-traffic-analysis.net). This teaches the app "
             "what attack patterns look like. You can find free malicious PCAP samples at:\n\n"
             "  malware-traffic-analysis.net\n"
             "  netresec.com/?page=PcapFiles\n"
-            "  cyberdefenders.org")
+            "  cyberdefenders.org",
+        )
 
         self.mal_path_var = tk.StringVar()
         self.mal_entry = ttk.Entry(mal_frame, textvariable=self.mal_path_var, width=90)
         self.mal_entry.pack(side=tk.LEFT, padx=6)
         self._add_clear_x(self.mal_entry, self.mal_path_var)
-        self.mal_browse = ttk.Button(mal_frame, text="Browse", style="Secondary.TButton",
-                                      command=lambda: self._browse_file(self.mal_path_var))
+        self.mal_browse = ttk.Button(
+            mal_frame, text="Browse", style="Secondary.TButton", command=lambda: self._browse_file(self.mal_path_var)
+        )
         self.mal_browse.pack(side=tk.LEFT, padx=6)
         self.mal_add_button = ttk.Button(mal_frame, text="Add to Malware", command=lambda: self._train("malicious"))
         self.mal_add_button.pack(side=tk.LEFT, padx=6)
-        self.undo_mal_button = ttk.Button(mal_frame, text="↩ Undo", style="Secondary.TButton",
-                                           command=lambda: self._undo_last_kb_entry("malicious"),
-                                           state=tk.DISABLED)
+        self.undo_mal_button = ttk.Button(
+            mal_frame,
+            text="↩ Undo",
+            style="Secondary.TButton",
+            command=lambda: self._undo_last_kb_entry("malicious"),
+            state=tk.DISABLED,
+        )
         self.undo_mal_button.pack(side=tk.LEFT, padx=6)
 
-        ttk.Label(container, text="\u2913  You can also drag and drop a .pcap file here",
-                  style="Hint.TLabel").pack(anchor=tk.W, padx=16, pady=(0, 4))
+        ttk.Label(container, text="\u2913  You can also drag and drop a .pcap file here", style="Hint.TLabel").pack(
+            anchor=tk.W, padx=16, pady=(0, 4)
+        )
 
     def _build_analyze_tab(self):
         # Create a scrollable container using Canvas
@@ -4761,11 +4937,14 @@ class PCAPSentryApp:
 
         # Bind mousewheel to canvas for scrolling (widget-scoped, not global)
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
         def _bind_mousewheel(_event):
             canvas.bind("<MouseWheel>", _on_mousewheel)
+
         def _unbind_mousewheel(_event):
             canvas.unbind("<MouseWheel>")
+
         canvas.bind("<Enter>", _bind_mousewheel)
         canvas.bind("<Leave>", _unbind_mousewheel)
 
@@ -4775,31 +4954,42 @@ class PCAPSentryApp:
         file_frame = ttk.LabelFrame(container, text="  Target PCAP  ", padding=12)
         file_frame.pack(fill=tk.X, padx=16, pady=(8, 0))
         self.target_drop_area = file_frame
-        self._help_icon(file_frame, "Select the PCAP file you want to analyze. A PCAP (Packet Capture) file "
+        self._help_icon(
+            file_frame,
+            "Select the PCAP file you want to analyze. A PCAP (Packet Capture) file "
             "records network traffic — every message sent between computers on a network. "
             "You can capture your own with Wireshark, or download samples to practice with.\n\n"
-            "Supported formats: .pcap and .pcapng files.")
+            "Supported formats: .pcap and .pcapng files.",
+        )
 
         self.target_path_var = tk.StringVar()
         self.target_entry = ttk.Entry(file_frame, textvariable=self.target_path_var, width=90)
         self.target_entry.pack(side=tk.LEFT, padx=(0, 8))
         self._add_clear_x(self.target_entry, self.target_path_var)
-        target_browse = ttk.Button(file_frame, text="Browse", style="Secondary.TButton",
-                                   command=lambda: self._browse_file(self.target_path_var))
+        target_browse = ttk.Button(
+            file_frame,
+            text="Browse",
+            style="Secondary.TButton",
+            command=lambda: self._browse_file(self.target_path_var),
+        )
         target_browse.pack(side=tk.LEFT, padx=(0, 8))
         self.analyze_button = ttk.Button(file_frame, text="\U0001f50d  Analyze", command=self._analyze)
         self.analyze_button.pack(side=tk.LEFT)
 
-        ttk.Label(container, text="\u2913  You can also drag and drop a .pcap file anywhere on this tab",
-                  style="Hint.TLabel").pack(anchor=tk.W, padx=20, pady=(4, 8))
+        ttk.Label(
+            container, text="\u2913  You can also drag and drop a .pcap file anywhere on this tab", style="Hint.TLabel"
+        ).pack(anchor=tk.W, padx=20, pady=(4, 8))
 
         # Label buttons frame - for marking captures
         label_frame = ttk.LabelFrame(container, text="  Label Current Capture  ", padding=12)
         label_frame.pack(fill=tk.X, padx=16, pady=(8, 0))
-        self._help_icon(label_frame, "After analyzing a PCAP, you can label it as 'Safe' or 'Malicious' to "
+        self._help_icon(
+            label_frame,
+            "After analyzing a PCAP, you can label it as 'Safe' or 'Malicious' to "
             "add it to the knowledge base. This is how the app learns from YOUR judgment. "
             "Over time, this improves detection accuracy for traffic similar to what you've labeled.\n\n"
-            "Tip: Only label captures you're confident about. Mislabeling teaches the app wrong patterns.")
+            "Tip: Only label captures you're confident about. Mislabeling teaches the app wrong patterns.",
+        )
         self.label_safe_button = ttk.Button(
             label_frame,
             text="Mark as Safe",
@@ -4827,9 +5017,14 @@ class PCAPSentryApp:
         self.undo_kb_button.pack(side=tk.LEFT)
 
         # LLM suggestion banner (hidden until analysis completes with LLM enabled)
-        self.llm_suggestion_frame = tk.Frame(container, bg=self.colors.get("panel", "#161b22"),
-                                              highlightbackground=self.colors.get("accent", "#58a6ff"),
-                                              highlightthickness=1, padx=10, pady=8)
+        self.llm_suggestion_frame = tk.Frame(
+            container,
+            bg=self.colors.get("panel", "#161b22"),
+            highlightbackground=self.colors.get("accent", "#58a6ff"),
+            highlightthickness=1,
+            padx=10,
+            pady=8,
+        )
         # Not packed yet – shown after analysis if LLM provides a suggestion
 
         self.results_notebook = ttk.Notebook(container)
@@ -4848,12 +5043,15 @@ class PCAPSentryApp:
 
         result_frame = ttk.LabelFrame(self.results_tab, text="  Results  ", padding=12)
         result_frame.pack(fill=tk.BOTH, expand=True)
-        self._help_icon(result_frame, "The analysis results summary showing:\n\n"
+        self._help_icon(
+            result_frame,
+            "The analysis results summary showing:\n\n"
             "  Risk Score: 0-100 rating (higher = more suspicious)\n"
             "  Verdict: Safe / Suspicious / Malicious\n"
             "  Signals: Which detection methods fired\n"
             "  Similarity: How close this traffic matches known samples\n\n"
-            "Check the 'Why' tab for reasoning and 'Education' for learning.")
+            "Check the 'Why' tab for reasoning and 'Education' for learning.",
+        )
 
         self.result_text = tk.Text(result_frame, height=12)
         self._style_text(self.result_text)
@@ -4861,14 +5059,17 @@ class PCAPSentryApp:
 
         flow_frame = ttk.LabelFrame(self.results_tab, text="  Flow Summary  ", padding=12)
         flow_frame.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
-        self._help_icon(flow_frame, "A 'flow' is a conversation between two hosts (identified by their IP addresses "
+        self._help_icon(
+            flow_frame,
+            "A 'flow' is a conversation between two hosts (identified by their IP addresses "
             "and port numbers) using a specific protocol (TCP/UDP).\n\n"
             "Each row shows one conversation with:\n"
             "  Flow: Source IP:Port \u2192 Destination IP:Port (Protocol)\n"
             "  Packets: How many messages were exchanged\n"
             "  Bytes: Total data transferred\n"
             "  Duration: How long the conversation lasted\n\n"
-            "Flows with high byte counts or long durations are worth investigating first.")
+            "Flows with high byte counts or long durations are worth investigating first.",
+        )
 
         flow_cols = ("Flow", "Packets", "Bytes", "Duration")
         self.flow_table = ttk.Treeview(flow_frame, columns=flow_cols, show="headings", height=8)
@@ -4880,19 +5081,25 @@ class PCAPSentryApp:
 
         why_frame = ttk.LabelFrame(self.why_tab, text="  Why This Verdict Was Reached  ", padding=12)
         why_frame.pack(fill=tk.BOTH, expand=True)
-        self._help_icon(why_frame, "Shows the specific evidence behind the verdict:\n\n"
+        self._help_icon(
+            why_frame,
+            "Shows the specific evidence behind the verdict:\n\n"
             "  [A] ML Pattern Match — Did traffic match known malware patterns?\n"
             "  [B] Baseline Anomaly — Does it deviate from normal behavior?\n"
             "  [C] IoC Check — Were known-bad IPs or domains contacted?\n"
             "  [D-I] Traffic Details — Ports, DNS, HTTP, TLS, packet sizes\n\n"
-            "Use the Wireshark filters at the bottom to investigate further.")
+            "Use the Wireshark filters at the bottom to investigate further.",
+        )
 
         self.why_text = tk.Text(why_frame, height=12)
         self._style_text(self.why_text)
-        self.why_text.insert(tk.END, "Run an analysis on a PCAP file to see the\n"
-                            "analytical reasoning behind the verdict.\n\n"
-                            "This tab shows the evidence and data points\n"
-                            "that contributed to the risk score.")
+        self.why_text.insert(
+            tk.END,
+            "Run an analysis on a PCAP file to see the\n"
+            "analytical reasoning behind the verdict.\n\n"
+            "This tab shows the evidence and data points\n"
+            "that contributed to the risk score.",
+        )
         self.why_text.pack(fill=tk.BOTH, expand=True)
 
         why_controls = ttk.Frame(self.why_tab)
@@ -4901,28 +5108,39 @@ class PCAPSentryApp:
             why_controls, text="Copy Wireshark Filters", command=self._copy_wireshark_filters, state=tk.DISABLED
         )
         self.copy_filters_button.pack(side=tk.RIGHT)
-        self._help_icon(why_controls, "Copies all auto-generated Wireshark display filters to your clipboard. "
+        self._help_icon(
+            why_controls,
+            "Copies all auto-generated Wireshark display filters to your clipboard. "
             "Open Wireshark, load the same PCAP file, and paste a filter into the display "
-            "filter bar to isolate the suspicious traffic identified by the analysis.", side=tk.RIGHT)
+            "filter bar to isolate the suspicious traffic identified by the analysis.",
+            side=tk.RIGHT,
+        )
 
-        edu_frame = ttk.LabelFrame(self.education_tab, text="  Beginner's Guide: Why This Traffic Matters  ", padding=12)
+        edu_frame = ttk.LabelFrame(
+            self.education_tab, text="  Beginner's Guide: Why This Traffic Matters  ", padding=12
+        )
         edu_frame.pack(fill=tk.BOTH, expand=True)
-        self._help_icon(edu_frame, "A beginner-friendly breakdown of the analysis results. This tab:\n\n"
+        self._help_icon(
+            edu_frame,
+            "A beginner-friendly breakdown of the analysis results. This tab:\n\n"
             "  - Explains each finding in plain English\n"
             "  - Points out specific suspicious IPs, ports, and flows\n"
             "  - Provides Wireshark filters to investigate each flow\n"
             "  - Includes a glossary of attack patterns\n"
             "  - Links to free learning resources\n\n"
-            "Content updates automatically each time you analyze a new PCAP.")
+            "Content updates automatically each time you analyze a new PCAP.",
+        )
 
         self.education_text = tk.Text(edu_frame, height=12, wrap=tk.WORD)
         self._style_text(self.education_text)
-        self.education_text.insert(tk.END,
+        self.education_text.insert(
+            tk.END,
             "Run an analysis on a PCAP file to see a beginner-friendly\n"
             "explanation of what was found and why it matters.\n\n"
             "This tab breaks down each finding in plain English,\n"
             "explains common attack patterns, and links you to\n"
-            "free online resources to keep learning.")
+            "free online resources to keep learning.",
+        )
         edu_scroll = ttk.Scrollbar(edu_frame, orient=tk.VERTICAL, command=self.education_text.yview)
         self.education_text.configure(yscrollcommand=edu_scroll.set)
         edu_scroll.pack(side=tk.RIGHT, fill=tk.Y)
@@ -4996,12 +5214,12 @@ class PCAPSentryApp:
         ttk.Button(packet_filters, text="Apply", command=self._apply_packet_filters).grid(
             row=2, column=6, sticky="e", padx=(12, 4)
         )
-        ttk.Button(packet_filters, text="Reset", command=self._reset_packet_filters).grid(
-            row=2, column=7, sticky="w"
-        )
+        ttk.Button(packet_filters, text="Reset", command=self._reset_packet_filters).grid(row=2, column=7, sticky="w")
 
         packet_filters.grid_columnconfigure(8, weight=1)
-        self._help_icon_grid(packet_filters, "Filter the packet table to isolate specific traffic. You can filter by:\n\n"
+        self._help_icon_grid(
+            packet_filters,
+            "Filter the packet table to isolate specific traffic. You can filter by:\n\n"
             "  Protocol: TCP, UDP, or other\n"
             "  Source/Destination IP: The sending/receiving computer\n"
             "  Source/Destination Port: The service being used\n"
@@ -5009,8 +5227,10 @@ class PCAPSentryApp:
             "  Packet size: How big each message was\n"
             "  DNS/HTTP only: Show only name lookups and web requests\n\n"
             "Tip: Use these filters to zoom in on suspicious flows from the Education tab.",
-            row=0, column=9, sticky="e")
-
+            row=0,
+            column=9,
+            sticky="e",
+        )
 
         # Place the packet table directly in the packets_tab for guaranteed visibility
         packet_table_frame = ttk.Frame(self.packets_tab)
@@ -5061,11 +5281,14 @@ class PCAPSentryApp:
 
         hint_frame = ttk.LabelFrame(self.packets_tab, text="  C2 / Exfil Hints  ", padding=12)
         hint_frame.pack(fill=tk.BOTH, expand=False, pady=8)
-        self._help_icon(hint_frame, "Automated hints about possible Command & Control (C2) or Data Exfiltration patterns:\n\n"
+        self._help_icon(
+            hint_frame,
+            "Automated hints about possible Command & Control (C2) or Data Exfiltration patterns:\n\n"
             "  C2: Malware 'phoning home' to an attacker's server for instructions. "
             "Look for small, regular outbound messages to uncommon destinations.\n\n"
             "  Exfiltration: Data being stolen from the network. "
-            "Look for large outbound transfers to unfamiliar external IPs.")
+            "Look for large outbound transfers to unfamiliar external IPs.",
+        )
         self.packet_hint_text = tk.Text(hint_frame, height=6)
         self._style_text(self.packet_hint_text)
         self.packet_hint_text.insert(tk.END, "Run analysis to see packet-level hints.")
@@ -5073,14 +5296,18 @@ class PCAPSentryApp:
 
         self.charts_button = ttk.Button(container, text="Open Charts", command=self._open_charts, state=tk.DISABLED)
         self.charts_button.pack(side=tk.RIGHT, anchor=tk.E, pady=10)
-        self._help_icon(container, "Opens visual charts of the analyzed traffic including:\n\n"
+        self._help_icon(
+            container,
+            "Opens visual charts of the analyzed traffic including:\n\n"
             "  Timeline: When traffic occurred during the capture\n"
             "  Ports: Which network services were used\n"
             "  Protocols: TCP vs UDP vs other breakdown\n"
             "  DNS: Most-queried domain names\n"
             "  HTTP: Most-visited web hosts\n"
             "  TLS: Encrypted connection destinations\n"
-            "  Flows: Largest conversations by data volume", side=tk.RIGHT)
+            "  Flows: Largest conversations by data volume",
+            side=tk.RIGHT,
+        )
 
         widgets = [
             self.safe_browse,
@@ -5123,22 +5350,19 @@ class PCAPSentryApp:
         # Unicode arrow characters for column menu
         arrows = "\u25b2\u25bc"
         menu = tk.Menu(self.root, tearoff=0)
-        menu.add_command(label=f"\u2550  Column: {tree.heading(col_name, 'text').rstrip(' ' + arrows)}",
-                         state=tk.DISABLED)
+        menu.add_command(
+            label=f"\u2550  Column: {tree.heading(col_name, 'text').rstrip(' ' + arrows)}", state=tk.DISABLED
+        )
         menu.add_separator()
-        menu.add_command(label="\u25c0  Align Left",
-                         command=lambda: self._set_column_align(tree, col_name, tk.W))
-        menu.add_command(label="\u25c6  Align Center",
-                         command=lambda: self._set_column_align(tree, col_name, tk.CENTER))
-        menu.add_command(label="\u25b6  Align Right",
-                         command=lambda: self._set_column_align(tree, col_name, tk.E))
+        menu.add_command(label="\u25c0  Align Left", command=lambda: self._set_column_align(tree, col_name, tk.W))
+        menu.add_command(
+            label="\u25c6  Align Center", command=lambda: self._set_column_align(tree, col_name, tk.CENTER)
+        )
+        menu.add_command(label="\u25b6  Align Right", command=lambda: self._set_column_align(tree, col_name, tk.E))
         menu.add_separator()
-        menu.add_command(label="\u25c0  Align ALL Left",
-                         command=lambda: self._set_all_columns_align(tree, tk.W))
-        menu.add_command(label="\u25c6  Align ALL Center",
-                         command=lambda: self._set_all_columns_align(tree, tk.CENTER))
-        menu.add_command(label="\u25b6  Align ALL Right",
-                         command=lambda: self._set_all_columns_align(tree, tk.E))
+        menu.add_command(label="\u25c0  Align ALL Left", command=lambda: self._set_all_columns_align(tree, tk.W))
+        menu.add_command(label="\u25c6  Align ALL Center", command=lambda: self._set_all_columns_align(tree, tk.CENTER))
+        menu.add_command(label="\u25b6  Align ALL Right", command=lambda: self._set_all_columns_align(tree, tk.E))
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -5176,12 +5400,10 @@ class PCAPSentryApp:
         for c in tree["columns"]:
             heading_text = tree.heading(c, "text")
             heading_text = heading_text.rstrip(" \u25b2\u25bc")
-            tree.heading(c, text=heading_text,
-                         command=lambda _c=c: self._treeview_sort_column(tree, _c, False))
+            tree.heading(c, text=heading_text, command=lambda _c=c: self._treeview_sort_column(tree, _c, False))
         # Set current column heading with arrow
         current_text = tree.heading(col, "text").rstrip(" \u25b2\u25bc")
-        tree.heading(col, text=current_text + arrow,
-                     command=lambda: self._treeview_sort_column(tree, col, not reverse))
+        tree.heading(col, text=current_text + arrow, command=lambda: self._treeview_sort_column(tree, col, not reverse))
 
     def _build_extracted_tab(self):
         """Build the Extracted Info tab for credentials, hosts, and MAC addresses."""
@@ -5200,13 +5422,21 @@ class PCAPSentryApp:
         self.extracted_summary_text.insert(tk.END, "Run an analysis to see extracted credentials and host information.")
         # Configure highlight tags for the summary
         self.extracted_summary_text.tag_configure("heading", font=("Segoe UI", 12, "bold"))
-        self.extracted_summary_text.tag_configure("username_tag", foreground=self.colors["accent"], font=("Consolas", 11, "bold"))
-        self.extracted_summary_text.tag_configure("password_tag", foreground=self.colors["danger"], font=("Consolas", 11, "bold"))
-        self.extracted_summary_text.tag_configure("hostname_tag", foreground=self.colors["success"], font=("Consolas", 11, "bold"))
+        self.extracted_summary_text.tag_configure(
+            "username_tag", foreground=self.colors["accent"], font=("Consolas", 11, "bold")
+        )
+        self.extracted_summary_text.tag_configure(
+            "password_tag", foreground=self.colors["danger"], font=("Consolas", 11, "bold")
+        )
+        self.extracted_summary_text.tag_configure(
+            "hostname_tag", foreground=self.colors["success"], font=("Consolas", 11, "bold")
+        )
         self.extracted_summary_text.tag_configure("label_dim", foreground=self.colors["muted"], font=("Segoe UI", 10))
         self.extracted_summary_text.tag_configure("separator", foreground=self.colors["border_light"])
 
-        summary_scrollbar = ttk.Scrollbar(summary_text_frame, orient=tk.VERTICAL, command=self.extracted_summary_text.yview)
+        summary_scrollbar = ttk.Scrollbar(
+            summary_text_frame, orient=tk.VERTICAL, command=self.extracted_summary_text.yview
+        )
         self.extracted_summary_text.configure(yscrollcommand=summary_scrollbar.set)
         self.extracted_summary_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         summary_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -5214,24 +5444,28 @@ class PCAPSentryApp:
         # -- Credentials table --
         cred_frame = ttk.LabelFrame(container, text="  All Extracted Items  ", padding=12)
         cred_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 0))
-        self._help_icon(cred_frame,
+        self._help_icon(
+            cred_frame,
             "All credentials and auth tokens found in UNENCRYPTED traffic.\n\n"
             "Row colors:\n"
             "  \u2588 Red — Passwords / secrets\n"
             "  \u2588 Blue — Usernames / accounts\n"
             "  \u2588 Green — Computer names / hostnames\n"
             "  \u2588 Yellow — Cookies / tokens\n\n"
-            "Supported: FTP, HTTP, SMTP, POP3, IMAP, Telnet, SNMP, Kerberos")
+            "Supported: FTP, HTTP, SMTP, POP3, IMAP, Telnet, SNMP, Kerberos",
+        )
 
         cred_cols = ("Type", "Protocol", "Source", "Destination", "Value", "Detail")
         cred_table_frame = ttk.Frame(cred_frame)
         cred_table_frame.pack(fill=tk.BOTH, expand=True)
 
         self.cred_table = ttk.Treeview(
-            cred_table_frame, columns=cred_cols, show="headings", height=10,
+            cred_table_frame,
+            columns=cred_cols,
+            show="headings",
+            height=10,
         )
-        col_widths = {"Type": 105, "Protocol": 90, "Source": 130, "Destination": 130,
-                      "Value": 250, "Detail": 160}
+        col_widths = {"Type": 105, "Protocol": 90, "Source": 130, "Destination": 130, "Value": 250, "Detail": 160}
         for col in cred_cols:
             self.cred_table.heading(col, text=col)
             self.cred_table.column(col, width=col_widths.get(col, 120), anchor=tk.W, stretch=True)
@@ -5258,25 +5492,31 @@ class PCAPSentryApp:
         cred_controls.pack(fill=tk.X, pady=(8, 0))
         self.cred_count_var = tk.StringVar(value="No credentials extracted yet.")
         ttk.Label(cred_controls, textvariable=self.cred_count_var, style="Hint.TLabel").pack(side=tk.LEFT)
-        ttk.Button(cred_controls, text="Copy All", style="Secondary.TButton",
-                   command=self._copy_extracted_creds).pack(side=tk.RIGHT, padx=4)
+        ttk.Button(cred_controls, text="Copy All", style="Secondary.TButton", command=self._copy_extracted_creds).pack(
+            side=tk.RIGHT, padx=4
+        )
 
         # -- Hosts / MAC / Hostname section --
         host_frame = ttk.LabelFrame(container, text="  Hosts \u2014 IP / MAC / Computer Name  ", padding=8)
         host_frame.pack(fill=tk.BOTH, expand=True, pady=(6, 0))
-        self._help_icon(host_frame,
+        self._help_icon(
+            host_frame,
             "Every IP address seen in the capture, along with:\n\n"
             "  MAC address \u2014 The hardware address of the network interface\n"
             "  Computer Name \u2014 Names learned from DNS, DHCP, SMTP EHLO, NetBIOS\n\n"
             "MAC addresses are only available for traffic on the same Layer-2\n"
-            "segment as the capture point.")
+            "segment as the capture point.",
+        )
 
         host_cols = ("IP Address", "MAC Address(es)", "Computer / Hostname")
         host_table_frame = ttk.Frame(host_frame)
         host_table_frame.pack(fill=tk.BOTH, expand=True)
 
         self.host_table = ttk.Treeview(
-            host_table_frame, columns=host_cols, show="headings", height=8,
+            host_table_frame,
+            columns=host_cols,
+            show="headings",
+            height=8,
         )
         host_col_widths = {"IP Address": 150, "MAC Address(es)": 200, "Computer / Hostname": 350}
         for col in host_cols:
@@ -5301,8 +5541,9 @@ class PCAPSentryApp:
         host_controls.pack(fill=tk.X, pady=(4, 0))
         self.host_count_var = tk.StringVar(value="No host data extracted yet.")
         ttk.Label(host_controls, textvariable=self.host_count_var, style="Hint.TLabel").pack(side=tk.LEFT)
-        ttk.Button(host_controls, text="Copy All", style="Secondary.TButton",
-                   command=self._copy_extracted_hosts).pack(side=tk.RIGHT, padx=4)
+        ttk.Button(host_controls, text="Copy All", style="Secondary.TButton", command=self._copy_extracted_hosts).pack(
+            side=tk.RIGHT, padx=4
+        )
 
     @staticmethod
     def _classify_cred_field(field_str):
@@ -5310,8 +5551,7 @@ class PCAPSentryApp:
         f = field_str.lower()
         if any(kw in f for kw in ("password", "pass ", "passwd", "secret", "pw")):
             return "password", "\U0001f534 PASSWORD"
-        if any(kw in f for kw in ("username", "user", "login", "account", "email", "acct",
-                                   "mail from", "principal")):
+        if any(kw in f for kw in ("username", "user", "login", "account", "email", "acct", "mail from", "principal")):
             return "username", "\U0001f535 USERNAME"
         if any(kw in f for kw in ("ehlo", "helo", "hostname", "computer", "host")):
             return "hostname", "\U0001f7e2 COMPUTER"
@@ -5354,7 +5594,9 @@ class PCAPSentryApp:
         t = self.extracted_summary_text
         if not creds and not computernames:
             t.insert(tk.END, "No credentials or computer names found.\n\n", "label_dim")
-            t.insert(tk.END, "This is normal for captures that only contain encrypted (TLS/SSL) traffic.\n", "label_dim")
+            t.insert(
+                tk.END, "This is normal for captures that only contain encrypted (TLS/SSL) traffic.\n", "label_dim"
+            )
         else:
             # Usernames
             t.insert(tk.END, "\U0001f464  USERNAMES FOUND", "heading")
@@ -5397,21 +5639,27 @@ class PCAPSentryApp:
 
         for cred in creds:
             cat, type_label = self._classify_cred_field(cred.get("field", ""))
-            self.cred_table.insert("", tk.END, values=(
-                type_label,
-                cred.get("protocol", ""),
-                cred.get("src", ""),
-                cred.get("dst", ""),
-                cred.get("value", ""),
-                cred.get("detail", ""),
-            ), tags=(cat,))
+            self.cred_table.insert(
+                "",
+                tk.END,
+                values=(
+                    type_label,
+                    cred.get("protocol", ""),
+                    cred.get("src", ""),
+                    cred.get("dst", ""),
+                    cred.get("value", ""),
+                    cred.get("detail", ""),
+                ),
+                tags=(cat,),
+            )
 
         if creds:
             n_user = len([c for c in creds if self._classify_cred_field(c.get("field", ""))[0] == "username"])
             n_pass = len([c for c in creds if self._classify_cred_field(c.get("field", ""))[0] == "password"])
             self.cred_count_var.set(
                 f"{len(creds)} item(s)  |  {n_user} username(s)  |  {n_pass} password(s)  |  "
-                f"{len(computernames)} computer name(s)")
+                f"{len(computernames)} computer name(s)"
+            )
         else:
             self.cred_count_var.set("No credentials or auth data found in cleartext traffic.")
 
@@ -5431,9 +5679,11 @@ class PCAPSentryApp:
             tag = "has_name" if hostnames else "no_name"
             self.host_table.insert("", tk.END, values=(ip, macs, hostnames), tags=(tag,))
 
-        self.host_count_var.set(f"{len(hosts)} unique IP(s), "
-                                f"{sum(len(v.get('mac', [])) for v in hosts.values())} MAC(s), "
-                                f"{sum(len(v.get('hostnames', [])) for v in hosts.values())} hostname(s)")
+        self.host_count_var.set(
+            f"{len(hosts)} unique IP(s), "
+            f"{sum(len(v.get('mac', [])) for v in hosts.values())} MAC(s), "
+            f"{sum(len(v.get('hostnames', [])) for v in hosts.values())} hostname(s)"
+        )
 
     def _copy_extracted_creds(self):
         """Copy all extracted credentials to clipboard as tab-separated text."""
@@ -5463,37 +5713,52 @@ class PCAPSentryApp:
         header.pack(fill=tk.X, pady=(0, 8))
         self.kb_summary_var = tk.StringVar(value="")
         ttk.Label(header, textvariable=self.kb_summary_var).pack(side=tk.LEFT)
-        self._help_icon(header, "The Knowledge Base stores patterns from PCAPs you've labeled as safe or malicious. "
+        self._help_icon(
+            header,
+            "The Knowledge Base stores patterns from PCAPs you've labeled as safe or malicious. "
             "It's the app's memory — the more examples you add, the better it detects threats.\n\n"
             "  Refresh: Reload the KB from disk\n"
             "  Backup: Save a copy of your KB to a file\n"
             "  Restore: Load a previously saved KB backup\n"
-            "  Reset: Erase all learned patterns (cannot be undone!)")
+            "  Reset: Erase all learned patterns (cannot be undone!)",
+        )
         ttk.Button(header, text="Refresh", style="Secondary.TButton", command=self._refresh_kb).pack(side=tk.RIGHT)
-        ttk.Button(header, text="Reset Knowledge Base", style="DangerMuted.TButton", command=self._reset_kb).pack(side=tk.RIGHT, padx=6)
-        ttk.Button(header, text="Restore", style="Secondary.TButton", command=self._restore_kb).pack(side=tk.RIGHT, padx=6)
-        ttk.Button(header, text="Backup", style="Secondary.TButton", command=self._backup_kb).pack(side=tk.RIGHT, padx=6)
+        ttk.Button(header, text="Reset Knowledge Base", style="DangerMuted.TButton", command=self._reset_kb).pack(
+            side=tk.RIGHT, padx=6
+        )
+        ttk.Button(header, text="Restore", style="Secondary.TButton", command=self._restore_kb).pack(
+            side=tk.RIGHT, padx=6
+        )
+        ttk.Button(header, text="Backup", style="Secondary.TButton", command=self._backup_kb).pack(
+            side=tk.RIGHT, padx=6
+        )
 
         ioc_frame = ttk.LabelFrame(container, text="  IoC Feed  ", padding=12)
         ioc_frame.pack(fill=tk.X, pady=8)
-        self._help_icon(ioc_frame, "IoC = Indicator of Compromise. These are lists of known-bad IP addresses, "
+        self._help_icon(
+            ioc_frame,
+            "IoC = Indicator of Compromise. These are lists of known-bad IP addresses, "
             "domains, and file hashes maintained by security researchers.\n\n"
             "Import a CSV or text file containing IoCs, and the app will check every analyzed "
             "PCAP against this list. Any traffic to/from a listed address gets flagged.\n\n"
             "Free IoC sources:\n"
             "  AlienVault OTX (otx.alienvault.com)\n"
             "  Abuse.ch (abuse.ch)\n"
-            "  CIRCL (circl.lu)")
+            "  CIRCL (circl.lu)",
+        )
         ttk.Label(ioc_frame, text="IoC file:").pack(side=tk.LEFT)
         ioc_entry = ttk.Entry(ioc_frame, textvariable=self.ioc_path_var, width=70)
         ioc_entry.pack(side=tk.LEFT, padx=6)
-        ttk.Button(ioc_frame, text="\u2715", width=2, style="Secondary.TButton",
-                   command=lambda: self.ioc_path_var.set("")).pack(side=tk.LEFT)
-        ttk.Button(ioc_frame, text="Browse", style="Secondary.TButton",
-                   command=self._browse_ioc).pack(side=tk.LEFT, padx=6)
+        ttk.Button(
+            ioc_frame, text="\u2715", width=2, style="Secondary.TButton", command=lambda: self.ioc_path_var.set("")
+        ).pack(side=tk.LEFT)
+        ttk.Button(ioc_frame, text="Browse", style="Secondary.TButton", command=self._browse_ioc).pack(
+            side=tk.LEFT, padx=6
+        )
         ttk.Button(ioc_frame, text="Import", command=self._load_ioc_file).pack(side=tk.LEFT, padx=6)
-        ttk.Button(ioc_frame, text="Clear", style="Secondary.TButton",
-                   command=self._clear_iocs).pack(side=tk.LEFT, padx=6)
+        ttk.Button(ioc_frame, text="Clear", style="Secondary.TButton", command=self._clear_iocs).pack(
+            side=tk.LEFT, padx=6
+        )
 
     def _reset_packet_filters(self):
         if self.packet_proto_var is None:
@@ -5722,11 +5987,7 @@ class PCAPSentryApp:
     def _toggle_packet_column(self, column):
         if self.packet_table is None or self.packet_column_vars is None:
             return
-        visible = [
-            col
-            for col in self.packet_columns or []
-            if self.packet_column_vars[col].get()
-        ]
+        visible = [col for col in self.packet_columns or [] if self.packet_column_vars[col].get()]
         if not visible:
             self.packet_column_vars[column].set(True)
             return
@@ -5748,27 +6009,31 @@ class PCAPSentryApp:
                 col_name = columns[col_index]
                 self.packet_column_menu.add_separator()
                 heading_text = self.packet_table.heading(col_name, "text").rstrip(" \u25b2\u25bc")
-                self.packet_column_menu.add_command(
-                    label=f"\u2550  Align: {heading_text}", state=tk.DISABLED)
+                self.packet_column_menu.add_command(label=f"\u2550  Align: {heading_text}", state=tk.DISABLED)
                 self.packet_column_menu.add_command(
                     label="\u25c0  Align Left",
-                    command=lambda: self._set_column_align(self.packet_table, col_name, tk.W))
+                    command=lambda: self._set_column_align(self.packet_table, col_name, tk.W),
+                )
                 self.packet_column_menu.add_command(
                     label="\u25c6  Align Center",
-                    command=lambda: self._set_column_align(self.packet_table, col_name, tk.CENTER))
+                    command=lambda: self._set_column_align(self.packet_table, col_name, tk.CENTER),
+                )
                 self.packet_column_menu.add_command(
                     label="\u25b6  Align Right",
-                    command=lambda: self._set_column_align(self.packet_table, col_name, tk.E))
+                    command=lambda: self._set_column_align(self.packet_table, col_name, tk.E),
+                )
                 self.packet_column_menu.add_separator()
                 self.packet_column_menu.add_command(
-                    label="\u25c0  Align ALL Left",
-                    command=lambda: self._set_all_columns_align(self.packet_table, tk.W))
+                    label="\u25c0  Align ALL Left", command=lambda: self._set_all_columns_align(self.packet_table, tk.W)
+                )
                 self.packet_column_menu.add_command(
                     label="\u25c6  Align ALL Center",
-                    command=lambda: self._set_all_columns_align(self.packet_table, tk.CENTER))
+                    command=lambda: self._set_all_columns_align(self.packet_table, tk.CENTER),
+                )
                 self.packet_column_menu.add_command(
                     label="\u25b6  Align ALL Right",
-                    command=lambda: self._set_all_columns_align(self.packet_table, tk.E))
+                    command=lambda: self._set_all_columns_align(self.packet_table, tk.E),
+                )
 
         try:
             self.packet_column_menu.tk_popup(event.x_root, event.y_root)
@@ -5811,9 +6076,7 @@ class PCAPSentryApp:
                 large_flows = flow_df[flow_df["Bytes"] >= high_bytes_threshold]
                 if not large_flows.empty:
                     row = large_flows.sort_values("Bytes", ascending=False).iloc[0]
-                    hint_lines.append(
-                        f"- Large transfer: {row['Flow']} ({_format_bytes(row['Bytes'])})"
-                    )
+                    hint_lines.append(f"- Large transfer: {row['Flow']} ({_format_bytes(row['Bytes'])})")
 
         beacon_flow = None
         if not df.empty:
@@ -5875,8 +6138,8 @@ class PCAPSentryApp:
         top_ports = stats.get("top_ports", [])
 
         for domain in domains[:3]:
-            filters.append(f"dns.qry.name == \"{domain}\"")
-            filters.append(f"http.host == \"{domain}\"")
+            filters.append(f'dns.qry.name == "{domain}"')
+            filters.append(f'http.host == "{domain}"')
 
         for ip in ips[:3]:
             filters.append(f"ip.addr == {ip}")
@@ -6003,14 +6266,13 @@ class PCAPSentryApp:
             self.root.after_cancel(self._progress_anim_id)
             self._progress_anim_id = None
 
-
     def _set_progress(self, percent, eta_seconds=None, label=None, processed=None, total=None):
         if percent is None:
             # No percentage — stay at current position
             if label:
                 self.status_var.set(label)
                 if self.busy_count > 0:
-                    short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
+                    short_label = label.split(" \u2014 ")[0] if " \u2014 " in label else label
                     self.root.title(f"{self.root_title} - {short_label}")
             return
 
@@ -6050,7 +6312,7 @@ class PCAPSentryApp:
                     status_text += f" — ~{eta_sec}s remaining"
             self.status_var.set(status_text)
             if self.busy_count > 0:
-                short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
+                short_label = label.split(" \u2014 ")[0] if " \u2014 " in label else label
                 self.root.title(f"{self.root_title} - {percent:.0f}% {short_label}")
 
     def _animate_progress(self):
@@ -6170,12 +6432,9 @@ class PCAPSentryApp:
         tab_selected_fg = self.colors["tab_selected_fg"]
 
         style.configure("TFrame", background=bg)
-        style.configure("TLabel", background=bg, foreground=text,
-                        font=("Segoe UI", 11))
-        style.configure("Hint.TLabel", background=bg, foreground=muted,
-                        font=("Segoe UI", 10))
-        style.configure("Heading.TLabel", background=bg, foreground=text,
-                        font=("Segoe UI", 13, "bold"))
+        style.configure("TLabel", background=bg, foreground=text, font=("Segoe UI", 11))
+        style.configure("Hint.TLabel", background=bg, foreground=muted, font=("Segoe UI", 10))
+        style.configure("Heading.TLabel", background=bg, foreground=text, font=("Segoe UI", 13, "bold"))
 
         # ── Buttons ──────────────────────────────────────────────
         _btn_font = ("Segoe UI", 11)
@@ -6299,11 +6558,9 @@ class PCAPSentryApp:
         )
 
         # ── Checkbuttons ─────────────────────────────────────────
-        style.configure("TCheckbutton", background=bg, foreground=text,
-                        font=("Segoe UI", 11))
+        style.configure("TCheckbutton", background=bg, foreground=text, font=("Segoe UI", 11))
         style.map("TCheckbutton", foreground=[("disabled", muted)])
-        style.configure("Quiet.TCheckbutton", background=bg, foreground=text,
-                        font=("Segoe UI", 11))
+        style.configure("Quiet.TCheckbutton", background=bg, foreground=text, font=("Segoe UI", 11))
         style.map(
             "Quiet.TCheckbutton",
             background=[("active", bg), ("focus", bg)],
@@ -6311,25 +6568,24 @@ class PCAPSentryApp:
         )
 
         # ── Radiobuttons ─────────────────────────────────────────
-        style.configure("TRadiobutton", background=bg, foreground=text,
-                        font=("Segoe UI", 11))
-        style.map("TRadiobutton",
+        style.configure("TRadiobutton", background=bg, foreground=text, font=("Segoe UI", 11))
+        style.map(
+            "TRadiobutton",
             background=[("active", bg), ("focus", bg)],
             foreground=[("active", text), ("disabled", muted)],
         )
 
         # ── LabelFrame ───────────────────────────────────────────
-        style.configure("TLabelframe", background=bg, foreground=text,
-                        bordercolor=border_light, relief="groove",
-                        borderwidth=1)
-        style.configure("TLabelframe.Label", background=bg, foreground=accent,
-                        font=("Segoe UI", 11, "bold"))
+        style.configure(
+            "TLabelframe", background=bg, foreground=text, bordercolor=border_light, relief="groove", borderwidth=1
+        )
+        style.configure("TLabelframe.Label", background=bg, foreground=accent, font=("Segoe UI", 11, "bold"))
 
         # ── Notebook / Tabs ──────────────────────────────────────
-        style.configure("TNotebook", background=bg, bordercolor=border,
-                        tabmargins=[2, 6, 2, 0])
-        style.configure("TNotebook.Tab", background=panel_alt, foreground=muted,
-                        padding=(18, 9), font=("Segoe UI", 11, "bold"))
+        style.configure("TNotebook", background=bg, bordercolor=border, tabmargins=[2, 6, 2, 0])
+        style.configure(
+            "TNotebook.Tab", background=panel_alt, foreground=muted, padding=(18, 9), font=("Segoe UI", 11, "bold")
+        )
         style.map(
             "TNotebook.Tab",
             background=[("selected", accent), ("active", accent_subtle)],
@@ -6347,7 +6603,8 @@ class PCAPSentryApp:
             insertcolor=text,
             padding=_field_padding,
         )
-        style.map("TEntry",
+        style.map(
+            "TEntry",
             bordercolor=[("focus", accent)],
         )
         style.configure(
@@ -6359,11 +6616,13 @@ class PCAPSentryApp:
             padding=_field_padding,
             arrowsize=14,
         )
-        style.map("TSpinbox",
+        style.map(
+            "TSpinbox",
             bordercolor=[("focus", accent)],
         )
 
-        style.configure("TCombobox",
+        style.configure(
+            "TCombobox",
             fieldbackground=panel,
             foreground=text,
             bordercolor=border_light,
@@ -6481,13 +6740,13 @@ class PCAPSentryApp:
             return
         try:
             import ctypes
+
             target = window or self.root
             hwnd = ctypes.windll.user32.GetParent(target.winfo_id())
             DWMWA_USE_IMMERSIVE_DARK_MODE = 20
             value = ctypes.c_int(1)
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
-                ctypes.byref(value), ctypes.sizeof(value)
+                hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ctypes.byref(value), ctypes.sizeof(value)
             )
         except Exception:
             pass
@@ -6595,15 +6854,18 @@ class PCAPSentryApp:
                 return
             try:
                 widget.drop_target_register(DND_FILES)
+
                 def on_drop(event):
                     path = self._extract_drop_path(event.data)
                     if path:
                         setter(path)
                         return "copy"
                     return "none"
+
                 widget.dnd_bind("<<Drop>>", on_drop)
             except (tk.TclError, AttributeError) as e:
                 import traceback
+
                 print(f"Drag/drop setup failed for widget: {e}")
                 traceback.print_exc()
                 return
@@ -6617,7 +6879,11 @@ class PCAPSentryApp:
         bind_drop(self.result_text, self.target_path_var.set)
 
     _ALLOWED_DROP_EXTENSIONS = {
-        ".pcap", ".pcapng", ".cap", ".pcap.gz", ".pcapng.gz",
+        ".pcap",
+        ".pcapng",
+        ".cap",
+        ".pcap.gz",
+        ".pcapng.gz",
     }
 
     def _extract_drop_path(self, data):
@@ -6627,7 +6893,7 @@ class PCAPSentryApp:
         def normalize(text):
             if not text:
                 return ""
-            text = text.strip().strip("\"")
+            text = text.strip().strip('"')
             if text.startswith("{") and text.endswith("}"):
                 text = text[1:-1]
             if text.startswith("file://"):
@@ -6696,11 +6962,14 @@ class PCAPSentryApp:
 
         # Add mouse wheel scrolling support
         def _on_mousewheel(event):
-            widget.yview_scroll(int(-1*(event.delta/120)), "units")
+            widget.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
         def _bind_mousewheel(_event):
             widget.bind("<MouseWheel>", _on_mousewheel)
+
         def _unbind_mousewheel(_event):
             widget.unbind("<MouseWheel>")
+
         widget.bind("<Enter>", _bind_mousewheel)
         widget.bind("<Leave>", _unbind_mousewheel)
 
@@ -6723,15 +6992,15 @@ class PCAPSentryApp:
             # Check for cancellation on every progress update
             if self._cancel_event.is_set():
                 raise AnalysisCancelledError("Analysis cancelled by user.")
-            
+
             # Light throttling to prevent excessive updates while maintaining responsiveness
             current_time = time.time()
             time_delta = current_time - last_progress_time[0]
             progress_delta = abs(percent - last_progress_value[0])
-            
+
             # Send update if: significant change (>1%), enough time passed (>150ms), or final (100%)
             should_update = percent >= 100 or progress_delta >= 1.0 or time_delta >= 0.15
-            
+
             if should_update:
                 last_progress_time[0] = current_time
                 last_progress_value[0] = percent
@@ -6763,6 +7032,7 @@ class PCAPSentryApp:
                 q.put(("cancelled",))
             except Exception as exc:
                 import traceback as _tb
+
                 # If cancelled, don't report the error
                 if self._cancel_event.is_set():
                     q.put(("cancelled",))
@@ -7038,13 +7308,11 @@ class PCAPSentryApp:
             {
                 "role": "system",
                 "content": "You are a cybersecurity assistant. Return ONLY JSON with keys: label (safe/malicious), "
-                           "confidence (0-1), rationale (1-2 sentences).",
+                "confidence (0-1), rationale (1-2 sentences).",
             },
             {
                 "role": "user",
-                "content": "Summary stats JSON:\n"
-                           f"{json.dumps(summary_stats, indent=2)}\n\n"
-                           f"Human summary:\n{summary}\n",
+                "content": f"Summary stats JSON:\n{json.dumps(summary_stats, indent=2)}\n\nHuman summary:\n{summary}\n",
             },
         ]
         content = self._request_openai_compat_chat(messages, temperature=0.2)
@@ -7078,20 +7346,14 @@ class PCAPSentryApp:
             conf_text = f"{confidence:.2f}" if isinstance(confidence, (int, float)) else "n/a"
             rationale = suggestion.get("rationale", "").strip()
             if suggested_label == intended_label:
-                detail = (
-                    f"LLM agrees with your label: {suggested_label}\n"
-                    f"Confidence: {conf_text}\n"
-                )
+                detail = f"LLM agrees with your label: {suggested_label}\nConfidence: {conf_text}\n"
                 if rationale:
                     detail += f"Rationale: {rationale}\n"
                 messagebox.showinfo("LLM Suggestion", detail)
                 on_apply(intended_label)
                 return
 
-            prompt = (
-                f"LLM suggests: {suggested_label}\n"
-                f"Confidence: {conf_text}\n"
-            )
+            prompt = f"LLM suggests: {suggested_label}\nConfidence: {conf_text}\n"
             if rationale:
                 prompt += f"Rationale: {rationale}\n"
             prompt += f"\nUse suggested label instead of '{intended_label}'?"
@@ -7136,11 +7398,11 @@ class PCAPSentryApp:
             fg = self.colors.get("accent", "#58a6ff")
             border = self.colors.get("accent", "#58a6ff")
         elif "Testing" in status or "testing" in status:
-            text = "\u25CF LLM"
+            text = "\u25cf LLM"
             fg = self.colors.get("warning", "#d29922")
             border = self.colors.get("warning", "#d29922")
         else:
-            text = "\u25CB LLM"
+            text = "\u25cb LLM"
             fg = self.colors.get("muted", "#8b949e")
             border = self.colors.get("border", "#21262d")
         self.llm_header_label.configure(text=text, fg=fg, bg=bg)
@@ -7169,7 +7431,7 @@ class PCAPSentryApp:
 
         if current_provider in ("", "disabled"):
             # Turn LLM on - restore last used provider or default to "disabled"
-            last_provider = getattr(self, '_last_llm_provider', None)
+            last_provider = getattr(self, "_last_llm_provider", None)
             if last_provider and last_provider not in ("", "disabled"):
                 self.llm_provider_var.set(last_provider)
             else:
@@ -7177,7 +7439,7 @@ class PCAPSentryApp:
                 messagebox.showinfo(
                     "LLM Settings",
                     "LLM is currently disabled. Please configure an LLM provider in File → LLM Settings.",
-                    parent=self.root
+                    parent=self.root,
                 )
                 return
         else:
@@ -7359,9 +7621,14 @@ class PCAPSentryApp:
             found = []
             # Cloud providers set (skip during local port scan)
             _CLOUD_NAMES = {
-                "OpenAI", "Google Gemini",
-                "Mistral AI", "Groq", "Together AI", "OpenRouter",
-                "Perplexity", "DeepSeek",
+                "OpenAI",
+                "Google Gemini",
+                "Mistral AI",
+                "Groq",
+                "Together AI",
+                "OpenRouter",
+                "Perplexity",
+                "DeepSeek",
             }
             for name, (prov, endpoint) in servers.items():
                 if name in ("Disabled", "Custom") or not endpoint:
@@ -7418,16 +7685,10 @@ class PCAPSentryApp:
 
         key = self.otx_api_key_var.get().strip()
         if not key:
-            label.configure(
-                text="No key provided",
-                fg=self.colors.get("warning", "#d29922")
-            )
+            label.configure(text="No key provided", fg=self.colors.get("warning", "#d29922"))
             return
 
-        label.configure(
-            text="Verifying...",
-            fg=self.colors.get("accent", "#58a6ff")
-        )
+        label.configure(text="Verifying...", fg=self.colors.get("accent", "#58a6ff"))
 
         def _test():
             try:
@@ -7453,21 +7714,15 @@ class PCAPSentryApp:
             except requests.exceptions.ConnectionError:
                 return False, "Connection failed"
             except Exception as e:
-                error_msg = str(e).split('\n')[0][:40]  # First line, max 40 chars
+                error_msg = str(e).split("\n")[0][:40]  # First line, max 40 chars
                 return False, error_msg
 
         def _apply(result):
             success, message = result
             if success:
-                label.configure(
-                    text=f"✓ Valid ({message})",
-                    fg=self.colors.get("success", "#3fb950")
-                )
+                label.configure(text=f"✓ Valid ({message})", fg=self.colors.get("success", "#3fb950"))
             else:
-                label.configure(
-                    text=f"✗ {message}",
-                    fg=self.colors.get("danger", "#f85149")
-                )
+                label.configure(text=f"✗ {message}", fg=self.colors.get("danger", "#f85149"))
 
         def _run():
             result = _test()
@@ -7479,7 +7734,9 @@ class PCAPSentryApp:
         """Open a window to add/remove Ollama models."""
         provider = self.llm_provider_var.get().strip().lower()
         if provider != "ollama":
-            messagebox.showwarning("Model Manager", "Model management is only available when LLM provider is set to Ollama.")
+            messagebox.showwarning(
+                "Model Manager", "Model management is only available when LLM provider is set to Ollama."
+            )
             return
 
         window = tk.Toplevel(self.root)
@@ -7495,7 +7752,8 @@ class PCAPSentryApp:
         ttk.Label(
             frame,
             text="Add or remove locally installed Ollama models.",
-            style="Hint.TLabel", wraplength=500,
+            style="Hint.TLabel",
+            wraplength=500,
         ).pack(anchor="w", pady=(0, 12))
 
         # ── Installed Models Section ──
@@ -7539,7 +7797,8 @@ class PCAPSentryApp:
                     try:
                         subprocess.Popen(
                             ["ollama", "serve"],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                         )
                         time.sleep(0.5)
@@ -7594,7 +7853,8 @@ class PCAPSentryApp:
                 with contextlib.suppress(Exception):
                     subprocess.Popen(
                         ["ollama", "serve"],
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                     )
                 result = subprocess.run(
@@ -7616,14 +7876,17 @@ class PCAPSentryApp:
             def failed(err):
                 messagebox.showerror(
                     "Remove Model",
-                    "Failed to remove model. Ensure Ollama is installed and running.\n\n"
-                    f"Details: {err}",
+                    f"Failed to remove model. Ensure Ollama is installed and running.\n\nDetails: {err}",
                 )
 
             self._run_task(task, done, on_error=failed, message="Removing model...")
 
-        ttk.Button(remove_btn_frame, text="Remove Selected", style="Danger.TButton", command=remove_selected).pack(side=tk.LEFT)
-        ttk.Button(remove_btn_frame, text="Refresh", style="Secondary.TButton", command=refresh_models).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(remove_btn_frame, text="Remove Selected", style="Danger.TButton", command=remove_selected).pack(
+            side=tk.LEFT
+        )
+        ttk.Button(remove_btn_frame, text="Refresh", style="Secondary.TButton", command=refresh_models).pack(
+            side=tk.LEFT, padx=(8, 0)
+        )
 
         # ── Add Model Section ──
         add_frame = ttk.LabelFrame(frame, text=" Add Model ", padding=12)
@@ -7664,7 +7927,9 @@ class PCAPSentryApp:
 
             # Validate model name
             if not _is_valid_model_name(model_to_add):
-                messagebox.showwarning("Add Model", "Invalid model name. Only letters, digits, '.', ':', '-', '_', '/' are allowed.")
+                messagebox.showwarning(
+                    "Add Model", "Invalid model name. Only letters, digits, '.', ':', '-', '_', '/' are allowed."
+                )
                 return
 
             confirm = messagebox.askyesno(
@@ -7679,7 +7944,8 @@ class PCAPSentryApp:
                 with contextlib.suppress(Exception):
                     subprocess.Popen(
                         ["ollama", "serve"],
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                     )
                 time.sleep(1)
@@ -7747,16 +8013,16 @@ class PCAPSentryApp:
     # -- Ollama model download after install --------------------------------
 
     _OLLAMA_SUGGESTED_MODELS = [
-        ("llama3.2:3b",       "3B — fast, good for most tasks (~2 GB)"),
-        ("llama3.2:1b",       "1B — ultra-light, minimal RAM (~1 GB)"),
-        ("llama3.1:8b",       "8B — higher quality, needs ~5 GB RAM (~4.7 GB)"),
-        ("deepseek-r1:1.5b",  "1.5B — compact reasoning model (~1.1 GB)"),
-        ("deepseek-r1:7b",    "7B — strong reasoning & analysis (~4.7 GB)"),
-        ("deepseek-r1:14b",   "14B — top-tier reasoning, needs ~9 GB RAM (~9 GB)"),
-        ("qwen2.5:3b",        "3B — multilingual, strong reasoning (~1.9 GB)"),
-        ("phi4-mini:3.8b",    "3.8B — Microsoft, strong on analysis (~2.4 GB)"),
-        ("mistral:7b",        "7B — solid all-rounder (~4.1 GB)"),
-        ("gemma3:4b",         "4B — Google, fast & capable (~3.3 GB)"),
+        ("llama3.2:3b", "3B — fast, good for most tasks (~2 GB)"),
+        ("llama3.2:1b", "1B — ultra-light, minimal RAM (~1 GB)"),
+        ("llama3.1:8b", "8B — higher quality, needs ~5 GB RAM (~4.7 GB)"),
+        ("deepseek-r1:1.5b", "1.5B — compact reasoning model (~1.1 GB)"),
+        ("deepseek-r1:7b", "7B — strong reasoning & analysis (~4.7 GB)"),
+        ("deepseek-r1:14b", "14B — top-tier reasoning, needs ~9 GB RAM (~9 GB)"),
+        ("qwen2.5:3b", "3B — multilingual, strong reasoning (~1.9 GB)"),
+        ("phi4-mini:3.8b", "3.8B — Microsoft, strong on analysis (~2.4 GB)"),
+        ("mistral:7b", "7B — solid all-rounder (~4.1 GB)"),
+        ("gemma3:4b", "4B — Google, fast & capable (~3.3 GB)"),
     ]
 
     def _offer_ollama_model_download(self):
@@ -7773,9 +8039,9 @@ class PCAPSentryApp:
         ttk.Label(frame, text="Download a Model", style="Heading.TLabel").pack(anchor="w", pady=(0, 4))
         ttk.Label(
             frame,
-            text="Ollama needs at least one model to work. "
-                 "Select a model below or enter a custom name.",
-            style="Hint.TLabel", wraplength=460,
+            text="Ollama needs at least one model to work. Select a model below or enter a custom name.",
+            style="Hint.TLabel",
+            wraplength=460,
         ).pack(anchor="w", pady=(0, 12))
 
         selected_var = tk.StringVar()
@@ -7785,7 +8051,10 @@ class PCAPSentryApp:
             row.pack(fill=tk.X, pady=2)
 
             rb = ttk.Radiobutton(
-                row, variable=selected_var, value=model_name, text="",
+                row,
+                variable=selected_var,
+                value=model_name,
+                text="",
             )
             rb.pack(side=tk.LEFT)
 
@@ -7807,7 +8076,10 @@ class PCAPSentryApp:
         custom_row = ttk.Frame(frame)
         custom_row.pack(fill=tk.X, pady=4)
         custom_rb = ttk.Radiobutton(
-            custom_row, text="", variable=selected_var, value="__custom__",
+            custom_row,
+            text="",
+            variable=selected_var,
+            value="__custom__",
         )
         custom_rb.pack(side=tk.LEFT)
         ttk.Label(custom_row, text="Custom:", font=("Segoe UI", 11, "bold")).pack(side=tk.LEFT)
@@ -7817,7 +8089,8 @@ class PCAPSentryApp:
 
         # Link to Ollama model library
         link_label = tk.Label(
-            frame, text="\U0001F517  Browse models at ollama.com/library",
+            frame,
+            text="\U0001f517  Browse models at ollama.com/library",
             fg=self.colors.get("accent", "#58a6ff"),
             bg=self.colors.get("bg", "#0d1117"),
             font=("Segoe UI", 10, "underline"),
@@ -7836,8 +8109,10 @@ class PCAPSentryApp:
             if not choice:
                 messagebox.showwarning("Ollama", "Enter or select a model name.")
                 return
-            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:\-/]*', choice):
-                messagebox.showwarning("Ollama", "Invalid model name. Only letters, digits, '.', ':', '-', '_', '/' are allowed.")
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:\-/]*", choice):
+                messagebox.showwarning(
+                    "Ollama", "Invalid model name. Only letters, digits, '.', ':', '-', '_', '/' are allowed."
+                )
                 return
             window.destroy()
             self._pull_ollama_model(choice)
@@ -7864,7 +8139,8 @@ class PCAPSentryApp:
             with contextlib.suppress(Exception):
                 subprocess.Popen(
                     ["ollama", "serve"],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
             time.sleep(1)  # Give serve a moment to start
@@ -7885,8 +8161,7 @@ class PCAPSentryApp:
                 resp = _safe_urlopen(req, timeout=1800)  # 30 min timeout
             except Exception as exc:
                 raise RuntimeError(
-                    f"Could not connect to Ollama at {endpoint}.\n"
-                    f"Ensure 'ollama serve' is running.\n\nDetails: {exc}"
+                    f"Could not connect to Ollama at {endpoint}.\nEnsure 'ollama serve' is running.\n\nDetails: {exc}"
                 )
 
             last_status = ""
@@ -7925,7 +8200,8 @@ class PCAPSentryApp:
             with contextlib.suppress(Exception):
                 subprocess.run(
                     ["taskkill", "/F", "/IM", "ollama.exe"],
-                    capture_output=True, timeout=5,
+                    capture_output=True,
+                    timeout=5,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
 
@@ -7939,8 +8215,7 @@ class PCAPSentryApp:
             self.llm_model_var.set(result_name)
             messagebox.showinfo(
                 "Ollama",
-                f"Model '{result_name}' downloaded successfully!\n\n"
-                f"LLM settings have been configured automatically.",
+                f"Model '{result_name}' downloaded successfully!\n\nLLM settings have been configured automatically.",
             )
 
         def failed(err):
@@ -7952,9 +8227,9 @@ class PCAPSentryApp:
                 f"Error: {err}",
             )
 
-        self._run_task(task, done, on_error=failed,
-                      message=f"Downloading {model_name}...",
-                      progress_label=f"Pulling {model_name}")
+        self._run_task(
+            task, done, on_error=failed, message=f"Downloading {model_name}...", progress_label=f"Pulling {model_name}"
+        )
         self.cancel_button.pack_forget()
 
     def _open_install_llm_dialog(self):
@@ -7972,10 +8247,12 @@ class PCAPSentryApp:
             {
                 "name": "LM Studio",
                 "desc": "Desktop app with model browser. Download models in-app.",
-                "check": lambda: self._is_path_installed([
-                    os.path.expandvars(r"%LOCALAPPDATA%\LM-Studio\LM Studio.exe"),
-                    os.path.expandvars(r"%LOCALAPPDATA%\Programs\LM-Studio\LM Studio.exe"),
-                ]),
+                "check": lambda: self._is_path_installed(
+                    [
+                        os.path.expandvars(r"%LOCALAPPDATA%\LM-Studio\LM Studio.exe"),
+                        os.path.expandvars(r"%LOCALAPPDATA%\Programs\LM-Studio\LM Studio.exe"),
+                    ]
+                ),
                 "winget": "Element.LMStudio",
                 "url": None,
                 "homepage": "https://lmstudio.ai/download",
@@ -7984,10 +8261,12 @@ class PCAPSentryApp:
             {
                 "name": "GPT4All",
                 "desc": "Desktop app with built-in model library. Easy setup.",
-                "check": lambda: self._is_path_installed([
-                    os.path.expandvars(r"%LOCALAPPDATA%\nomic.ai\GPT4All\bin\chat.exe"),
-                    os.path.expandvars(r"%PROGRAMFILES%\GPT4All\bin\chat.exe"),
-                ]),
+                "check": lambda: self._is_path_installed(
+                    [
+                        os.path.expandvars(r"%LOCALAPPDATA%\nomic.ai\GPT4All\bin\chat.exe"),
+                        os.path.expandvars(r"%PROGRAMFILES%\GPT4All\bin\chat.exe"),
+                    ]
+                ),
                 "winget": "Nomic.GPT4All",
                 "url": "https://gpt4all.io/installers/gpt4all-installer-win64.exe",
                 "homepage": "https://gpt4all.io",
@@ -7996,9 +8275,11 @@ class PCAPSentryApp:
             {
                 "name": "Jan",
                 "desc": "Desktop app with chat UI. Download models in-app.",
-                "check": lambda: self._is_path_installed([
-                    os.path.expandvars(r"%LOCALAPPDATA%\Programs\jan\Jan.exe"),
-                ]),
+                "check": lambda: self._is_path_installed(
+                    [
+                        os.path.expandvars(r"%LOCALAPPDATA%\Programs\jan\Jan.exe"),
+                    ]
+                ),
                 "winget": "Jan.Jan",
                 "url": None,
                 "homepage": "https://jan.ai/download",
@@ -8016,9 +8297,12 @@ class PCAPSentryApp:
         frame.pack(fill=tk.BOTH, expand=True)
 
         ttk.Label(frame, text="Manage LLM Servers", style="Heading.TLabel").pack(anchor="w", pady=(0, 4))
-        ttk.Label(frame, text="Select a local LLM server to install. "
-            "These run on your machine for fully offline AI analysis.",
-            style="Hint.TLabel", wraplength=460).pack(anchor="w", pady=(0, 12))
+        ttk.Label(
+            frame,
+            text="Select a local LLM server to install. These run on your machine for fully offline AI analysis.",
+            style="Hint.TLabel",
+            wraplength=460,
+        ).pack(anchor="w", pady=(0, 12))
 
         status_vars = []
         install_buttons = []
@@ -8041,7 +8325,8 @@ class PCAPSentryApp:
             status_var = tk.StringVar(value="Checking...")
             status_vars.append(status_var)
             status_lbl = tk.Label(
-                btn_frame, textvariable=status_var,
+                btn_frame,
+                textvariable=status_var,
                 fg=self.colors.get("muted", "#8b949e"),
                 bg=self.colors.get("bg", "#0d1117"),
                 font=("Segoe UI", 9),
@@ -8049,19 +8334,18 @@ class PCAPSentryApp:
             status_lbl.pack(side=tk.LEFT, padx=(0, 8))
 
             uninstall_btn = ttk.Button(
-                btn_frame, text="Uninstall", style="Danger.TButton",
-                command=lambda s=srv: (
-                    window.destroy(),
-                    self._uninstall_llm_server(s)),
+                btn_frame,
+                text="Uninstall",
+                style="Danger.TButton",
+                command=lambda s=srv: (window.destroy(), self._uninstall_llm_server(s)),
             )
             uninstall_btn.pack_forget()  # shown only when installed
             uninstall_buttons.append(uninstall_btn)
 
             install_btn = ttk.Button(
-                btn_frame, text="Install",
-                command=lambda s=srv: (
-                    window.destroy(),
-                    self._install_llm_server(s)),
+                btn_frame,
+                text="Install",
+                command=lambda s=srv: (window.destroy(), self._install_llm_server(s)),
             )
             install_btn.pack(side=tk.LEFT)
             install_buttons.append(install_btn)
@@ -8110,7 +8394,10 @@ class PCAPSentryApp:
         """Check if a CLI program is available."""
         try:
             result = subprocess.run(
-                [cmd, *args], capture_output=True, text=True, timeout=5,
+                [cmd, *args],
+                capture_output=True,
+                text=True,
+                timeout=5,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
             return result.returncode == 0
@@ -8186,7 +8473,10 @@ class PCAPSentryApp:
                                         else:
                                             eta_str = f" — {eta_secs / 60:.1f}m left"
                                     speed_str = f" ({speed_mb:.1f} MB/s)" if current_speed > 0 else ""
-                                    progress_cb(pct, label=f"Downloading {name} — {dl_mb:.1f} / {total_mb:.1f} MB{speed_str}{eta_str}")
+                                    progress_cb(
+                                        pct,
+                                        label=f"Downloading {name} — {dl_mb:.1f} / {total_mb:.1f} MB{speed_str}{eta_str}",
+                                    )
                                 else:
                                     dl_mb = downloaded / (1024 * 1024)
                                     speed_str = f" ({speed_mb:.1f} MB/s)" if current_speed > 0 else ""
@@ -8198,8 +8488,10 @@ class PCAPSentryApp:
                     # Run installer elevated via ShellExecuteExW so UAC
                     # grants admin rights and the installer runs truly silent
                     rc = self._run_elevated(
-                        installer_path, silent_flag,
-                        progress_cb, name,
+                        installer_path,
+                        silent_flag,
+                        progress_cb,
+                        name,
                     )
                     if rc == 0:
                         # Kill Ollama desktop app if it auto-launched
@@ -8208,7 +8500,8 @@ class PCAPSentryApp:
                                 with contextlib.suppress(Exception):
                                     subprocess.run(
                                         ["taskkill", "/F", "/IM", pn],
-                                        capture_output=True, timeout=5,
+                                        capture_output=True,
+                                        timeout=5,
                                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                                     )
                         return "download"
@@ -8223,10 +8516,20 @@ class PCAPSentryApp:
             progress_cb(None, label=f"Installing {name} via winget...")
             try:
                 proc = subprocess.Popen(
-                    ["winget", "install", "-e", "--id", winget_id,
-                     "--accept-package-agreements", "--accept-source-agreements", "-h"],
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True, bufsize=1,
+                    [
+                        "winget",
+                        "install",
+                        "-e",
+                        "--id",
+                        winget_id,
+                        "--accept-package-agreements",
+                        "--accept-source-agreements",
+                        "-h",
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
                 line_q = queue.Queue()
@@ -8269,7 +8572,8 @@ class PCAPSentryApp:
                             with contextlib.suppress(Exception):
                                 subprocess.run(
                                     ["taskkill", "/F", "/IM", pn],
-                                    capture_output=True, timeout=5,
+                                    capture_output=True,
+                                    timeout=5,
                                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                                 )
                     return "winget"
@@ -8294,14 +8598,19 @@ class PCAPSentryApp:
                         with contextlib.suppress(Exception):
                             subprocess.run(
                                 ["taskkill", "/F", "/IM", proc_name],
-                                capture_output=True, timeout=5,
+                                capture_output=True,
+                                timeout=5,
                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                             )
                 # Remove auto-start shortcut that some servers (e.g. Ollama) add
                 try:
                     startup_lnk = os.path.join(
                         os.environ.get("APPDATA", ""),
-                        "Microsoft", "Windows", "Start Menu", "Programs", "Startup",
+                        "Microsoft",
+                        "Windows",
+                        "Start Menu",
+                        "Programs",
+                        "Startup",
                         f"{name}.lnk",
                     )
                     if os.path.isfile(startup_lnk):
@@ -8313,7 +8622,11 @@ class PCAPSentryApp:
                     try:
                         ollama_lnk = os.path.join(
                             os.environ.get("APPDATA", ""),
-                            "Microsoft", "Windows", "Start Menu", "Programs", "Startup",
+                            "Microsoft",
+                            "Windows",
+                            "Start Menu",
+                            "Programs",
+                            "Startup",
                             "Ollama.lnk",
                         )
                         if os.path.isfile(ollama_lnk):
@@ -8323,10 +8636,12 @@ class PCAPSentryApp:
                     # Remove registry auto-start entry if present
                     try:
                         import winreg
+
                         key = winreg.OpenKey(
                             winreg.HKEY_CURRENT_USER,
                             r"Software\Microsoft\Windows\CurrentVersion\Run",
-                            0, winreg.KEY_SET_VALUE | winreg.KEY_QUERY_VALUE,
+                            0,
+                            winreg.KEY_SET_VALUE | winreg.KEY_QUERY_VALUE,
                         )
                         try:
                             winreg.QueryValueEx(key, "Ollama")
@@ -8371,13 +8686,12 @@ class PCAPSentryApp:
             self.status_var.set(f"{name} install failed")
             messagebox.showerror(
                 name,
-                f"Failed to install {name}.\n\n"
-                f"You can download it manually from:\n{homepage}\n\n"
-                f"Error: {err}",
+                f"Failed to install {name}.\n\nYou can download it manually from:\n{homepage}\n\nError: {err}",
             )
 
-        self._run_task(task, _on_done, on_error=_on_failed,
-                      message=f"Installing {name}...", progress_label=f"Installing {name}")
+        self._run_task(
+            task, _on_done, on_error=_on_failed, message=f"Installing {name}...", progress_label=f"Installing {name}"
+        )
         # Hide cancel button — LLM install cannot be cleanly cancelled
         self.cancel_button.pack_forget()
 
@@ -8401,7 +8715,8 @@ class PCAPSentryApp:
                     with contextlib.suppress(Exception):
                         subprocess.run(
                             ["taskkill", "/F", "/IM", proc_name],
-                            capture_output=True, timeout=5,
+                            capture_output=True,
+                            timeout=5,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                         )
                 time.sleep(1)
@@ -8409,10 +8724,11 @@ class PCAPSentryApp:
             progress_cb(None, label=f"Uninstalling {name} via winget...")
             try:
                 proc = subprocess.Popen(
-                    ["winget", "uninstall", "--id", winget_id, "-e",
-                     "--silent", "--accept-source-agreements"],
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True, bufsize=1,
+                    ["winget", "uninstall", "--id", winget_id, "-e", "--silent", "--accept-source-agreements"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
                 line_q = queue.Queue()
@@ -8460,7 +8776,11 @@ class PCAPSentryApp:
                 try:
                     startup_lnk = os.path.join(
                         os.environ.get("APPDATA", ""),
-                        "Microsoft", "Windows", "Start Menu", "Programs", "Startup",
+                        "Microsoft",
+                        "Windows",
+                        "Start Menu",
+                        "Programs",
+                        "Startup",
                         f"{name}.lnk",
                     )
                     if os.path.isfile(startup_lnk):
@@ -8489,14 +8809,19 @@ class PCAPSentryApp:
                 f"Failed to uninstall {name}.\n\nError: {err}",
             )
 
-        self._run_task(task, _on_done, on_error=_on_failed,
-                      message=f"Uninstalling {name}...", progress_label=f"Uninstalling {name}")
+        self._run_task(
+            task,
+            _on_done,
+            on_error=_on_failed,
+            message=f"Uninstalling {name}...",
+            progress_label=f"Uninstalling {name}",
+        )
         self.cancel_button.pack_forget()
 
     @staticmethod
     def _extract_percent(text):
         """Extract a percentage value from a line of text (e.g. '45%' or 'Progress: 72%')."""
-        m = re.search(r'(\d{1,3})%', text)
+        m = re.search(r"(\d{1,3})%", text)
         if m:
             val = int(m.group(1))
             if 0 <= val <= 100:
@@ -8555,7 +8880,8 @@ class PCAPSentryApp:
         inst_start = time.time()
         while True:
             wait_result = ctypes.windll.kernel32.WaitForSingleObject(
-                sei.hProcess, 500,  # 500 ms timeout
+                sei.hProcess,
+                500,  # 500 ms timeout
             )
             if wait_result == 0:  # WAIT_OBJECT_0 — process finished
                 break
@@ -8565,7 +8891,8 @@ class PCAPSentryApp:
 
         exit_code = wintypes.DWORD()
         ctypes.windll.kernel32.GetExitCodeProcess(
-            sei.hProcess, ctypes.byref(exit_code),
+            sei.hProcess,
+            ctypes.byref(exit_code),
         )
         ctypes.windll.kernel32.CloseHandle(sei.hProcess)
         return exit_code.value
@@ -8668,62 +8995,83 @@ class PCAPSentryApp:
 
         # Enable mouse wheel scrolling (widget-scoped, not global)
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
         def _bind_mousewheel(_event):
             canvas.bind("<MouseWheel>", _on_mousewheel)
+
         def _unbind_mousewheel(_event):
             canvas.unbind("<MouseWheel>")
+
         canvas.bind("<Enter>", _bind_mousewheel)
         canvas.bind("<Leave>", _unbind_mousewheel)
 
         frame = ttk.Frame(scrollable_frame, padding=24)
         frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frame, text="LLM Settings", style="Heading.TLabel").grid(row=0, column=0, sticky="w", columnspan=3, pady=(0, 12))
+        ttk.Label(frame, text="LLM Settings", style="Heading.TLabel").grid(
+            row=0, column=0, sticky="w", columnspan=3, pady=(0, 12)
+        )
 
         # Manage LLM servers button
         ttk.Label(frame, text="LLM servers:").grid(row=1, column=0, sticky="w", pady=6)
         install_frame = ttk.Frame(frame)
         install_frame.grid(row=1, column=1, sticky="w", pady=6)
-        ttk.Button(install_frame, text="Manage LLM Servers\u2026", style="Secondary.TButton",
-                   command=self._open_install_llm_dialog).pack(side=tk.LEFT)
-        self._help_icon_grid(frame, "Opens a dialog to install or uninstall a local LLM server (Ollama, LM Studio, GPT4All, or Jan).",
-            row=1, column=2, sticky="w")
+        ttk.Button(
+            install_frame,
+            text="Manage LLM Servers\u2026",
+            style="Secondary.TButton",
+            command=self._open_install_llm_dialog,
+        ).pack(side=tk.LEFT)
+        self._help_icon_grid(
+            frame,
+            "Opens a dialog to install or uninstall a local LLM server (Ollama, LM Studio, GPT4All, or Jan).",
+            row=1,
+            column=2,
+            sticky="w",
+        )
 
         # --- Unified LLM server dropdown ---
         # Cloud providers that need an API key
         _CLOUD_PROVIDERS = {
-            "OpenAI", "Google Gemini",
-            "Mistral AI", "Groq", "Together AI", "OpenRouter",
-            "Perplexity", "DeepSeek",
+            "OpenAI",
+            "Google Gemini",
+            "Mistral AI",
+            "Groq",
+            "Together AI",
+            "OpenRouter",
+            "Perplexity",
+            "DeepSeek",
         }
         _CLOUD_ICON = " \u2601"  # ☁
+
         def _cloud(name):
             return name + _CLOUD_ICON if name in _CLOUD_PROVIDERS else name
+
         def _strip_cloud(name):
             return name.replace(_CLOUD_ICON, "") if name.endswith(_CLOUD_ICON) else name
 
         _LLM_SERVERS = {
-            "Disabled":         ("disabled",           ""),
+            "Disabled": ("disabled", ""),
             # --- Local servers ---
-            "Ollama":           ("ollama",              "http://localhost:11434"),
-            "LM Studio":       ("openai_compatible",   "http://localhost:1234"),
-            "LocalAI":         ("openai_compatible",   "http://localhost:8080"),
-            "vLLM":            ("openai_compatible",   "http://localhost:8000"),
-            "text-gen-webui":  ("openai_compatible",   "http://localhost:5000"),
-            "GPT4All":         ("openai_compatible",   "http://localhost:4891"),
-            "Jan":             ("openai_compatible",    "http://localhost:1337"),
-            "KoboldCpp":       ("openai_compatible",   "http://localhost:5001"),
-            "Custom":          ("openai_compatible",   ""),
+            "Ollama": ("ollama", "http://localhost:11434"),
+            "LM Studio": ("openai_compatible", "http://localhost:1234"),
+            "LocalAI": ("openai_compatible", "http://localhost:8080"),
+            "vLLM": ("openai_compatible", "http://localhost:8000"),
+            "text-gen-webui": ("openai_compatible", "http://localhost:5000"),
+            "GPT4All": ("openai_compatible", "http://localhost:4891"),
+            "Jan": ("openai_compatible", "http://localhost:1337"),
+            "KoboldCpp": ("openai_compatible", "http://localhost:5001"),
+            "Custom": ("openai_compatible", ""),
             # --- Cloud providers (API key required) ---
-            "OpenAI":           ("openai_compatible",   "https://api.openai.com"),
-            "Google Gemini":    ("openai_compatible",   "https://generativelanguage.googleapis.com/v1beta/openai"),
-            "Mistral AI":       ("openai_compatible",   "https://api.mistral.ai"),
-            "Groq":             ("openai_compatible",   "https://api.groq.com/openai"),
-            "Together AI":      ("openai_compatible",   "https://api.together.xyz"),
-            "OpenRouter":       ("openai_compatible",   "https://openrouter.ai/api"),
-            "Perplexity":       ("openai_compatible",   "https://api.perplexity.ai"),
-            "DeepSeek":         ("openai_compatible",   "https://api.deepseek.com"),
+            "OpenAI": ("openai_compatible", "https://api.openai.com"),
+            "Google Gemini": ("openai_compatible", "https://generativelanguage.googleapis.com/v1beta/openai"),
+            "Mistral AI": ("openai_compatible", "https://api.mistral.ai"),
+            "Groq": ("openai_compatible", "https://api.groq.com/openai"),
+            "Together AI": ("openai_compatible", "https://api.together.xyz"),
+            "OpenRouter": ("openai_compatible", "https://openrouter.ai/api"),
+            "Perplexity": ("openai_compatible", "https://api.perplexity.ai"),
+            "DeepSeek": ("openai_compatible", "https://api.deepseek.com"),
         }
 
         # Reverse-map saved settings to display name
@@ -8760,22 +9108,32 @@ class PCAPSentryApp:
         llm_provider_combo.state(["readonly"])
         llm_provider_combo.pack(side=tk.LEFT)
         detect_btn = ttk.Button(
-            provider_frame, text="Detect", style="Secondary.TButton",
+            provider_frame,
+            text="Detect",
+            style="Secondary.TButton",
             command=lambda: self._detect_llm_server(_llm_server_var, _LLM_SERVERS, llm_model_combo),
         )
         detect_btn.pack(side=tk.LEFT, padx=(6, 0))
         self._detect_hint_label = tk.Label(
-            provider_frame, text="", anchor="w",
+            provider_frame,
+            text="",
+            anchor="w",
             fg=self.colors.get("muted", "#8b949e"),
             bg=self.colors.get("bg", "#0d1117"),
             font=("Segoe UI", 9),
         )
         self._detect_hint_label.pack(side=tk.LEFT, padx=(8, 0))
-        self._help_icon_grid(frame, "Select the LLM server to use. Local servers run offline on your machine. "
+        self._help_icon_grid(
+            frame,
+            "Select the LLM server to use. Local servers run offline on your machine. "
             "Cloud providers (marked with \u2601) require an API key and an internet connection. "
             "For Anthropic Claude, use OpenRouter which supports it via an OpenAI-compatible API. "
             "Click Detect to scan for running local servers. "
-            "Select 'Disabled' to turn off LLM features.", row=2, column=2, sticky="w")
+            "Select 'Disabled' to turn off LLM features.",
+            row=2,
+            column=2,
+            sticky="w",
+        )
 
         # --- API key row (shown for cloud providers) ---
         api_key_label = ttk.Label(frame, text="API key:")
@@ -8783,14 +9141,22 @@ class PCAPSentryApp:
         api_key_entry = ttk.Entry(api_key_frame, textvariable=self.llm_api_key_var, width=34, show="\u2022")
         api_key_entry.pack(side=tk.LEFT)
         api_key_show_var = tk.BooleanVar(value=False)
+
         def _toggle_key_visibility():
             api_key_entry.configure(show="" if api_key_show_var.get() else "\u2022")
+
         api_key_show_btn = ttk.Checkbutton(
-            api_key_frame, text="Show", variable=api_key_show_var,
-            command=_toggle_key_visibility, style="Quiet.TCheckbutton")
+            api_key_frame,
+            text="Show",
+            variable=api_key_show_var,
+            command=_toggle_key_visibility,
+            style="Quiet.TCheckbutton",
+        )
         api_key_show_btn.pack(side=tk.LEFT, padx=(6, 0))
         api_key_hint = tk.Label(
-            api_key_frame, text="", anchor="w",
+            api_key_frame,
+            text="",
+            anchor="w",
             fg=self.colors.get("muted", "#8b949e"),
             bg=self.colors.get("bg", "#0d1117"),
             font=("Segoe UI", 8),
@@ -8813,7 +9179,7 @@ class PCAPSentryApp:
             url = _API_KEY_URLS.get(name, "")
             if url:
                 api_key_hint.configure(text=f"Get key: {url}", cursor="hand2")
-                api_key_hint.bind("<Button-1>", lambda _: __import__('webbrowser').open(url))
+                api_key_hint.bind("<Button-1>", lambda _: __import__("webbrowser").open(url))
             else:
                 api_key_hint.configure(text="", cursor="")
                 api_key_hint.unbind("<Button-1>")
@@ -8839,6 +9205,7 @@ class PCAPSentryApp:
             _set_llm_fields_state()
             self._refresh_llm_models(llm_model_combo)
             self._detect_hint_label.configure(text="")
+
         llm_provider_combo.bind("<<ComboboxSelected>>", _on_server_selected)
 
         # Initial visibility
@@ -8851,7 +9218,10 @@ class PCAPSentryApp:
         llm_model_combo = ttk.Combobox(model_frame, textvariable=self.llm_model_var, width=27)
         llm_model_combo.pack(side=tk.LEFT)
         refresh_btn = ttk.Button(
-            model_frame, text="\u21BB", width=3, style="Secondary.TButton",
+            model_frame,
+            text="\u21bb",
+            width=3,
+            style="Secondary.TButton",
             command=lambda: self._refresh_llm_models(llm_model_combo),
         )
         refresh_btn.pack(side=tk.LEFT, padx=(6, 0))
@@ -8862,7 +9232,13 @@ class PCAPSentryApp:
             command=self._open_model_manager,
         )
         manage_models_btn.pack(side=tk.LEFT, padx=(6, 0))
-        self._help_icon_grid(frame, "Model name for the selected provider. Click \u21BB to detect available models.", row=4, column=2, sticky="w")
+        self._help_icon_grid(
+            frame,
+            "Model name for the selected provider. Click \u21bb to detect available models.",
+            row=4,
+            column=2,
+            sticky="w",
+        )
         self._refresh_llm_models(llm_model_combo)
 
         ttk.Label(frame, text="LLM endpoint:").grid(row=5, column=0, sticky="w", pady=6)
@@ -8870,15 +9246,21 @@ class PCAPSentryApp:
         endpoint_frame.grid(row=5, column=1, sticky="w", pady=6)
         llm_endpoint_entry = ttk.Entry(endpoint_frame, textvariable=self.llm_endpoint_var, width=34)
         llm_endpoint_entry.pack(side=tk.LEFT)
-        self._help_icon_grid(frame, "API base URL for the LLM server. Auto-filled when you pick a server above. "
+        self._help_icon_grid(
+            frame,
+            "API base URL for the LLM server. Auto-filled when you pick a server above. "
             "Edit this for custom ports or remote servers.",
-            row=5, column=2, sticky="w")
+            row=5,
+            column=2,
+            sticky="w",
+        )
 
         ttk.Label(frame, text="Test LLM:").grid(row=6, column=0, sticky="w", pady=6)
         test_frame = ttk.Frame(frame)
         test_frame.grid(row=6, column=1, sticky="w", pady=6)
-        ttk.Button(test_frame, text="Test Connection", style="Secondary.TButton",
-                   command=self._test_llm_connection).pack(side=tk.LEFT)
+        ttk.Button(
+            test_frame, text="Test Connection", style="Secondary.TButton", command=self._test_llm_connection
+        ).pack(side=tk.LEFT)
         llm_test_status_label = tk.Label(
             test_frame,
             textvariable=self.llm_test_status_var,
@@ -8888,7 +9270,9 @@ class PCAPSentryApp:
             padx=8,
         )
         llm_test_status_label.pack(side=tk.LEFT)
-        self._help_icon_grid(frame, "Sends a small test request to verify the current LLM settings.", row=6, column=2, sticky="w")
+        self._help_icon_grid(
+            frame, "Sends a small test request to verify the current LLM settings.", row=6, column=2, sticky="w"
+        )
 
         def _set_llm_fields_state(*_):
             provider = self.llm_provider_var.get().strip().lower()
@@ -8914,9 +9298,12 @@ class PCAPSentryApp:
         frame.grid_columnconfigure(1, weight=1)
         button_frame = ttk.Frame(frame)
         button_frame.grid(row=7, column=0, columnspan=3, sticky="e", pady=(24, 0))
-        ttk.Button(button_frame, text="Save", command=lambda: self._save_llm_settings(window)).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Close", style="Secondary.TButton",
-                   command=window.destroy).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="Save", command=lambda: self._save_llm_settings(window)).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(button_frame, text="Close", style="Secondary.TButton", command=window.destroy).pack(
+            side=tk.LEFT, padx=2
+        )
 
         window.grab_set()
 
@@ -8929,7 +9316,9 @@ class PCAPSentryApp:
 
     def _test_llm_connection(self):
         if not self._llm_is_enabled():
-            messagebox.showwarning("LLM Test", "LLM provider is disabled. Configure an LLM provider in File → LLM Settings first.")
+            messagebox.showwarning(
+                "LLM Test", "LLM provider is disabled. Configure an LLM provider in File → LLM Settings first."
+            )
             self._set_llm_test_status("Disabled", self.colors.get("muted", "#8b949e"))
             return
 
@@ -8959,7 +9348,8 @@ class PCAPSentryApp:
                     try:
                         subprocess.Popen(
                             ["ollama", "serve"],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                         )
                         time.sleep(1.2)
@@ -8979,8 +9369,7 @@ class PCAPSentryApp:
             if provider == "ollama" and endpoint.rstrip("/").endswith("/v1"):
                 messagebox.showerror(
                     "LLM Test",
-                    "LLM test failed. The Ollama endpoint should not include /v1.\n\n"
-                    "Use: http://localhost:11434",
+                    "LLM test failed. The Ollama endpoint should not include /v1.\n\nUse: http://localhost:11434",
                 )
                 return
             if provider == "ollama" and "HTTP Error 404" in str(err):
@@ -9008,12 +9397,13 @@ class PCAPSentryApp:
         self._sync_undo_buttons()
         self._refresh_kb()
         messagebox.showinfo(title, message)
-        
+
         # Train model in background to avoid UI freeze
         if self.use_local_model_var.get():
+
             def train_task():
                 return _train_local_model(kb)
-            
+
             def train_done(result):
                 model_bundle, err = result
                 if model_bundle is None:
@@ -9021,10 +9411,10 @@ class PCAPSentryApp:
                 else:
                     _save_local_model(model_bundle)
                     self.status_var.set("Local model updated.")
-            
+
             def train_failed(exc):
                 messagebox.showwarning("Local Model", f"Model training failed: {exc}")
-            
+
             self._run_task(train_task, train_done, on_error=train_failed, message="Training local model...")
 
     def _train(self, label):
@@ -9050,6 +9440,7 @@ class PCAPSentryApp:
                     return
                 features = build_features(stats)
                 summary = summarize_stats(stats)
+
                 def apply_label(final_label):
                     self._apply_label_to_kb(
                         final_label,
@@ -9082,6 +9473,7 @@ class PCAPSentryApp:
 
             features = build_features(self.current_stats)
             summary = summarize_stats(self.current_stats)
+
             def apply_label(final_label):
                 self._apply_label_to_kb(
                     final_label,
@@ -9162,27 +9554,38 @@ class PCAPSentryApp:
         if conf_text:
             header_text += f"  ({conf_text} confidence)"
 
-        header = tk.Label(frame, text=header_text,
-                          fg=label_color,
-                          bg=self.colors.get("panel", "#161b22"),
-                          font=("Segoe UI Semibold", 11))
+        header = tk.Label(
+            frame,
+            text=header_text,
+            fg=label_color,
+            bg=self.colors.get("panel", "#161b22"),
+            font=("Segoe UI Semibold", 11),
+        )
         header.pack(side=tk.LEFT, padx=(0, 10))
 
         if rationale:
-            reason = tk.Label(frame, text=rationale,
-                              fg=self.colors.get("fg", "#c9d1d9"),
-                              bg=self.colors.get("panel", "#161b22"),
-                              font=("Segoe UI", 10),
-                              wraplength=500, justify=tk.LEFT)
+            reason = tk.Label(
+                frame,
+                text=rationale,
+                fg=self.colors.get("fg", "#c9d1d9"),
+                bg=self.colors.get("panel", "#161b22"),
+                font=("Segoe UI", 10),
+                wraplength=500,
+                justify=tk.LEFT,
+            )
             reason.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
 
-        accept_btn = ttk.Button(frame, text=f"Accept \u2192 Mark as {label_display}",
-                                style="Success.TButton" if label == "safe" else "Warning.TButton",
-                                command=self._accept_llm_suggestion)
+        accept_btn = ttk.Button(
+            frame,
+            text=f"Accept \u2192 Mark as {label_display}",
+            style="Success.TButton" if label == "safe" else "Warning.TButton",
+            command=self._accept_llm_suggestion,
+        )
         accept_btn.pack(side=tk.RIGHT, padx=(6, 0))
 
-        dismiss_btn = ttk.Button(frame, text="\u2715", style="Secondary.TButton",
-                                 command=self._hide_llm_suggestion, width=3)
+        dismiss_btn = ttk.Button(
+            frame, text="\u2715", style="Secondary.TButton", command=self._hide_llm_suggestion, width=3
+        )
         dismiss_btn.pack(side=tk.RIGHT, padx=(4, 0))
 
         frame.pack(fill=tk.X, pady=(0, 4))
@@ -9206,7 +9609,10 @@ class PCAPSentryApp:
             features = build_features(self.current_stats)
             summary = summarize_stats(self.current_stats)
             self._apply_label_to_kb(
-                label, self.current_stats, features, summary,
+                label,
+                self.current_stats,
+                features,
+                summary,
                 "Knowledge Base",
                 f"Current capture saved as {label} (LLM suggestion accepted).",
             )
@@ -9273,9 +9679,17 @@ class PCAPSentryApp:
     # Education tab content builder
     # ------------------------------------------------------------------
     def _build_education_content(
-        self, verdict, risk_score, stats, classifier_result,
-        anomaly_result, anomaly_reasons, ioc_matches,
-        ioc_available, ioc_count, suspicious_flows,
+        self,
+        verdict,
+        risk_score,
+        stats,
+        classifier_result,
+        anomaly_result,
+        anomaly_reasons,
+        ioc_matches,
+        ioc_available,
+        ioc_count,
+        suspicious_flows,
         threat_intel_findings,
     ):
         """Build beginner-friendly educational content based on analysis findings."""
@@ -9594,7 +10008,7 @@ class PCAPSentryApp:
 
                 lines.append("      Detection reason(s):")
                 for i, (lbl, expl) in enumerate(zip(matched_labels, matched_explanations, strict=False)):
-                    lines.append(f"        {i+1}. {lbl}")
+                    lines.append(f"        {i + 1}. {lbl}")
                     lines.append(f"           {expl}")
                     lines.append("")
 
@@ -9624,7 +10038,9 @@ class PCAPSentryApp:
                         if sources.get("otx", {}).get("pulse_count"):
                             lines.append(f"         AlienVault OTX: {sources['otx']['pulse_count']} threat pulses")
                         if sources.get("abuseipdb", {}).get("abuse_confidence_score"):
-                            lines.append(f"         AbuseIPDB confidence: {sources['abuseipdb']['abuse_confidence_score']}%")
+                            lines.append(
+                                f"         AbuseIPDB confidence: {sources['abuseipdb']['abuse_confidence_score']}%"
+                            )
                         lines.append("")
 
                 # -- Wireshark filter to isolate this exact flow --
@@ -9708,45 +10124,61 @@ class PCAPSentryApp:
         lines.append("-" * 60)
         lines.append("")
         glossary = [
-            ("Beaconing",
-             "Malware sends small messages to its controller at\n"
-             "    regular intervals (e.g., every 60 seconds) to say\n"
-             "    'I'm still alive — send me commands.'  The regular\n"
-             "    timing is the key giveaway."),
-            ("Command & Control (C2)",
-             "After infecting a machine, malware connects back to\n"
-             "    the attacker's server to receive instructions.  This\n"
-             "    two-way channel lets the attacker steal data, move\n"
-             "    laterally, or deploy ransomware — all remotely."),
-            ("Data Exfiltration",
-             "The unauthorized transfer of data out of a network.\n"
-             "    Attackers compress, encrypt, and upload stolen data\n"
-             "    to external servers.  Look for large outbound\n"
-             "    transfers to unfamiliar destinations."),
-            ("DNS Tunneling",
-             "Hiding data inside DNS queries/responses.  Since DNS\n"
-             "    is almost never blocked, attackers abuse it to sneak\n"
-             "    data past firewalls.  Long, random-looking subdomain\n"
-             "    names are a telltale sign."),
-            ("Port Scanning",
-             "An attacker probes a target by connecting to many ports\n"
-             "    in rapid succession to discover which services are\n"
-             "    running.  It's the digital equivalent of checking\n"
-             "    every window and door for an opening."),
-            ("Lateral Movement",
-             "Once inside a network, attackers move from machine to\n"
-             "    machine looking for valuable data.  Watch for unusual\n"
-             "    SMB (port 445) or RDP (port 3389) traffic between\n"
-             "    internal hosts."),
-            ("DGA (Domain Generation Algorithm)",
-             "Malware automatically generates random domain names to\n"
-             "    find its C2 server.  The domains look like nonsense\n"
-             "    (e.g., 'jk8xf2.xyz').  Researchers reverse-engineer\n"
-             "    these algorithms to predict and block them."),
-            ("Man-in-the-Middle (MitM)",
-             "An attacker secretly relays and potentially alters\n"
-             "    communications between two parties.  This is one\n"
-             "    reason HTTPS matters — encryption prevents tampering."),
+            (
+                "Beaconing",
+                "Malware sends small messages to its controller at\n"
+                "    regular intervals (e.g., every 60 seconds) to say\n"
+                "    'I'm still alive — send me commands.'  The regular\n"
+                "    timing is the key giveaway.",
+            ),
+            (
+                "Command & Control (C2)",
+                "After infecting a machine, malware connects back to\n"
+                "    the attacker's server to receive instructions.  This\n"
+                "    two-way channel lets the attacker steal data, move\n"
+                "    laterally, or deploy ransomware — all remotely.",
+            ),
+            (
+                "Data Exfiltration",
+                "The unauthorized transfer of data out of a network.\n"
+                "    Attackers compress, encrypt, and upload stolen data\n"
+                "    to external servers.  Look for large outbound\n"
+                "    transfers to unfamiliar destinations.",
+            ),
+            (
+                "DNS Tunneling",
+                "Hiding data inside DNS queries/responses.  Since DNS\n"
+                "    is almost never blocked, attackers abuse it to sneak\n"
+                "    data past firewalls.  Long, random-looking subdomain\n"
+                "    names are a telltale sign.",
+            ),
+            (
+                "Port Scanning",
+                "An attacker probes a target by connecting to many ports\n"
+                "    in rapid succession to discover which services are\n"
+                "    running.  It's the digital equivalent of checking\n"
+                "    every window and door for an opening.",
+            ),
+            (
+                "Lateral Movement",
+                "Once inside a network, attackers move from machine to\n"
+                "    machine looking for valuable data.  Watch for unusual\n"
+                "    SMB (port 445) or RDP (port 3389) traffic between\n"
+                "    internal hosts.",
+            ),
+            (
+                "DGA (Domain Generation Algorithm)",
+                "Malware automatically generates random domain names to\n"
+                "    find its C2 server.  The domains look like nonsense\n"
+                "    (e.g., 'jk8xf2.xyz').  Researchers reverse-engineer\n"
+                "    these algorithms to predict and block them.",
+            ),
+            (
+                "Man-in-the-Middle (MitM)",
+                "An attacker secretly relays and potentially alters\n"
+                "    communications between two parties.  This is one\n"
+                "    reason HTTPS matters — encryption prevents tampering.",
+            ),
         ]
         for term, desc in glossary:
             lines.append(f"  {term}")
@@ -9783,53 +10215,73 @@ class PCAPSentryApp:
         lines.append("-" * 60)
         lines.append("")
         resources = [
-            ("Wireshark Official Docs & Wiki",
-             "https://www.wireshark.org/docs/",
-             "The definitive guide to Wireshark — filters, protocol\n"
-             "    dissectors, capture techniques, and more."),
-            ("SANS Internet Storm Center (ISC)",
-             "https://isc.sans.edu/",
-             "Daily threat diaries written by professional analysts.\n"
-             "    Great for learning what real-world attacks look like."),
-            ("Malware Traffic Analysis",
-             "https://www.malware-traffic-analysis.net/",
-             "Free PCAP samples of real malware traffic with detailed\n"
-             "    write-ups.  Perfect for practicing analysis skills."),
-            ("VirusTotal",
-             "https://www.virustotal.com/",
-             "Upload files, URLs, IPs, or domains to check them\n"
-             "    against 70+ antivirus engines and community reports."),
-            ("AbuseIPDB",
-             "https://www.abuseipdb.com/",
-             "Community database of reported malicious IP addresses.\n"
-             "    Look up any suspicious IP from your captures here."),
-            ("Shodan",
-             "https://www.shodan.io/",
-             "A search engine for Internet-connected devices.  Find\n"
-             "    out what services an IP is running and whether it's\n"
-             "    been flagged as malicious."),
-            ("MITRE ATT&CK Framework",
-             "https://attack.mitre.org/",
-             "A knowledge base of adversary tactics, techniques, and\n"
-             "    procedures.  The industry standard for categorizing\n"
-             "    how attacks work (e.g., T1071 = Application Layer Protocol)."),
-            ("CyberDefenders",
-             "https://cyberdefenders.org/",
-             "Free, hands-on Blue Team challenges including PCAP\n"
-             "    analysis labs.  Great for building practical skills."),
-            ("TryHackMe — Intro to Network Analysis",
-             "https://tryhackme.com/",
-             "Interactive, browser-based cybersecurity training with\n"
-             "    guided rooms on Wireshark and traffic analysis."),
-            ("PCAP Samples from Netresec",
-             "https://www.netresec.com/?page=PcapFiles",
-             "Curated list of publicly available PCAP files for\n"
-             "    practicing with real network captures."),
-            ("AlienVault OTX (Open Threat Exchange)",
-             "https://otx.alienvault.com/",
-             "Free community-driven threat intelligence platform.\n"
-             "    Search for IoCs and subscribe to 'pulses' from\n"
-             "    security researchers around the world."),
+            (
+                "Wireshark Official Docs & Wiki",
+                "https://www.wireshark.org/docs/",
+                "The definitive guide to Wireshark — filters, protocol\n    dissectors, capture techniques, and more.",
+            ),
+            (
+                "SANS Internet Storm Center (ISC)",
+                "https://isc.sans.edu/",
+                "Daily threat diaries written by professional analysts.\n"
+                "    Great for learning what real-world attacks look like.",
+            ),
+            (
+                "Malware Traffic Analysis",
+                "https://www.malware-traffic-analysis.net/",
+                "Free PCAP samples of real malware traffic with detailed\n"
+                "    write-ups.  Perfect for practicing analysis skills.",
+            ),
+            (
+                "VirusTotal",
+                "https://www.virustotal.com/",
+                "Upload files, URLs, IPs, or domains to check them\n"
+                "    against 70+ antivirus engines and community reports.",
+            ),
+            (
+                "AbuseIPDB",
+                "https://www.abuseipdb.com/",
+                "Community database of reported malicious IP addresses.\n"
+                "    Look up any suspicious IP from your captures here.",
+            ),
+            (
+                "Shodan",
+                "https://www.shodan.io/",
+                "A search engine for Internet-connected devices.  Find\n"
+                "    out what services an IP is running and whether it's\n"
+                "    been flagged as malicious.",
+            ),
+            (
+                "MITRE ATT&CK Framework",
+                "https://attack.mitre.org/",
+                "A knowledge base of adversary tactics, techniques, and\n"
+                "    procedures.  The industry standard for categorizing\n"
+                "    how attacks work (e.g., T1071 = Application Layer Protocol).",
+            ),
+            (
+                "CyberDefenders",
+                "https://cyberdefenders.org/",
+                "Free, hands-on Blue Team challenges including PCAP\n"
+                "    analysis labs.  Great for building practical skills.",
+            ),
+            (
+                "TryHackMe — Intro to Network Analysis",
+                "https://tryhackme.com/",
+                "Interactive, browser-based cybersecurity training with\n"
+                "    guided rooms on Wireshark and traffic analysis.",
+            ),
+            (
+                "PCAP Samples from Netresec",
+                "https://www.netresec.com/?page=PcapFiles",
+                "Curated list of publicly available PCAP files for\n    practicing with real network captures.",
+            ),
+            (
+                "AlienVault OTX (Open Threat Exchange)",
+                "https://otx.alienvault.com/",
+                "Free community-driven threat intelligence platform.\n"
+                "    Search for IoCs and subscribe to 'pulses' from\n"
+                "    security researchers around the world.",
+            ),
         ]
         for name, url, desc in resources:
             lines.append(f"  {name}")
@@ -9886,11 +10338,25 @@ class PCAPSentryApp:
 
         return "\n".join(lines)
 
-    def _build_result_output_lines(self, risk_score, verdict, classifier_result,
-                                    anomaly_result, anomaly_reasons, ioc_matches,
-                                    ioc_count, ioc_available, stats, safe_scores,
-                                    mal_scores, suspicious_flows, threat_intel_findings,
-                                    use_local_model, features, behavioral_findings=None):
+    def _build_result_output_lines(
+        self,
+        risk_score,
+        verdict,
+        classifier_result,
+        anomaly_result,
+        anomaly_reasons,
+        ioc_matches,
+        ioc_count,
+        ioc_available,
+        stats,
+        safe_scores,
+        mal_scores,
+        suspicious_flows,
+        threat_intel_findings,
+        use_local_model,
+        features,
+        behavioral_findings=None,
+    ):
         """Build the Results tab text lines (can run off main thread)."""
         output_lines = [
             f"Risk Score: {risk_score}/100",
@@ -9993,9 +10459,7 @@ class PCAPSentryApp:
             output_lines.append("No suspicious flows detected.")
         else:
             for item in suspicious_flows:
-                output_lines.append(
-                    f"- {item['flow']} | {item['reason']} | {item['bytes']} | {item['packets']} pkts"
-                )
+                output_lines.append(f"- {item['flow']} | {item['reason']} | {item['bytes']} | {item['packets']} pkts")
 
         if behavioral_findings:
             output_lines.append("")
@@ -10011,10 +10475,22 @@ class PCAPSentryApp:
 
         return output_lines
 
-    def _build_why_lines(self, verdict, risk_score, classifier_result,
-                          anomaly_result, anomaly_reasons, ioc_matches,
-                          ioc_count, ioc_available, stats, suspicious_flows,
-                          threat_intel_findings, wireshark_filters, behavioral_findings=None):
+    def _build_why_lines(
+        self,
+        verdict,
+        risk_score,
+        classifier_result,
+        anomaly_result,
+        anomaly_reasons,
+        ioc_matches,
+        ioc_count,
+        ioc_available,
+        stats,
+        suspicious_flows,
+        threat_intel_findings,
+        wireshark_filters,
+        behavioral_findings=None,
+    ):
         """Build the Why tab text lines (can run off main thread)."""
         why_lines = [
             "========================================",
@@ -10057,7 +10533,7 @@ class PCAPSentryApp:
         if classifier_result is None:
             why_lines.append("    Result: Not enough training data yet.")
         else:
-            score_val = classifier_result['score']
+            score_val = classifier_result["score"]
             if score_val > 70:
                 why_lines.append(f"    Result: HIGH MATCH (score: {score_val})")
             elif score_val > 40:
@@ -10085,13 +10561,13 @@ class PCAPSentryApp:
         why_lines.append("[C] INDICATOR OF COMPROMISE (IoC) CHECK")
         if ioc_available:
             if ioc_count:
-                domain_ct = len(ioc_matches['domains'])
-                ip_ct = len(ioc_matches['ips'])
+                domain_ct = len(ioc_matches["domains"])
+                ip_ct = len(ioc_matches["ips"])
                 why_lines.append(f"    Result: {ioc_count} MATCHES FOUND")
                 why_lines.append(f"    Breakdown: {domain_ct} domain(s) and {ip_ct} IP(s) matched")
-                if ioc_matches['domains']:
+                if ioc_matches["domains"]:
                     why_lines.append(f"    Domains: {', '.join(ioc_matches['domains'][:5])}")
-                if ioc_matches['ips']:
+                if ioc_matches["ips"]:
                     why_lines.append(f"    IPs: {', '.join(ioc_matches['ips'][:5])}")
             else:
                 why_lines.append("    Result: No matches against any blocklists.")
@@ -10175,11 +10651,11 @@ class PCAPSentryApp:
                 why_lines.append("[I] ONLINE THREAT INTELLIGENCE")
                 if intel_data.get("risky_ips"):
                     for ip_info in intel_data["risky_ips"][:3]:
-                        risk = ip_info['risk_score']
+                        risk = ip_info["risk_score"]
                         why_lines.append(f"    IP: {ip_info['ip']} — {risk:.0f}/100")
                 if intel_data.get("risky_domains"):
                     for domain_info in intel_data["risky_domains"][:3]:
-                        risk = domain_info['risk_score']
+                        risk = domain_info["risk_score"]
                         why_lines.append(f"    Domain: {domain_info['domain']} — {risk:.0f}/100")
                 why_lines.append("")
 
@@ -10259,13 +10735,16 @@ class PCAPSentryApp:
                     return {}
                 try:
                     from threat_intelligence import ThreatIntelligence
+
                     otx_key = self.settings.get("otx_api_key", "").strip() or None
                     ti = ThreatIntelligence(otx_api_key=otx_key)
                     if ti.is_available():
                         print("[DEBUG] Enriching stats with threat intelligence...")
+
                         # Report incremental progress during TI enrichment (32-44%)
                         def _ti_progress(fraction):
                             _report(32 + fraction * 12)
+
                         return ti.enrich_stats(stats, progress_cb=_ti_progress)
                 except Exception as e:
                     print(f"[DEBUG] Threat intelligence enrichment failed: {e}")
@@ -10281,10 +10760,12 @@ class PCAPSentryApp:
                     f_ti = pool.submit(_do_threat_intel)
                     f_ioc = pool.submit(match_iocs, stats, kb.get("ioc", {}))
                     f_base = pool.submit(compute_baseline_from_kb, kb, kb_vectors)
-                    f_flows = pool.submit(lambda: (
-                        compute_flow_stats(df),
-                        None,  # placeholder
-                    ))
+                    f_flows = pool.submit(
+                        lambda: (
+                            compute_flow_stats(df),
+                            None,  # placeholder
+                        )
+                    )
 
                     threat_intel_findings = f_ti.result()
                     if threat_intel_findings:
@@ -10298,7 +10779,7 @@ class PCAPSentryApp:
                 behavioral_findings = detect_behavioral_anomalies(df, stats, flow_df=flow_df_early)
 
                 t_p2 = time.time()
-                print(f"[TIMING] Phase 2 parallel (intel+ioc+baseline+flows): {t_p2-t_start:.2f}s")
+                print(f"[TIMING] Phase 2 parallel (intel+ioc+baseline+flows): {t_p2 - t_start:.2f}s")
 
                 # ── Parallel Phase 3: Scoring ──
                 _report(50)
@@ -10309,7 +10790,9 @@ class PCAPSentryApp:
                 with ThreadPoolExecutor(max_workers=3) as pool:
                     f_safe = pool.submit(lambda: get_top_k_similar_entries(features, kb["safe"], k=5))
                     f_mal = pool.submit(lambda: get_top_k_similar_entries(features, kb["malicious"], k=5))
-                    f_classify = pool.submit(lambda: classify_vector(vector, kb, normalizer_cache=normalizer_cache, kb_vectors=kb_vectors))
+                    f_classify = pool.submit(
+                        lambda: classify_vector(vector, kb, normalizer_cache=normalizer_cache, kb_vectors=kb_vectors)
+                    )
 
                     _, safe_scores = f_safe.result()
                     _, mal_scores = f_mal.result()
@@ -10318,7 +10801,7 @@ class PCAPSentryApp:
                 _report(62)
                 anomaly_result, anomaly_reasons = anomaly_score(vector, baseline)
                 t_p3 = time.time()
-                print(f"[TIMING] Phase 3 parallel (scoring): {t_p3-t_p2:.2f}s")
+                print(f"[TIMING] Phase 3 parallel (scoring): {t_p3 - t_p2:.2f}s")
             else:
                 # ── Pre-compute KB vectors once for reuse ──
                 kb_vectors = _vectorize_kb(kb)
@@ -10346,11 +10829,13 @@ class PCAPSentryApp:
                 _, safe_scores = get_top_k_similar_entries(features, kb["safe"], k=5)
                 _, mal_scores = get_top_k_similar_entries(features, kb["malicious"], k=5)
                 _report(60)
-                classifier_result = classify_vector(vector, kb, normalizer_cache=normalizer_cache, kb_vectors=kb_vectors)
+                classifier_result = classify_vector(
+                    vector, kb, normalizer_cache=normalizer_cache, kb_vectors=kb_vectors
+                )
                 _report(64)
                 anomaly_result, anomaly_reasons = anomaly_score(vector, baseline)
                 t_p3 = time.time()
-                print(f"[TIMING] Sequential analysis: {t_p3-t_start:.2f}s")
+                print(f"[TIMING] Sequential analysis: {t_p3 - t_start:.2f}s")
 
             # ── Risk scoring (same for both paths) ──
             _report(68)
@@ -10410,22 +10895,51 @@ class PCAPSentryApp:
                 with ThreadPoolExecutor(max_workers=3) as pool:
                     f_output = pool.submit(
                         self._build_result_output_lines,
-                        risk_score, verdict, classifier_result, anomaly_result, anomaly_reasons,
-                        ioc_matches, ioc_count, ioc_available, stats, safe_scores, mal_scores,
-                        suspicious_flows, threat_intel_findings, use_local_model, features,
+                        risk_score,
+                        verdict,
+                        classifier_result,
+                        anomaly_result,
+                        anomaly_reasons,
+                        ioc_matches,
+                        ioc_count,
+                        ioc_available,
+                        stats,
+                        safe_scores,
+                        mal_scores,
+                        suspicious_flows,
+                        threat_intel_findings,
+                        use_local_model,
+                        features,
                         behavioral_findings,
                     )
                     f_why = pool.submit(
                         self._build_why_lines,
-                        verdict, risk_score, classifier_result, anomaly_result, anomaly_reasons,
-                        ioc_matches, ioc_count, ioc_available, stats, suspicious_flows,
-                        threat_intel_findings, wireshark_filters, behavioral_findings,
+                        verdict,
+                        risk_score,
+                        classifier_result,
+                        anomaly_result,
+                        anomaly_reasons,
+                        ioc_matches,
+                        ioc_count,
+                        ioc_available,
+                        stats,
+                        suspicious_flows,
+                        threat_intel_findings,
+                        wireshark_filters,
+                        behavioral_findings,
                     )
                     f_edu = pool.submit(
                         self._build_education_content,
-                        verdict, risk_score, stats, classifier_result,
-                        anomaly_result, anomaly_reasons, ioc_matches,
-                        ioc_available, ioc_count, suspicious_flows,
+                        verdict,
+                        risk_score,
+                        stats,
+                        classifier_result,
+                        anomaly_result,
+                        anomaly_reasons,
+                        ioc_matches,
+                        ioc_available,
+                        ioc_count,
+                        suspicious_flows,
                         threat_intel_findings,
                     )
                     output_lines = f_output.result()
@@ -10433,22 +10947,51 @@ class PCAPSentryApp:
                     edu_content = f_edu.result()
             else:
                 output_lines = self._build_result_output_lines(
-                    risk_score, verdict, classifier_result, anomaly_result, anomaly_reasons,
-                    ioc_matches, ioc_count, ioc_available, stats, safe_scores, mal_scores,
-                    suspicious_flows, threat_intel_findings, use_local_model, features,
+                    risk_score,
+                    verdict,
+                    classifier_result,
+                    anomaly_result,
+                    anomaly_reasons,
+                    ioc_matches,
+                    ioc_count,
+                    ioc_available,
+                    stats,
+                    safe_scores,
+                    mal_scores,
+                    suspicious_flows,
+                    threat_intel_findings,
+                    use_local_model,
+                    features,
                     behavioral_findings,
                 )
                 _report(85)
                 why_lines = self._build_why_lines(
-                    verdict, risk_score, classifier_result, anomaly_result, anomaly_reasons,
-                    ioc_matches, ioc_count, ioc_available, stats, suspicious_flows,
-                    threat_intel_findings, wireshark_filters, behavioral_findings,
+                    verdict,
+                    risk_score,
+                    classifier_result,
+                    anomaly_result,
+                    anomaly_reasons,
+                    ioc_matches,
+                    ioc_count,
+                    ioc_available,
+                    stats,
+                    suspicious_flows,
+                    threat_intel_findings,
+                    wireshark_filters,
+                    behavioral_findings,
                 )
                 _report(90)
                 edu_content = self._build_education_content(
-                    verdict, risk_score, stats, classifier_result,
-                    anomaly_result, anomaly_reasons, ioc_matches,
-                    ioc_available, ioc_count, suspicious_flows,
+                    verdict,
+                    risk_score,
+                    stats,
+                    classifier_result,
+                    anomaly_result,
+                    anomaly_reasons,
+                    ioc_matches,
+                    ioc_available,
+                    ioc_count,
+                    suspicious_flows,
                     threat_intel_findings,
                 )
 
@@ -10458,7 +11001,7 @@ class PCAPSentryApp:
             _report(95)
             t_end = time.time()
             mode = "multithreaded" if use_multithreading else "sequential"
-            print(f"[TIMING] Total worker processing ({mode}): {t_end-t_start:.2f}s")
+            print(f"[TIMING] Total worker processing ({mode}): {t_end - t_start:.2f}s")
 
             return {
                 "empty": False,
@@ -10481,32 +11024,36 @@ class PCAPSentryApp:
 
         def task(progress_cb=None):
             t_start = time.time()
-            
+
             if use_multithreading:
                 # ── Phase 1: Parse + extract in parallel ──
                 with ThreadPoolExecutor(max_workers=2) as pool:
                     parse_future = pool.submit(
-                        _parser, path,
-                        max_rows=max_rows, parse_http=parse_http,
-                        progress_cb=progress_cb, use_high_memory=use_high_memory,
+                        _parser,
+                        path,
+                        max_rows=max_rows,
+                        parse_http=parse_http,
+                        progress_cb=progress_cb,
+                        use_high_memory=use_high_memory,
                         cancel_event=cancel_event,
                     )
-                    extract_future = pool.submit(
-                        lambda: _safe_extract(path, use_high_memory)
-                    )
+                    extract_future = pool.submit(lambda: _safe_extract(path, use_high_memory))
                     parse_result = parse_future.result()
                     extracted = extract_future.result()
             else:
                 parse_result = _parser(
-                    path, max_rows=max_rows, parse_http=parse_http,
-                    progress_cb=progress_cb, use_high_memory=use_high_memory,
+                    path,
+                    max_rows=max_rows,
+                    parse_http=parse_http,
+                    progress_cb=progress_cb,
+                    use_high_memory=use_high_memory,
                     cancel_event=cancel_event,
                 )
                 extracted = _safe_extract(path, use_high_memory)
 
             (df, stats, sample_info) = parse_result
             t_p1 = time.time()
-            print(f"[TIMING] Phase 1 (parse + extract): {t_p1-t_start:.2f}s")
+            print(f"[TIMING] Phase 1 (parse + extract): {t_p1 - t_start:.2f}s")
 
             if stats.get("packet_count", 0) == 0:
                 return {"empty": True, "extracted_data": extracted}
@@ -10565,7 +11112,7 @@ class PCAPSentryApp:
                 else:
                     self.copy_filters_button.configure(state=tk.DISABLED)
 
-            if hasattr(self, 'results_notebook') and hasattr(self, 'results_tab'):
+            if hasattr(self, "results_notebook") and hasattr(self, "results_tab"):
                 try:
                     self.results_notebook.select(self.results_tab)
                 except Exception:

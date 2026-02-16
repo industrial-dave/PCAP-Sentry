@@ -33,6 +33,7 @@ try:
     import joblib
     from sklearn.feature_extraction import DictVectorizer
     from sklearn.linear_model import LogisticRegression
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -100,7 +101,9 @@ class EnhancedMLTrainer:
         if len(set(labels)) < 2 or len(labels) < 2:
             return None, f"Insufficient training data: {len(training_rows)} samples, {len(set(labels))} classes"
 
-        print(f"[INFO] Training on {len(training_rows)} samples ({len(kb.get('safe', []))} safe, {len(kb.get('malicious', []))} malicious)")
+        print(
+            f"[INFO] Training on {len(training_rows)} samples ({len(kb.get('safe', []))} safe, {len(kb.get('malicious', []))} malicious)"
+        )
         print(f"[INFO] Feature types in training data: {set().union(*[set(row.keys()) for row in training_rows])}")
 
         # Convert to feature vectors
@@ -124,11 +127,7 @@ class EnhancedMLTrainer:
             coefficients = self.model.coef_[0]
 
             # Sort by importance
-            top_features = sorted(
-                zip(feature_names, coefficients, strict=False),
-                key=lambda x: abs(x[1]),
-                reverse=True
-            )
+            top_features = sorted(zip(feature_names, coefficients, strict=False), key=lambda x: abs(x[1]), reverse=True)
 
             print("[INFO] Top 10 most important features:")
             for feature, coeff in top_features[:10]:
@@ -152,10 +151,13 @@ class EnhancedMLTrainer:
         if self.model is None or self.vectorizer is None:
             return False
         try:
-            joblib.dump({
-                "model": self.model,
-                "vectorizer": self.vectorizer,
-            }, self.model_path)
+            joblib.dump(
+                {
+                    "model": self.model,
+                    "vectorizer": self.vectorizer,
+                },
+                self.model_path,
+            )
             # Write HMAC signature alongside the model file
             self._write_hmac(self.model_path)
             print(f"[INFO] Model saved to {self.model_path}")

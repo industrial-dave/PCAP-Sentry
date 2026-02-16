@@ -36,6 +36,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import requests
+
     REQUESTS_AVAILABLE = True
 except ImportError:
     REQUESTS_AVAILABLE = False
@@ -77,16 +78,18 @@ class ThreatIntelligence:
                     s.headers.update({"Accept": "application/json"})
                     # Allow connection reuse across hosts
                     adapter = requests.adapters.HTTPAdapter(
-                        pool_connections=8, pool_maxsize=12, max_retries=0,
+                        pool_connections=8,
+                        pool_maxsize=12,
+                        max_retries=0,
                     )
                     s.mount("https://", adapter)
+
                     # Block http:// to prevent accidental plaintext requests
                     # or redirect downgrades from HTTPS → HTTP.
                     class _BlockHTTPAdapter(requests.adapters.HTTPAdapter):
                         def send(self, *args, **kwargs):
-                            raise ConnectionError(
-                                "HTTP requests are blocked; use HTTPS only."
-                            )
+                            raise ConnectionError("HTTP requests are blocked; use HTTPS only.")
+
                     s.mount("http://", _BlockHTTPAdapter())
                     self._session = s
         return self._session
@@ -121,11 +124,7 @@ class ThreatIntelligence:
         if cached is not None:
             return cached
 
-        result = {
-            "valid": True,
-            "ip": ip,
-            "sources": {}
-        }
+        result = {"valid": True, "ip": ip, "sources": {}}
 
         # Run OTX and AbuseIPDB checks concurrently
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -189,7 +188,7 @@ class ThreatIntelligence:
             return {"available": False}
 
         # Basic domain validation
-        if not domain or len(domain) > 253 or not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9.\-]*\.[a-zA-Z]{2,}$', domain):
+        if not domain or len(domain) > 253 or not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9.\-]*\.[a-zA-Z]{2,}$", domain):
             return {"valid": False}
         # Enforce per-label max length (RFC 1035)
         if any(len(label) > 63 for label in domain.split(".")):
@@ -200,10 +199,7 @@ class ThreatIntelligence:
         if cached is not None:
             return cached
 
-        result = {
-            "domain": domain,
-            "sources": {}
-        }
+        result = {"domain": domain, "sources": {}}
 
         # Run OTX and URLhaus checks concurrently
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -243,7 +239,7 @@ class ThreatIntelligence:
     def _check_otx_ip(self, ip: str) -> dict | None:
         """Check IP against AlienVault OTX (free, API key optional for enhanced data)"""
         try:
-            safe_ip = urllib.parse.quote(ip, safe='')
+            safe_ip = urllib.parse.quote(ip, safe="")
             url = f"{self.otx_base_url}/indicators/IPv4/{safe_ip}/general"
             headers = {}
             if self.otx_api_key:
@@ -267,12 +263,15 @@ class ThreatIntelligence:
                     # With API key, get detailed pulse information
                     if self.otx_api_key and pulse_info.get("pulses"):
                         pulses = pulse_info["pulses"][:3]  # Top 3 pulses
-                        result["pulses"] = [{
-                            "name": p.get("name"),
-                            "tags": p.get("tags", [])[:5],  # Top 5 tags
-                            "malware_families": p.get("malware_families", [])[:3],
-                            "attack_ids": p.get("attack_ids", [])[:3]
-                        } for p in pulses]
+                        result["pulses"] = [
+                            {
+                                "name": p.get("name"),
+                                "tags": p.get("tags", [])[:5],  # Top 5 tags
+                                "malware_families": p.get("malware_families", [])[:3],
+                                "attack_ids": p.get("attack_ids", [])[:3],
+                            }
+                            for p in pulses
+                        ]
 
                 # Additional metadata
                 if data.get("alexa"):
@@ -289,7 +288,7 @@ class ThreatIntelligence:
     def _check_otx_domain(self, domain: str) -> dict | None:
         """Check domain against AlienVault OTX (API key optional for enhanced data)"""
         try:
-            safe_domain = urllib.parse.quote(domain, safe='')
+            safe_domain = urllib.parse.quote(domain, safe="")
             url = f"{self.otx_base_url}/indicators/domain/{safe_domain}/general"
             headers = {}
             if self.otx_api_key:
@@ -313,11 +312,14 @@ class ThreatIntelligence:
                     # With API key, get detailed pulse information
                     if self.otx_api_key and pulse_info.get("pulses"):
                         pulses = pulse_info["pulses"][:3]  # Top 3 pulses
-                        result["pulses"] = [{
-                            "name": p.get("name"),
-                            "tags": p.get("tags", [])[:5],
-                            "malware_families": p.get("malware_families", [])[:3]
-                        } for p in pulses]
+                        result["pulses"] = [
+                            {
+                                "name": p.get("name"),
+                                "tags": p.get("tags", [])[:5],
+                                "malware_families": p.get("malware_families", [])[:3],
+                            }
+                            for p in pulses
+                        ]
 
                 # Additional metadata
                 if data.get("alexa"):
@@ -352,7 +354,7 @@ class ThreatIntelligence:
                     return {
                         "found": True,
                         "url_count": len(result["urls"]),
-                        "urls": [{"url": u["url"], "threat": u.get("threat")} for u in result["urls"][:5]]
+                        "urls": [{"url": u["url"], "threat": u.get("threat")} for u in result["urls"][:5]],
                     }
                 if result.get("query_status") == "ok":
                     return {"found": False}
@@ -451,11 +453,13 @@ class ThreatIntelligence:
                 rep = self.check_ip_reputation(ip)
                 if rep.get("risk_score", 0) > 30:
                     with results_lock:
-                        ip_risks.append({
-                            "ip": ip,
-                            "risk_score": rep["risk_score"],
-                            "sources": rep["sources"],
-                        })
+                        ip_risks.append(
+                            {
+                                "ip": ip,
+                                "risk_score": rep["risk_score"],
+                                "sources": rep["sources"],
+                            }
+                        )
             except Exception as e:
                 print(f"[DEBUG] Error enriching IP {ip}: {e}")
             finally:
@@ -466,11 +470,13 @@ class ThreatIntelligence:
                 rep = self.check_domain_reputation(domain)
                 if rep.get("risk_score", 0) > 30:
                     with results_lock:
-                        domain_risks.append({
-                            "domain": domain,
-                            "risk_score": rep["risk_score"],
-                            "sources": rep["sources"],
-                        })
+                        domain_risks.append(
+                            {
+                                "domain": domain,
+                                "risk_score": rep["risk_score"],
+                                "sources": rep["sources"],
+                            }
+                        )
             except Exception as e:
                 print(f"[DEBUG] Error enriching domain {domain}: {e}")
             finally:
@@ -486,17 +492,23 @@ class ThreatIntelligence:
 
         if ip_risks:
             enriched["threat_intel"]["risky_ips"] = sorted(
-                ip_risks, key=lambda x: x["risk_score"], reverse=True,
+                ip_risks,
+                key=lambda x: x["risk_score"],
+                reverse=True,
             )
         if domain_risks:
             enriched["threat_intel"]["risky_domains"] = sorted(
-                domain_risks, key=lambda x: x["risk_score"], reverse=True,
+                domain_risks,
+                key=lambda x: x["risk_score"],
+                reverse=True,
             )
 
         elapsed = time.time() - t0
-        print(f"[TIMING] Threat intel enrichment: {elapsed:.2f}s "
-              f"({len(ip_list)} IPs, {len(domain_list)} domains, "
-              f"{workers} workers)")
+        print(
+            f"[TIMING] Threat intel enrichment: {elapsed:.2f}s "
+            f"({len(ip_list)} IPs, {len(domain_list)} domains, "
+            f"{workers} workers)"
+        )
 
         return enriched
 

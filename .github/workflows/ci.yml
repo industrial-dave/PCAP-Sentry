@@ -2,14 +2,14 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
     paths:
       - 'Python/**.py'
       - 'tests/**.py'
       - 'requirements.txt'
       - '.github/workflows/ci.yml'
   pull_request:
-    branches: ["main"]
+    branches: ["main", "develop"]
     paths:
       - 'Python/**.py'
       - 'tests/**.py'

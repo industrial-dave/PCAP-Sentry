@@ -12,14 +12,15 @@ from pathlib import Path
 # Set UTF-8 encoding for Windows console to handle emoji characters
 if sys.platform == "win32":
     try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     except (AttributeError, OSError):
         # Fall back to ASCII-safe symbols if reconfigure fails
         pass
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "Python"))
+
 
 def test_imports():
     """Test that all critical modules can be imported"""
@@ -99,7 +100,6 @@ def test_path_security():
     """Test path security functions"""
     print("\n=== Testing Path Security ===")
 
-
     from pcap_sentry_gui import _get_app_data_dir
 
     # Test app data directory
@@ -124,23 +124,17 @@ def test_input_validation():
     import re
 
     # Test model name validation pattern (from the code)
-    valid_names = [
-        "llama3.2:3b",
-        "model-name",
-        "my_model",
-        "test.model",
-        "path/to/model"
-    ]
+    valid_names = ["llama3.2:3b", "model-name", "my_model", "test.model", "path/to/model"]
 
     invalid_names = [
         "../../../etc/passwd",  # Path traversal
-        "model; rm -rf /",       # Command injection
-        "model & echo bad",      # Command chaining
-        "model`whoami`",         # Command substitution
-        "model$(ls)",            # Command substitution
+        "model; rm -rf /",  # Command injection
+        "model & echo bad",  # Command chaining
+        "model`whoami`",  # Command substitution
+        "model$(ls)",  # Command substitution
     ]
 
-    pattern = r'[A-Za-z0-9][A-Za-z0-9_.:\-/]*'
+    pattern = r"[A-Za-z0-9][A-Za-z0-9_.:\-/]*"
 
     for name in valid_names:
         assert re.fullmatch(pattern, name), f"Valid name should be accepted: {name}"
@@ -285,7 +279,8 @@ def test_version_computation():
 
     # Version should match pattern YYYY.MM.DD-N
     import re
-    pattern = r'\d{4}\.\d{2}\.\d{2}(-\d+)?'
+
+    pattern = r"\d{4}\.\d{2}\.\d{2}(-\d+)?"
     assert re.match(pattern, version), f"Version {version} should match pattern YYYY.MM.DD-N"
 
     print(f"✅ Version computation works: {version}")
@@ -360,9 +355,7 @@ def test_url_scheme_validation():
         except AssertionError:
             raise
         except Exception as exc:
-            raise AssertionError(
-                f"URL '{url}' should raise ValueError, not {type(exc).__name__}: {exc}"
-            ) from exc
+            raise AssertionError(f"URL '{url}' should raise ValueError, not {type(exc).__name__}: {exc}") from exc
 
     print("✅ http:// to non-localhost correctly blocked")
 
@@ -383,13 +376,12 @@ def test_url_scheme_validation():
             raise AssertionError(f"Blocked URL '{url}' was incorrectly allowed")
         except ValueError as exc:
             # This is expected - URL should be blocked
-            assert "Blocked unsafe URL scheme" in str(exc) or "explicitly blocked" in str(exc), \
+            assert "Blocked unsafe URL scheme" in str(exc) or "explicitly blocked" in str(exc), (
                 f"Expected security error message, got: {exc}"
+            )
         except Exception as exc:
             # Other exceptions are NOT acceptable - we should get ValueError first
-            raise AssertionError(
-                f"URL '{url}' should raise ValueError, not {type(exc).__name__}: {exc}"
-            ) from exc
+            raise AssertionError(f"URL '{url}' should raise ValueError, not {type(exc).__name__}: {exc}") from exc
 
     print("✅ Blocked URL schemes (file/ftp/etc.) correctly rejected")
 
@@ -447,14 +439,14 @@ def test_model_name_validation():
     ]
 
     invalid_names = [
-        "",                        # Empty
-        "../../../etc/passwd",     # Path traversal
-        "model; rm -rf /",         # Command injection
-        "model & echo bad",        # Command chaining
-        "model`whoami`",           # Command substitution
-        "model$(ls)",              # Command substitution
-        " leading-space",          # Leading space
-        "a" * 200,                 # Too long
+        "",  # Empty
+        "../../../etc/passwd",  # Path traversal
+        "model; rm -rf /",  # Command injection
+        "model & echo bad",  # Command chaining
+        "model`whoami`",  # Command substitution
+        "model$(ls)",  # Command substitution
+        " leading-space",  # Leading space
+        "a" * 200,  # Too long
     ]
 
     for name in valid_names:

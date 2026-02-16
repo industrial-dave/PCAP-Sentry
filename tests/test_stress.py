@@ -12,8 +12,8 @@ from pathlib import Path
 # Set UTF-8 encoding for Windows console to handle emoji characters
 if sys.platform == "win32":
     try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     except (AttributeError, OSError):
         # Fall back to ASCII-safe symbols if reconfigure fails
         pass
@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "Python"))
 
 def format_size(bytes_val):
     """Format bytes to human readable"""
-    for unit in ['B', 'KB', 'MB', 'GB']:
+    for unit in ["B", "KB", "MB", "GB"]:
         if bytes_val < 1024.0:
             return f"{bytes_val:.2f} {unit}"
         bytes_val /= 1024.0
@@ -44,7 +44,7 @@ def test_large_ioc_parsing():
     # Generate large IOC list
     large_text = []
     for i in range(10000):
-        large_text.append(f"192.168.{i//256}.{i%256}")
+        large_text.append(f"192.168.{i // 256}.{i % 256}")
         large_text.append(f"domain{i}.example.com")
 
     text = "\n".join(large_text)
@@ -64,8 +64,8 @@ def test_large_ioc_parsing():
     print(f"   IPs found: {len(iocs.get('ips', []))}")
     print(f"   Domains found: {len(iocs.get('domains', []))}")
 
-    assert len(iocs['ips']) > 0, "Should parse IPs"
-    assert len(iocs['domains']) > 0, "Should parse domains"
+    assert len(iocs["ips"]) > 0, "Should parse IPs"
+    assert len(iocs["domains"]) > 0, "Should parse domains"
 
 
 def test_reservoir_sampling_performance():
@@ -100,7 +100,7 @@ def test_reservoir_sampling_performance():
 
     assert len(reservoir) == limit, f"Reservoir should be exactly {limit}"
     # Lower threshold for CI environments which have variable performance
-    min_throughput = 50_000 if os.getenv('CI') else 100_000
+    min_throughput = 50_000 if os.getenv("CI") else 100_000
     assert throughput > min_throughput, f"Should process >{min_throughput:,} items/sec"
 
 
@@ -136,7 +136,7 @@ def test_counter_performance():
     print(f"   Unique ports tracked: {len(port_counts)}")
 
     # Lower threshold for CI environments which have variable performance
-    min_throughput = 250_000 if os.getenv('CI') else 500_000
+    min_throughput = 250_000 if os.getenv("CI") else 500_000
     assert throughput > min_throughput, f"Should process >{min_throughput:,} updates/sec"
 
 
@@ -153,7 +153,7 @@ def test_set_operations():
     unique_domains = set()
 
     for i in range(100_000):
-        unique_ips.add(f"192.168.{i//256}.{i%256}")
+        unique_ips.add(f"192.168.{i // 256}.{i % 256}")
         unique_domains.add(f"host{i}.example.com")
 
     end_time = time.time()
@@ -306,4 +306,3 @@ def test_memory_cleanup():
     print(f"   Memory released: {format_size(released)} ({release_pct:.1f}%)")
 
     assert release_pct > 80, "Should release >80% of allocated memory"
-
