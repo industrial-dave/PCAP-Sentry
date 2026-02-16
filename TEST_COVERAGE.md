@@ -2,24 +2,24 @@
 
 ## Current Status
 
-**Overall Coverage: 7%** (as of 2026-02-15)
+**Overall Coverage: 7%** (as of 2026-02-16)
 
 | Module | Lines | Coverage | Priority |
 |--------|-------|----------|----------|
-| pcap_sentry_gui.py | 6,169 | 6% | Medium |
-| threat_intelligence.py | 309 | 21% | High |
-| update_checker.py | 314 | 12% | High |
-| enhanced_ml_trainer.py | 186 | 0% | High |
+| pcap_sentry_gui.py | 6,346 | 7% | Medium |
+| threat_intelligence.py | 316 | 20% | High |
+| update_checker.py | 342 | 11% | High |
+| enhanced_ml_trainer.py | 184 | 0% | High |
 
 ## Why Coverage is Low
 
-The current tests (18 tests total) focus on:
+The current tests (21 tests total) focus on:
 - Individual function validation
 - Security testing (path traversal, input validation)
 - Performance benchmarks
 - Edge case handling
 
-**Main Gap:** The GUI application (pcap_sentry_gui.py) has 6,169 lines and requires GUI automation to test properly.
+**Main Gap:** The GUI application (pcap_sentry_gui.py) has 6,346 lines and requires GUI automation to test properly.
 
 ## OpenSSF Recommendation
 
@@ -222,7 +222,7 @@ This shows:
 ✅ **Testing infrastructure ready:**
 - pytest framework configured
 - pytest-cov integrated
-- 17 baseline tests (100% pass)
+- 21 baseline tests (100% pass)
 - Standard test invocation: `pytest tests/`
 - HTML coverage reports enabled
 

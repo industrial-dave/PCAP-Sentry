@@ -42,7 +42,7 @@ This document describes PCAP Sentry's approach to code quality and linting, demo
 The following warnings are intentionally accepted where they serve legitimate purposes:
 
 1. **PLC0415 (40 instances): Import not at top-level**
-   - **Context:** Large GUI application (6,100+ lines)
+   - **Context:** Large GUI application (10,700+ lines)
    - **Rationale:** Lazy imports reduce startup time from ~8s to ~3s
    - **Examples:** 
      - `import tkinter.filedialog` only when file dialog is opened

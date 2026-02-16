@@ -69,7 +69,7 @@ PCAP Sentry uses **GitHub Actions** for continuous integration. Every push to `m
   2. Run PyInstaller with PCAP_Sentry.spec
   3. Verify build artifacts created
 
-**Note:** Build and some security checks use `continue-on-error: true` to provide warnings without blocking PRs.
+**Note:** Safety and Codecov upload use `continue-on-error: true` to provide warnings without blocking PRs. Ruff, Bandit (medium+), and PyInstaller build checks will fail the pipeline if they detect issues.
 
 ### 2. CodeQL Workflow (`.github/workflows/codeql.yml`)
 
@@ -169,7 +169,7 @@ ruff check Python/ tests/
 - **Common causes:**
   - Outdated dependencies with CVEs
   - Insecure code patterns (hardcoded passwords, eval usage)
-- **Note:** Security job uses `continue-on-error` so it won't block PRs
+- **Note:** Safety uses `continue-on-error` so it won't block PRs. Bandit blocks on medium+ severity findings.
 
 #### Build Failures
 - **Symptom:** Red X on "Build Check" job

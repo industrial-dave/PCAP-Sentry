@@ -90,6 +90,16 @@ class ThreatIntelligence:
                     self._session = s
         return self._session
 
+    def close(self) -> None:
+        """Close the underlying HTTP session and release connection pool resources."""
+        with self._session_lock:
+            if self._session is not None:
+                try:
+                    self._session.close()
+                except Exception:
+                    pass
+                self._session = None
+
     def is_available(self) -> bool:
         """Check if threat intelligence is available"""
         return REQUESTS_AVAILABLE

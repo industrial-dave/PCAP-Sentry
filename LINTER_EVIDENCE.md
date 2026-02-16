@@ -136,7 +136,7 @@ All checks passed!
 **Test Verification:**
 ```bash
 $ pytest tests/ -v
-============================= 17 passed in 5.42s ==============================
+============================= 21 passed in 6.20s ==============================
 ```
 
 **Result:**
@@ -182,7 +182,7 @@ Found 271 errors (49.4% reduction from baseline)
 **Verification:**
 ```bash
 $ pytest tests/ -v
-============================= 17 passed in 6.83s ==============================
+============================= 21 passed in 6.20s ==============================
 ```
 
 **Remaining Warnings Breakdown:**

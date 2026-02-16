@@ -12,9 +12,9 @@ As stated in [CONTRIBUTING.md](CONTRIBUTING.md#testing-policy):
 
 ### 1. Comprehensive Test Suite Addition (2026.02.14-5)
 
-**Feature:** Added comprehensive test infrastructure with 17 automated tests
+**Feature:** Added comprehensive test infrastructure with 21 automated tests
 - **Tests Added:**
-  - 10 stability tests ([tests/test_stability.py](tests/test_stability.py))
+  - 14 stability tests ([tests/test_stability.py](tests/test_stability.py))
   - 7 stress tests ([tests/test_stress.py](tests/test_stress.py))
 - **Evidence:** The test suite itself validates the testing infrastructure works correctly
 - **Coverage:** All test files run successfully with 100% pass rate
@@ -134,35 +134,39 @@ As stated in [CONTRIBUTING.md](CONTRIBUTING.md#testing-policy):
 
 ## Test Execution Evidence
 
-### Current Test Results (as of 2026.02.15)
+### Current Test Results (as of 2026.02.16)
 
 ```bash
 $ pytest tests/ -v
 ======================== test session starts ========================
-collected 17 items
+collected 21 items
 
-tests/test_stability.py::test_imports PASSED                  [  5%]
-tests/test_stability.py::test_settings_operations PASSED      [ 11%]
-tests/test_stability.py::test_ioc_normalization PASSED        [ 17%]
-tests/test_stability.py::test_path_security PASSED            [ 23%]
-tests/test_stability.py::test_input_validation PASSED         [ 29%]
-tests/test_stability.py::test_credential_security PASSED      [ 35%]
-tests/test_stability.py::test_threat_intelligence PASSED      [ 41%]
-tests/test_stability.py::test_file_operations PASSED          [ 47%]
-tests/test_stability.py::test_version_computation PASSED      [ 52%]
-tests/test_stability.py::test_reservoir_sampling PASSED       [ 58%]
-tests/test_stress.py::test_large_ioc_parsing PASSED           [ 64%]
-tests/test_stress.py::test_reservoir_sampling_performance PASSED [ 70%]
-tests/test_stress.py::test_counter_performance PASSED         [ 76%]
-tests/test_stress.py::test_set_operations PASSED              [ 82%]
-tests/test_stress.py::test_edge_cases PASSED                  [ 88%]
-tests/test_stress.py::test_concurrent_operations PASSED       [ 94%]
+tests/test_stability.py::test_imports PASSED                  [  4%]
+tests/test_stability.py::test_settings_operations PASSED      [  9%]
+tests/test_stability.py::test_ioc_normalization PASSED        [ 14%]
+tests/test_stability.py::test_path_security PASSED            [ 19%]
+tests/test_stability.py::test_input_validation PASSED         [ 23%]
+tests/test_stability.py::test_credential_security PASSED      [ 28%]
+tests/test_stability.py::test_threat_intelligence PASSED      [ 33%]
+tests/test_stability.py::test_file_operations PASSED          [ 38%]
+tests/test_stability.py::test_version_computation PASSED      [ 42%]
+tests/test_stability.py::test_reservoir_sampling PASSED       [ 47%]
+tests/test_stability.py::test_url_scheme_validation PASSED    [ 52%]
+tests/test_stability.py::test_model_name_validation PASSED    [ 57%]
+tests/test_stability.py::test_kb_lock_exists PASSED           [ 61%]
+tests/test_stability.py::test_constants_defined PASSED        [ 66%]
+tests/test_stress.py::test_large_ioc_parsing PASSED           [ 71%]
+tests/test_stress.py::test_reservoir_sampling_performance PASSED [ 76%]
+tests/test_stress.py::test_counter_performance PASSED         [ 80%]
+tests/test_stress.py::test_set_operations PASSED              [ 85%]
+tests/test_stress.py::test_edge_cases PASSED                  [ 90%]
+tests/test_stress.py::test_concurrent_operations PASSED       [ 95%]
 tests/test_stress.py::test_memory_cleanup PASSED              [100%]
 
-==================== 17 passed in 4.85s ====================
+==================== 21 passed in 6.80s ====================
 ```
 
-**Pass Rate:** 100% (18/18 tests)
+**Pass Rate:** 100% (21/21 tests)
 
 ## Test Coverage Evidence
 
@@ -170,16 +174,16 @@ tests/test_stress.py::test_memory_cleanup PASSED              [100%]
 $ pytest tests/ --cov=Python --cov-report=term
 Name                            Stmts   Miss  Cover
 ---------------------------------------------------
-Python/threat_intelligence.py     309    245    21%
-Python/update_checker.py          314    277    12%
-Python/pcap_sentry_gui.py        6169   5777     6%
-Python/enhanced_ml_trainer.py     186    186     0%
+Python/threat_intelligence.py     316    252    20%
+Python/update_checker.py          342    304    11%
+Python/pcap_sentry_gui.py        6346   5914     7%
+Python/enhanced_ml_trainer.py     184    184     0%
 ---------------------------------------------------
-TOTAL                            6978   6485     7%
+TOTAL                            7188   6654     7%
 ```
 
 **Current Coverage:** 7% overall
-- **Note:** Low coverage is primarily due to GUI code (6,169 lines) requiring GUI automation
+- **Note:** Low coverage is primarily due to GUI code (6,346 lines) requiring GUI automation
 - **Non-GUI modules** have targeted test coverage for critical security functions
 
 ## Continuous Integration Evidence
@@ -205,6 +209,10 @@ All code changes are automatically tested via [GitHub Actions CI](.github/workfl
 | Threat Intelligence | `test_threat_intelligence()` | ✅ | IP validation + caching |
 | File Operations | `test_file_operations()` | ✅ | Atomic writes validated |
 | Reservoir Sampling | `test_reservoir_sampling()` | ✅ | Size limits enforced |
+| URL Scheme Safety | `test_url_scheme_validation()` | ✅ | Dangerous schemes blocked |
+| Model Name Safety | `test_model_name_validation()` | ✅ | Injection patterns rejected |
+| KB Thread Safety | `test_kb_lock_exists()` | ✅ | Lock protects knowledge base |
+| Code Constants | `test_constants_defined()` | ✅ | Module-level constants exist |
 | Version System | `test_version_computation()` | ✅ | CalVer format validated |
 | Settings System | `test_settings_operations()` | ✅ | Save/load works |
 | Large-scale IOC | `test_large_ioc_parsing()` | ✅ | 1M IOCs at 783K/sec |

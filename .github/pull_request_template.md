@@ -85,7 +85,7 @@ collected X items
 - [ ] ✅ **Documentation Updated**: Changes reflected in relevant documentation
 
 **CI/CD will automatically verify:**
-- 🧪 Test suite passes (17 tests × 6 configurations)
+- 🧪 Test suite passes (21 tests × 6 configurations)
 - 🔍 Ruff linter passes (700+ rules)
 - 🔒 Bandit security scanner passes (30+ checks)
 - 🛡️ CodeQL semantic analysis passes

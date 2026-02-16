@@ -131,21 +131,28 @@ def _write_error_log(message, exc=None, tb=None):
 
 
 def _handle_exception(exc_type, exc, tb):
-    _write_error_log("Unhandled exception", exc, tb)
-    if threading.current_thread() is threading.main_thread():
-        _show_startup_error(
-            "An unexpected error occurred. See app_errors.log in the app data folder.",
-            exc,
-        )
-    else:
-        # Schedule messagebox on the main thread to avoid tkinter threading crash
+    try:
+        _write_error_log("Unhandled exception", exc, tb)
+        if threading.current_thread() is threading.main_thread():
+            _show_startup_error(
+                "An unexpected error occurred. See app_errors.log in the app data folder.",
+                exc,
+            )
+        else:
+            # Schedule messagebox on the main thread to avoid tkinter threading crash
+            try:
+                root = tk._default_root
+                if root:
+                    root.after(0, lambda: _show_startup_error(
+                        "An unexpected error occurred. See app_errors.log in the app data folder.",
+                        exc,
+                    ))
+            except Exception:
+                pass
+    except Exception:
+        # Last-resort fallback to prevent recursion in the exception handler
         try:
-            root = tk._default_root
-            if root:
-                root.after(0, lambda: _show_startup_error(
-                    "An unexpected error occurred. See app_errors.log in the app data folder.",
-                    exc,
-                ))
+            sys.stderr.write(f"Exception in exception handler: {exc_type.__name__}: {exc}\n")
         except Exception:
             pass
 
@@ -193,6 +200,145 @@ def _check_tkinterdnd2():
 SIZE_SAMPLE_LIMIT = 50000
 DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
+
+# ── Thread lock for knowledge base read-modify-write operations ──────────
+_kb_lock = threading.Lock()
+
+# ── Common/well-known ports (shared across education, hints, analysis) ───
+COMMON_PORTS = {22, 53, 80, 123, 443, 445, 3389, 25, 110, 143, 21, 8080}
+
+PORT_DESCRIPTIONS = {
+    22:   "SSH — Secure remote terminal access",
+    53:   "DNS — Translates domain names to IP addresses",
+    80:   "HTTP — Unencrypted web traffic",
+    123:  "NTP — Time synchronization between computers",
+    443:  "HTTPS — Encrypted web traffic (standard for modern websites)",
+    445:  "SMB — Windows file sharing (often targeted by ransomware)",
+    3389: "RDP — Remote Desktop (lets someone control a PC remotely)",
+    25:   "SMTP — Sending email",
+    110:  "POP3 — Downloading email from a mail server",
+    143:  "IMAP — Syncing email across devices",
+    21:   "FTP — File transfers (sends passwords in plain text!)",
+    8080: "HTTP-Alt — Alternate web port, often used by proxies",
+}
+
+# Short-form descriptions for compact UI areas
+PORT_DESCRIPTIONS_SHORT = {
+    22:   "SSH (Secure Shell)",
+    53:   "DNS (Domain Name System)",
+    80:   "HTTP (Unencrypted Web)",
+    123:  "NTP (Time Sync)",
+    443:  "HTTPS (Encrypted Web)",
+    445:  "SMB (Windows File Sharing)",
+    3389: "RDP (Remote Desktop)",
+    25:   "SMTP (Email Sending)",
+    110:  "POP3 (Email Download)",
+    143:  "IMAP (Email Sync)",
+    21:   "FTP (File Transfer)",
+    8080: "HTTP-Alt (Proxy/Alternate Web)",
+}
+
+# ── Education pattern descriptions (rebuilt every analysis → now a constant) ──
+PATTERN_EDUCATION = {
+    "high_volume": (
+        "HIGH DATA VOLUME",
+        "A large amount of data was moved in this conversation.\n"
+        "      This could be a legitimate download, OR it could be\n"
+        "      data being stolen (exfiltrated) from your network.\n"
+        "      Key question: Is the data leaving your network\n"
+        "      (outbound) or entering it (inbound)?  Outbound bulk\n"
+        "      transfers to unknown hosts are especially concerning.",
+    ),
+    "long_duration": (
+        "LONG-LIVED CONNECTION",
+        "This connection stayed open for a very long time.\n"
+        "      Persistent connections can indicate a backdoor or\n"
+        "      Remote Access Tool (RAT) keeping a channel open so\n"
+        "      an attacker can send commands whenever they want.",
+    ),
+    "many_packets": (
+        "HIGH PACKET COUNT",
+        "An unusually large number of messages were exchanged.\n"
+        "      Could be normal (e.g., a video call) or could be\n"
+        "      Command-and-Control (C2) chatter — an attacker\n"
+        "      issuing many commands to compromised machines.",
+    ),
+    "small_packets": (
+        "SMALL PACKET PATTERN (BEACONING)",
+        "Lots of tiny packets were sent back and forth.\n"
+        "      This is the hallmark of 'beaconing' — malware\n"
+        "      sending periodic 'I'm alive' check-ins to its\n"
+        "      controller.  Look for regular timing intervals\n"
+        "      between these packets in Wireshark.",
+    ),
+    "large_packets": (
+        "LARGE PACKET PATTERN",
+        "Unusually large packets suggest bulk data movement.\n"
+        "      Is data leaving (outbound) or entering (inbound)?\n"
+        "      Outbound is more concerning — it could be stolen\n"
+        "      files, database dumps, or credentials.",
+    ),
+    "unusual_port": (
+        "NON-STANDARD PORT",
+        "This conversation used a port not associated with any\n"
+        "      common service.  Malware often picks random high\n"
+        "      ports to evade basic firewall rules.",
+    ),
+    "beaconing": (
+        "BEACONING DETECTED",
+        "Messages were sent at regular intervals — like a clock.\n"
+        "      This is one of the strongest malware indicators.\n"
+        "      Legitimate software rarely sends data with such\n"
+        "      precise, periodic timing.",
+    ),
+    "dns_tunnel": (
+        "POSSIBLE DNS TUNNELING",
+        "Data may be hidden inside DNS queries.  Attackers use\n"
+        "      this clever technique to sneak data out of networks\n"
+        "      that block most traffic but allow DNS (since every\n"
+        "      network needs DNS to function).",
+    ),
+    "c2": (
+        "COMMAND & CONTROL (C2)",
+        "This looks like communication between malware and its\n"
+        "      controller.  C2 traffic is how attackers remotely\n"
+        "      operate compromised machines — issuing commands to\n"
+        "      steal data, spread laterally, or launch attacks.",
+    ),
+    "exfiltration": (
+        "DATA EXFILTRATION",
+        "This pattern suggests data is being copied out of the\n"
+        "      network.  This is often the attacker's end goal —\n"
+        "      stealing intellectual property, customer records,\n"
+        "      financial data, or credentials.",
+    ),
+    "scan": (
+        "NETWORK SCANNING",
+        "This looks like port scanning or network reconnaissance.\n"
+        "      Attackers scan networks to find vulnerable services\n"
+        "      before launching a targeted attack.  Think of it as\n"
+        "      someone rattling every door handle in a building.",
+    ),
+    "ioc": (
+        "KNOWN MALICIOUS ADDRESS (IoC MATCH)",
+        "One of the IPs in this flow appears on a threat\n"
+        "      intelligence blocklist.  This means security\n"
+        "      researchers have already linked this address to\n"
+        "      malware, phishing, botnets, or other attacks.",
+    ),
+}
+
+# ── Regex for validating LLM model names before passing to subprocess ────
+_MODEL_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.:\-/]{0,127}$')
+
+
+def _is_valid_model_name(name: str) -> bool:
+    """Validate that a model name contains only safe characters.
+
+    Prevents shell-injection or path-traversal via model names passed
+    to subprocess calls (e.g., ``ollama rm <model>``).
+    """
+    return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
 _EMBEDDED_VERSION = "2026.02.16-4"  # Stamped by update_version.ps1 at build time
@@ -622,36 +768,38 @@ def _default_kb():
 
 
 def load_knowledge_base():
-    try:
-        if os.path.exists(KNOWLEDGE_BASE_FILE):
-            with open(KNOWLEDGE_BASE_FILE, encoding="utf-8") as f:
-                data = json.load(f)
-            if isinstance(data, dict):
-                data.setdefault("safe", [])
-                data.setdefault("malicious", [])
-                ioc = data.setdefault("ioc", {})
-                ioc.setdefault("ips", [])
-                ioc.setdefault("domains", [])
-                ioc.setdefault("hashes", [])
-                return data
-    except Exception:
-        pass
-    return _default_kb()
+    with _kb_lock:
+        try:
+            if os.path.exists(KNOWLEDGE_BASE_FILE):
+                with open(KNOWLEDGE_BASE_FILE, encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    data.setdefault("safe", [])
+                    data.setdefault("malicious", [])
+                    ioc = data.setdefault("ioc", {})
+                    ioc.setdefault("ips", [])
+                    ioc.setdefault("domains", [])
+                    ioc.setdefault("hashes", [])
+                    return data
+        except Exception:
+            pass
+        return _default_kb()
 
 
 def save_knowledge_base(data):
-    os.makedirs(os.path.dirname(KNOWLEDGE_BASE_FILE), exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(
-        dir=os.path.dirname(KNOWLEDGE_BASE_FILE), suffix=".tmp"
-    )
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        os.replace(tmp_path, KNOWLEDGE_BASE_FILE)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            os.unlink(tmp_path)
-        raise
+    with _kb_lock:
+        os.makedirs(os.path.dirname(KNOWLEDGE_BASE_FILE), exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(
+            dir=os.path.dirname(KNOWLEDGE_BASE_FILE), suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            os.replace(tmp_path, KNOWLEDGE_BASE_FILE)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)
+            raise
 
 
 def _backup_knowledge_base(max_backups=3):
@@ -786,6 +934,17 @@ def _safe_urlopen(url, data=None, headers=None, timeout=30, context=None):
             "This prevents file:// and other potentially dangerous protocols."
         )
     
+    # Restrict http:// to localhost only (prevent MitM on external connections)
+    if url_lower.startswith("http://"):
+        from urllib.parse import urlparse as _urlparse
+        _host = (_urlparse(url_str).hostname or "").lower()
+        _localhost = {"localhost", "127.0.0.1", "::1", "[::1]"}
+        if _host not in _localhost:
+            raise ValueError(
+                f"Unencrypted http:// connections are only allowed to localhost.\n"
+                f"Use https:// for external host: {_host}"
+            )
+    
     # Explicit file:// blocking (defense in depth)
     if "file:" in url_lower:
         raise ValueError(
@@ -900,10 +1059,25 @@ def _normalize_vector(vector, normalizer):
 
 
 def _vectorize_kb(kb):
-    """Pre-compute feature vectors for all KB entries (call once per analysis)."""
+    """Pre-compute feature vectors and normalized centroids for all KB entries (call once per analysis)."""
     safe_vectors = [_vector_from_features(entry["features"]) for entry in kb.get("safe", [])]
     mal_vectors = [_vector_from_features(entry["features"]) for entry in kb.get("malicious", [])]
-    return {"safe": safe_vectors, "malicious": mal_vectors}
+    result = {"safe": safe_vectors, "malicious": mal_vectors}
+    # Pre-compute normalized centroids for classify_vector to avoid re-normalizing every call
+    if safe_vectors and mal_vectors:
+        all_vectors = safe_vectors + mal_vectors
+        normalizer = _compute_normalizer(all_vectors)
+        safe_norm = [_normalize_vector(v, normalizer) for v in safe_vectors]
+        mal_norm = [_normalize_vector(v, normalizer) for v in mal_vectors]
+        cols_s = list(zip(*safe_norm, strict=False))
+        cols_m = list(zip(*mal_norm, strict=False))
+        result["_safe_centroid"] = [sum(c) / len(c) for c in cols_s]
+        result["_mal_centroid"] = [sum(c) / len(c) for c in cols_m]
+        result["_normalizer"] = normalizer
+        # Per-cluster variance for Mahalanobis-like distance
+        result["_safe_var"] = [max(statistics.pvariance(c), 1e-6) for c in cols_s]
+        result["_mal_var"] = [max(statistics.pvariance(c), 1e-6) for c in cols_m]
+    return result
 
 
 def compute_baseline_from_kb(kb, kb_vectors=None):
@@ -931,6 +1105,13 @@ def anomaly_score(vector, baseline):
     # Blend: 60% average + 40% max to catch single extreme outliers
     score = avg_score * 0.6 + max_score * 0.4
 
+    # Critical outlier floor: if any z-score exceeds 6.0, impose a minimum
+    # anomaly score to prevent extreme single-feature anomalies from being
+    # masked by many normal features in the blend.
+    if max_z > 6.0:
+        critical_floor = min(75.0, max_z * 8.0)
+        score = max(score, critical_floor)
+
     top = sorted(enumerate(zscores), key=lambda item: item[1], reverse=True)[:3]
     reasons = [f"{FEATURE_NAMES[idx]} z={value:.1f}" for idx, value in top if value > 0]
     return round(score, 1), reasons
@@ -942,31 +1123,47 @@ def classify_vector(vector, kb, normalizer_cache=None, kb_vectors=None):
     if not safe_entries or not mal_entries:
         return None
 
-    # Use pre-computed vectors if available, otherwise compute on the fly
-    safe_vectors = kb_vectors["safe"] if kb_vectors else [_vector_from_features(entry["features"]) for entry in safe_entries]
-    mal_vectors = kb_vectors["malicious"] if kb_vectors else [_vector_from_features(entry["features"]) for entry in mal_entries]
-
-    if normalizer_cache is not None:
-        normalizer = normalizer_cache
+    # Use pre-computed centroids and normalizer from _vectorize_kb when available
+    if kb_vectors and "_safe_centroid" in kb_vectors:
+        normalizer = normalizer_cache if normalizer_cache is not None else kb_vectors["_normalizer"]
+        target = _normalize_vector(vector, normalizer)
+        safe_centroid = kb_vectors["_safe_centroid"]
+        mal_centroid = kb_vectors["_mal_centroid"]
+        safe_var = kb_vectors.get("_safe_var")
+        mal_var = kb_vectors.get("_mal_var")
     else:
-        all_vectors = safe_vectors + mal_vectors
-        normalizer = _compute_normalizer(all_vectors)
+        # Fallback: compute on the fly
+        safe_vectors = kb_vectors["safe"] if kb_vectors else [_vector_from_features(entry["features"]) for entry in safe_entries]
+        mal_vectors = kb_vectors["malicious"] if kb_vectors else [_vector_from_features(entry["features"]) for entry in mal_entries]
 
-    safe_norm = [_normalize_vector(vec, normalizer) for vec in safe_vectors]
-    mal_norm = [_normalize_vector(vec, normalizer) for vec in mal_vectors]
-    target = _normalize_vector(vector, normalizer)
+        if normalizer_cache is not None:
+            normalizer = normalizer_cache
+        else:
+            all_vectors = safe_vectors + mal_vectors
+            normalizer = _compute_normalizer(all_vectors)
 
-    def centroid(vectors):
-        cols = list(zip(*vectors, strict=False))
-        return [sum(col) / len(col) for col in cols]
+        safe_norm = [_normalize_vector(vec, normalizer) for vec in safe_vectors]
+        mal_norm = [_normalize_vector(vec, normalizer) for vec in mal_vectors]
+        target = _normalize_vector(vector, normalizer)
 
-    def distance(a, b):
-        return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b, strict=False)))
+        def centroid(vectors):
+            cols = list(zip(*vectors, strict=False))
+            return [sum(col) / len(col) for col in cols]
 
-    safe_centroid = centroid(safe_norm)
-    mal_centroid = centroid(mal_norm)
-    dist_safe = distance(target, safe_centroid)
-    dist_mal = distance(target, mal_centroid)
+        safe_centroid = centroid(safe_norm)
+        mal_centroid = centroid(mal_norm)
+        # Compute per-cluster variance for weighted distance
+        cols_s = list(zip(*safe_norm, strict=False))
+        cols_m = list(zip(*mal_norm, strict=False))
+        safe_var = [max(statistics.pvariance(c), 1e-6) for c in cols_s]
+        mal_var = [max(statistics.pvariance(c), 1e-6) for c in cols_m]
+
+    # Variance-weighted (Mahalanobis-like) distance for more robust classification
+    def weighted_distance(a, b, var):
+        return math.sqrt(sum((x - y) ** 2 / v for x, y, v in zip(a, b, var, strict=False)))
+
+    dist_safe = weighted_distance(target, safe_centroid, safe_var)
+    dist_mal = weighted_distance(target, mal_centroid, mal_var)
     if dist_safe + dist_mal == 0:
         prob_mal = 0.5
     else:
@@ -1177,12 +1374,16 @@ def _get_model_hmac_key() -> bytes:
     key = os.urandom(32)
     try:
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(key_path))
+        closed = False
         try:
             os.write(fd, key)
             os.close(fd)
+            closed = True
             os.replace(tmp, key_path)
         except BaseException:
-            os.close(fd) if not None else None
+            if not closed:
+                with contextlib.suppress(OSError):
+                    os.close(fd)
             with contextlib.suppress(OSError):
                 os.unlink(tmp)
             raise
@@ -1283,18 +1484,19 @@ def _predict_local_model(model_bundle, features):
     return str(pred), proba
 
 
-def similarity_score(target, entry):
+def similarity_score(target, entry, _target_ports=None, _target_proto=None):
     target_count = target.get("packet_count", 0)
     entry_count = entry.get("packet_count", 0)
     if not target_count or not entry_count:
         return 0.0
 
-    target_ports = set(target.get("top_ports", []))
+    # Use pre-computed sets when available to avoid repeated construction
+    target_ports = _target_ports if _target_ports is not None else set(target.get("top_ports", []))
     entry_ports = set(entry.get("top_ports", []))
     ports_union = target_ports | entry_ports
     port_overlap = len(target_ports & entry_ports) / max(len(ports_union), 1)
 
-    target_proto = target.get("proto_ratio", {})
+    target_proto = _target_proto if _target_proto is not None else target.get("proto_ratio", {})
     entry_proto = entry.get("proto_ratio", {})
     proto_keys = set(target_proto) | set(entry_proto)
     proto_diff = sum(abs(target_proto.get(k, 0) - entry_proto.get(k, 0)) for k in proto_keys)
@@ -1340,21 +1542,27 @@ def get_top_k_similar_entries(features, kb_entries, k=5):
     candidates = []
     for entry in kb_entries:
         entry_pkt = entry["features"].get("packet_count", 0)
-        if entry_pkt and abs(entry_pkt - target_pkt) < target_pkt * 0.5:
+        # Widened pre-filter from ±50% to ±100% to avoid dropping valid matches
+        # with different capture durations but similar traffic patterns
+        if entry_pkt and abs(entry_pkt - target_pkt) < target_pkt * 1.0:
             candidates.append(entry)
 
-    # If pre-filter eliminated too many, use all
-    if not candidates:
+    # Ensure at least 2*k candidates to avoid losing critical matches
+    if len(candidates) < 2 * k:
         candidates = kb_entries
+
+    # Pre-compute target sets once for all comparisons (P3 fix)
+    target_ports = set(features.get("top_ports", []))
+    target_proto = features.get("proto_ratio", {})
 
     # Score only candidates, then get top K
     if len(candidates) <= k:
-        scores = [similarity_score(features, e["features"]) for e in candidates]
+        scores = [similarity_score(features, e["features"], _target_ports=target_ports, _target_proto=target_proto) for e in candidates]
         sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
         return [candidates[i] for i in sorted_indices], [scores[i] for i in sorted_indices]
 
     # Score all candidates and take top K
-    scores = [similarity_score(features, e["features"]) for e in candidates]
+    scores = [similarity_score(features, e["features"], _target_ports=target_ports, _target_proto=target_proto) for e in candidates]
     top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:k]
     return [candidates[i] for i in top_indices], [scores[i] for i in top_indices]
 
@@ -1406,6 +1614,15 @@ def parse_http_payload(payload):
         return "", "", ""
 
 
+# Pre-compiled regex patterns for HTTP credential extraction (P4 fix)
+_RE_HTTP_BASIC = re.compile(r"(?i)\r\nAuthorization:\s*Basic\s+([A-Za-z0-9+/=]+)")
+_RE_HTTP_NTLM = re.compile(r"(?i)\r\nAuthorization:\s*NTLM\s+([A-Za-z0-9+/=]+)")
+_RE_HTTP_COOKIE = re.compile(r"(?i)\r\nCookie:\s*(.+?)\r\n")
+_RE_HTTP_SET_COOKIE = re.compile(r"(?i)\r\nSet-Cookie:\s*(.+?)\r\n")
+_RE_FORM_USER = re.compile(r"(?:user(?:name)?|login|email|acct)=([^&\r\n]+)", re.IGNORECASE)
+_RE_FORM_PASS = re.compile(r"(?:pass(?:word)?|passwd|pw|secret)=([^&\r\n]+)", re.IGNORECASE)
+
+
 def extract_credentials_and_hosts(file_path, use_high_memory=False):
     """Extract credentials, usernames, passwords, hostnames, MAC addresses from a PCAP file.
 
@@ -1424,7 +1641,11 @@ def extract_credentials_and_hosts(file_path, use_high_memory=False):
     credentials = []  # list of dicts
     hosts = {}  # ip -> {"mac": set(), "hostnames": set()}
     _seen_creds = set()  # dedup key
-    ftp_state = {}  # src_ip:src_port -> last USER value
+    # Bounded dict to avoid unbounded growth on large PCAPs with many FTP sessions.
+    # Uses OrderedDict as a simple LRU; evicts oldest entries when full.
+    from collections import OrderedDict
+    _FTP_STATE_MAX = 2000
+    ftp_state = OrderedDict()  # src_ip:src_port -> last USER value
     MAX_CREDS = 5000
 
     def _add_host(ip, mac=None, hostname=None):
@@ -1462,8 +1683,8 @@ def extract_credentials_and_hosts(file_path, use_high_memory=False):
             text = payload.decode("latin-1", errors="ignore")
         except Exception:
             return
-        # Authorization header (Basic)
-        auth_match = re.search(r"(?i)\r\nAuthorization:\s*Basic\s+([A-Za-z0-9+/=]+)", text)
+        # Authorization header (Basic) — uses pre-compiled regex
+        auth_match = _RE_HTTP_BASIC.search(text)
         if auth_match:
             try:
                 decoded = base64.b64decode(auth_match.group(1)).decode("utf-8", errors="replace")
@@ -1473,31 +1694,28 @@ def extract_credentials_and_hosts(file_path, use_high_memory=False):
                     _add_cred("HTTP-Basic", src, dst, "Password", pw)
             except Exception:
                 pass
-        # NTLM in HTTP
-        ntlm_match = re.search(r"(?i)\r\nAuthorization:\s*NTLM\s+([A-Za-z0-9+/=]+)", text)
+        # NTLM in HTTP — uses pre-compiled regex
+        ntlm_match = _RE_HTTP_NTLM.search(text)
         if ntlm_match:
             _add_cred("HTTP-NTLM", src, dst, "NTLM Token", ntlm_match.group(1)[:60] + "...", "NTLM auth exchange")
-        # Form POST with common credential field names
+        # Form POST with common credential field names — uses pre-compiled regex
         if text.startswith(("POST ", "post ")):
             body_start = text.find("\r\n\r\n")
             if body_start != -1:
                 body = text[body_start + 4:body_start + 4 + 2000]
-                for pattern in [
-                    r"(?:user(?:name)?|login|email|acct)=([^&\r\n]+)",
-                    r"(?:pass(?:word)?|passwd|pw|secret)=([^&\r\n]+)",
-                ]:
-                    for m in re.finditer(pattern, body, re.IGNORECASE):
+                for compiled_re in (_RE_FORM_USER, _RE_FORM_PASS):
+                    for m in compiled_re.finditer(body):
                         field_name = m.group(0).split("=", 1)[0]
                         _add_cred("HTTP-POST", src, dst, field_name, m.group(1))
-        # Cookie header
-        cookie_match = re.search(r"(?i)\r\nCookie:\s*(.+?)\r\n", text)
+        # Cookie header — uses pre-compiled regex
+        cookie_match = _RE_HTTP_COOKIE.search(text)
         if cookie_match:
             cookie_val = cookie_match.group(1).strip()
             if len(cookie_val) > 120:
                 cookie_val = cookie_val[:120] + "..."
             _add_cred("HTTP-Cookie", src, dst, "Cookie", cookie_val)
-        # Set-Cookie (server response)
-        set_cookie_match = re.search(r"(?i)\r\nSet-Cookie:\s*(.+?)\r\n", text)
+        # Set-Cookie (server response) — uses pre-compiled regex
+        set_cookie_match = _RE_HTTP_SET_COOKIE.search(text)
         if set_cookie_match:
             sc_val = set_cookie_match.group(1).strip()
             if len(sc_val) > 120:
@@ -1512,6 +1730,9 @@ def extract_credentials_and_hosts(file_path, use_high_memory=False):
         if upper.startswith("USER "):
             user = text[5:].strip()
             ftp_state[conn_key] = user
+            # Evict oldest entries to bound memory usage
+            while len(ftp_state) > _FTP_STATE_MAX:
+                ftp_state.popitem(last=False)
             _add_cred("FTP", src, dst, "Username", user)
         elif upper.startswith("PASS "):
             pw = text[5:].strip()
@@ -2375,8 +2596,11 @@ def compute_flow_stats(df):
     flow_df = grouped.agg(
         Packets=("Size", "count"),
         Bytes=("Size", "sum"),
-        Duration=("Time", lambda x: float(x.max() - x.min())),
+        TimeMin=("Time", "min"),
+        TimeMax=("Time", "max"),
     ).reset_index()
+    flow_df["Duration"] = (flow_df["TimeMax"] - flow_df["TimeMin"]).astype(float)
+    flow_df.drop(columns=["TimeMin", "TimeMax"], inplace=True)
     flow_df["Flow"] = (
         flow_df["Src"]
         + ":"
@@ -2495,24 +2719,38 @@ def detect_behavioral_anomalies(df, stats, flow_df=None):
     if flow_df is None:
         flow_df = compute_flow_stats(df)
     if not flow_df.empty:
-        flow_cols = ["Src", "Dst", "Proto", "SPort", "DPort"]
-        grouped = df.groupby(flow_cols, dropna=False)
+        # Reuse flow_df instead of re-grouping the entire DataFrame (P1 fix).
+        # Only examine flows with enough packets to detect regularity.
+        candidate_flows = flow_df[flow_df["Packets"] >= 8]
         beacons = []
-        for keys, group in grouped:
-            if len(group) < 8:
-                continue
-            times = sorted(group["Time"].tolist())
-            gaps = [b - a for a, b in itertools.pairwise(times) if b - a > 0]
-            if len(gaps) < 6:
-                continue
-            avg_gap = sum(gaps) / len(gaps)
-            if avg_gap <= 0 or avg_gap > 3600:
-                continue
-            std_gap = statistics.pstdev(gaps)
-            cv = std_gap / avg_gap
-            if cv < 0.25:  # very regular
-                flow_str = f"{keys[0]}:{keys[3]} -> {keys[1]}:{keys[4]} ({keys[2]})"
-                beacons.append((flow_str, avg_gap, len(group)))
+        if not candidate_flows.empty:
+            flow_cols = ["Src", "Dst", "Proto", "SPort", "DPort"]
+            # Only re-group the subset of flows that passed the packet threshold
+            flow_keys_set = set()
+            for _, row in candidate_flows.iterrows():
+                flow_keys_set.add(tuple(row[col] for col in flow_cols))
+            # Filter df to only rows belonging to candidate flows before grouping
+            if len(flow_keys_set) < len(df) * 0.5:  # Only filter when it saves work
+                mask = df.set_index(flow_cols).index.isin(flow_keys_set)
+                subset = df[mask]
+            else:
+                subset = df
+            grouped = subset.groupby(flow_cols, dropna=False)
+            for keys, group in grouped:
+                if len(group) < 8:
+                    continue
+                times = group["Time"].sort_values().to_list()
+                gaps = [b - a for a, b in itertools.pairwise(times) if b - a > 0]
+                if len(gaps) < 6:
+                    continue
+                avg_gap = sum(gaps) / len(gaps)
+                if avg_gap <= 0 or avg_gap > 3600:
+                    continue
+                std_gap = statistics.pstdev(gaps)
+                cv = std_gap / avg_gap
+                if cv < 0.25:  # very regular
+                    flow_str = f"{keys[0]}:{keys[3]} -> {keys[1]}:{keys[4]} ({keys[2]})"
+                    beacons.append((flow_str, avg_gap, len(group)))
         if beacons:
             beacons.sort(key=lambda x: x[2], reverse=True)
             top = beacons[0]
@@ -2820,6 +3058,7 @@ class PCAPSentryApp:
         self._progress_current = 0.0
         self._progress_animating = False
         self._progress_anim_id = None
+        self._progress_indeterminate = False
         self._shutting_down = False
         self._cancel_event = threading.Event()
         self.sample_note_var = tk.StringVar(value="")
@@ -2927,7 +3166,7 @@ class PCAPSentryApp:
             try:
                 self.root.after_cancel(self._bg_draw_pending)
                 self._bg_draw_pending = None
-            except:
+            except Exception:
                 pass
         
         # Stop animations
@@ -2953,20 +3192,22 @@ class PCAPSentryApp:
                 "theme": self.theme_var.get().strip().lower() or "system",
                 "app_data_notice_shown": bool(self.settings.get("app_data_notice_shown")),
             }
-        except:
+        except Exception:
             settings_snapshot = self.settings
         
-        # Perform file I/O in background thread to avoid blocking UI
+        # Perform file I/O in a background thread but wait briefly so
+        # settings and KB backup are actually written before the process exits.
         def _cleanup_thread():
             try:
                 _backup_knowledge_base()
                 save_settings(settings_snapshot)
-            except:
+            except Exception:
                 pass  # Best effort, don't block shutdown
-        
-        threading.Thread(target=_cleanup_thread, daemon=True).start()
-        
-        # Destroy window immediately without waiting for file I/O
+
+        cleanup = threading.Thread(target=_cleanup_thread, daemon=True)
+        cleanup.start()
+        cleanup.join(timeout=2)  # Wait up to 2 s for save to finish
+
         self.root.destroy()
 
     # ── Local-server process names keyed by display / provider id ──
@@ -3452,22 +3693,27 @@ class PCAPSentryApp:
     def _build_status(self):
         # Separator above status
         ttk.Separator(self.root, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=16)
-        status = ttk.Frame(self.root, padding=(16, 10))
+        status = ttk.Frame(self.root, padding=(16, 8))
         status.pack(fill=tk.X)
-        # Longer progress bar for better visibility
-        self.progress = ttk.Progressbar(status, mode="indeterminate", length=300)
-        self.progress.pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Label(status, textvariable=self.progress_percent_var, style="Hint.TLabel").pack(side=tk.LEFT)
+        # Progress bar — wider for clarity
+        self.progress = ttk.Progressbar(status, mode="indeterminate", length=340)
+        self.progress.pack(side=tk.LEFT, padx=(0, 8))
+        # Percent label (hidden when idle — populated by _set_progress)
+        self._progress_pct_label = ttk.Label(
+            status, textvariable=self.progress_percent_var,
+            font=("Segoe UI", 10, "bold"), width=5, anchor="w",
+        )
+        self._progress_pct_label.pack(side=tk.LEFT, padx=(0, 4))
         # Cancel button (hidden by default)
         self.cancel_button = ttk.Button(
-            status, text="Cancel", width=7,
+            status, text="\u2715  Cancel", width=9,
             command=self._request_cancel,
         )
         self.cancel_button.pack(side=tk.LEFT, padx=(4, 0))
         self.cancel_button.pack_forget()  # hidden until busy
         # Status message
-        status_label = ttk.Label(status, textvariable=self.status_var, font=("Segoe UI", 12, "bold"))
-        status_label.pack(side=tk.LEFT, padx=12, fill=tk.X, expand=True)
+        status_label = ttk.Label(status, textvariable=self.status_var, font=("Segoe UI", 11))
+        status_label.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
         ttk.Label(status, textvariable=self.sample_note_var, style="Hint.TLabel").pack(side=tk.RIGHT)
 
     def _open_preferences(self):
@@ -3942,11 +4188,30 @@ class PCAPSentryApp:
         frame = ttk.Frame(progress_window, padding=16)
         frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frame, text="Downloading update...").pack(anchor="w", pady=(0, 10))
-        progress_bar = ttk.Progressbar(frame, mode="determinate", length=350)
+        ttk.Label(frame, text="Downloading update...", font=("Segoe UI", 11)).pack(anchor="w", pady=(0, 10))
+        progress_bar = ttk.Progressbar(frame, mode="indeterminate", length=350)
         progress_bar.pack(fill=tk.X, pady=(0, 10))
-        status_label = ttk.Label(frame, text="0%")
+        progress_bar.start(12)  # Pulse until first real update
+        status_label = ttk.Label(frame, text="Connecting...", font=("Segoe UI", 10))
         status_label.pack(anchor="w")
+
+        # Smooth animation state for download progress
+        _dl_anim = {"current": 0.0, "target": 0.0, "started": False, "anim_id": None}
+
+        def _animate_dl():
+            """Ease-out interpolation for download progress bar."""
+            diff = _dl_anim["target"] - _dl_anim["current"]
+            if abs(diff) < 0.3:
+                _dl_anim["current"] = _dl_anim["target"]
+                progress_bar["value"] = _dl_anim["target"]
+                _dl_anim["anim_id"] = None
+                return
+            step = diff * 0.15
+            if abs(step) < 0.15:
+                step = 0.15 if diff > 0 else -0.15
+            _dl_anim["current"] += step
+            progress_bar["value"] = _dl_anim["current"]
+            _dl_anim["anim_id"] = self.root.after(16, _animate_dl)
 
         def download_in_background():
             try:
@@ -3982,10 +4247,21 @@ class PCAPSentryApp:
                 def progress_callback(downloaded, total):
                     if total > 0:
                         progress = int((downloaded / total) * 100)
-                        self.root.after(0, lambda p=progress: (
-                            progress_bar.configure(value=p),
-                            status_label.config(text=f"{p}%"),
-                        ))
+
+                        def _update_dl(p=progress, dl=downloaded, t=total):
+                            if not _dl_anim["started"]:
+                                # Switch from indeterminate to determinate on first update
+                                progress_bar.stop()
+                                progress_bar.configure(mode="determinate", maximum=100)
+                                _dl_anim["started"] = True
+                            _dl_anim["target"] = p
+                            dl_mb = dl / (1024 * 1024)
+                            t_mb = t / (1024 * 1024)
+                            status_label.config(text=f"{p}%  ({dl_mb:.1f} / {t_mb:.1f} MB)")
+                            if _dl_anim["anim_id"] is None:
+                                _animate_dl()
+
+                        self.root.after(0, _update_dl)
 
                 if checker.download_update(dest_path, progress_callback=progress_callback):
                     def on_success():
@@ -5361,12 +5637,22 @@ class PCAPSentryApp:
         for col in [c for c in columns if c not in ("UTC Time", "RelTime")]:
             if col not in df.columns:
                 df[col] = ""
+        # Limit to 500 rows and notify user if truncated (P5 fix)
+        total_rows = len(df)
+        display_limit = 500
+        display_df = df.head(display_limit)
         rows_for_size = []
-        for row in df.head(500).to_dict("records"):
-            values = [self._format_packet_table_value(row, col) for col in columns]
+        for row in display_df.itertuples(index=False):
+            row_dict = row._asdict()
+            values = [self._format_packet_table_value(row_dict, col) for col in columns]
             self.packet_table.insert("", tk.END, values=values)
             rows_for_size.append(values)
         self._autosize_packet_table(columns, rows_for_size)
+        # Show truncation notice if applicable
+        if total_rows > display_limit:
+            self.sample_note_var.set(f"Showing {display_limit} of {total_rows:,} packets (use filters to narrow)")
+        else:
+            self.sample_note_var.set("")
 
     def _format_packet_table_value(self, row, col):
         # Always use 'Time' for 'UTC Time' display
@@ -5567,8 +5853,7 @@ class PCAPSentryApp:
 
         top_ports = stats.get("top_ports", [])
         if top_ports:
-            common_ports = {22, 53, 80, 123, 443, 445, 3389}
-            unusual_ports = [str(port) for port, _ in top_ports if port not in common_ports]
+            unusual_ports = [str(port) for port, _ in top_ports if port not in COMMON_PORTS]
             malware_flagged = [str(port) for port, _ in top_ports if port in MALWARE_PORTS]
             if malware_flagged:
                 hint_lines.append(f"- ⚠ Known malware/C2 ports: {', '.join(malware_flagged)}")
@@ -5672,7 +5957,12 @@ class PCAPSentryApp:
             if self.busy_count == 1:
                 self._cancel_event.clear()
                 self.status_var.set(message)
-                self._reset_progress()  # Reset progress bar to 0%
+                self._reset_progress()
+                # Start indeterminate pulsing until real progress arrives
+                self.progress.configure(mode="indeterminate")
+                self.progress.start(12)  # Smooth pulse interval
+                self._progress_indeterminate = True
+                self.progress_percent_var.set("")
                 self.root.configure(cursor="watch")
                 self.root.title(f"{self.root_title} - Working...")
                 self._start_logo_spin()
@@ -5692,6 +5982,7 @@ class PCAPSentryApp:
             self.busy_count = max(0, self.busy_count - 1)
             if self.busy_count == 0:
                 self._stop_logo_spin()
+                self._reset_progress()
                 self.root.configure(cursor="")
                 self.root_title = self._get_window_title()
                 self.root.title(self.root_title)
@@ -5709,10 +6000,11 @@ class PCAPSentryApp:
         self.progress.stop()
         self.progress.configure(mode="determinate", maximum=100)
         self.progress["value"] = 0
-        self.progress_percent_var.set("0%")
+        self.progress_percent_var.set("")
         self._progress_target = 0.0
         self._progress_current = 0.0
         self._progress_animating = False
+        self._progress_indeterminate = False
         if self._progress_anim_id is not None:
             self.root.after_cancel(self._progress_anim_id)
             self._progress_anim_id = None
@@ -5727,20 +6019,35 @@ class PCAPSentryApp:
                     short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
                     self.root.title(f"{self.root_title} - {short_label}")
             return
-        
-        # Update progress bar with actual percentage
-        self.progress.configure(mode="determinate", maximum=100)
+
+        # Transition from indeterminate pulsing to determinate on first real update
+        if self._progress_indeterminate:
+            self.progress.stop()
+            self.progress.configure(mode="determinate", maximum=100)
+            self._progress_indeterminate = False
+            self._progress_current = 0.0
+
         percent_value = min(max(percent, 0.0), 100.0)
-        
-        # Show actual progress immediately
-        self._progress_current = percent_value
-        self.progress["value"] = percent_value
+
+        # Set target and kick off smooth animation
+        self._progress_target = percent_value
+        # Update displayed percentage text immediately for responsiveness
         self.progress_percent_var.set(f"{percent_value:.0f}%")
-        
+
+        if not self._progress_animating:
+            self._progress_animating = True
+            self._animate_progress()
+
         if label:
             status_text = f"{label} {percent:.0f}%"
             if processed is not None and total:
                 status_text = f"{label} {percent:.0f}% ({_format_bytes(processed)} / {_format_bytes(total)})"
+            if eta_seconds is not None and eta_seconds > 0:
+                eta_min, eta_sec = divmod(int(eta_seconds), 60)
+                if eta_min > 0:
+                    status_text += f" — ~{eta_min}m {eta_sec}s remaining"
+                else:
+                    status_text += f" — ~{eta_sec}s remaining"
             self.status_var.set(status_text)
             if self.busy_count > 0:
                 short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
@@ -5750,32 +6057,33 @@ class PCAPSentryApp:
         """Smoothly interpolate the progress bar toward _progress_target."""
         if self._shutting_down:
             self._progress_animating = False
+            self._progress_anim_id = None
             return
         target = self._progress_target
         current = self._progress_current
         diff = target - current
 
-        if abs(diff) < 0.3:
+        if abs(diff) < 0.2:
             # Close enough – snap to target
             self._progress_current = target
             self.progress["value"] = target
-            self.progress_percent_var.set(f"{target:.0f}%")
             self._progress_animating = False
             self._progress_anim_id = None
             return
 
-        # Ease toward target: move ~40% of remaining distance per tick for smoother animation
-        step = diff * 0.4
-        if abs(step) < 0.3:
-            step = 0.3 if diff > 0 else -0.3
+        # Ease-out interpolation: move 15% of remaining distance per tick
+        # This gives a smooth deceleration as the bar approaches its target
+        step = diff * 0.15
+        # Ensure minimum movement to avoid stalling
+        if abs(step) < 0.15:
+            step = 0.15 if diff > 0 else -0.15
 
         new_val = current + step
         self._progress_current = new_val
         self.progress["value"] = new_val
-        self.progress_percent_var.set(f"{new_val:.0f}%")
 
         self._progress_animating = True
-        self._progress_anim_id = self.root.after(20, self._animate_progress)
+        self._progress_anim_id = self.root.after(16, self._animate_progress)  # ~60fps
 
     def _apply_theme(self):
         theme = self._resolve_theme()
@@ -6160,7 +6468,9 @@ class PCAPSentryApp:
             background=accent,
             troughcolor=panel_alt,
             bordercolor=border_light,
-            thickness=8,
+            lightcolor=accent,
+            darkcolor=accent,
+            thickness=14,
         )
 
         style.configure("TSeparator", background=border)
@@ -6415,8 +6725,7 @@ class PCAPSentryApp:
                 raise AnalysisCancelledError("Analysis cancelled by user.")
             
             # Light throttling to prevent excessive updates while maintaining responsiveness
-            import time as _time
-            current_time = _time.time()
+            current_time = time.time()
             time_delta = current_time - last_progress_time[0]
             progress_delta = abs(percent - last_progress_value[0])
             
@@ -6506,12 +6815,12 @@ class PCAPSentryApp:
             if done:
                 if cancelled or self._cancel_event.is_set():
                     self._set_busy(False)
-                    self.status_var.set("Cancelled.")
+                    self.status_var.set("Analysis cancelled.")
                     self._reset_progress()
                 else:
-                    # Snap progress to 100% before clearing
-                    self._set_progress(100, label="Complete")
-                    self.root.after(600, lambda: self._finish_task(error, payload, error_tb, on_success, on_error))
+                    # Smoothly animate to 100% before clearing
+                    self._set_progress(100, label="Complete \u2713")
+                    self.root.after(800, lambda: self._finish_task(error, payload, error_tb, on_success, on_error))
             else:
                 # Poll at 100ms for smooth progress updates
                 interval = 30 if self._cancel_event.is_set() else 100
@@ -7270,6 +7579,10 @@ class PCAPSentryApp:
                 return
             model_name = model_listbox.get(selection[0])
 
+            if not _is_valid_model_name(model_name):
+                messagebox.showwarning("Remove Model", "Invalid model name.")
+                return
+
             confirm = messagebox.askyesno(
                 "Remove Model",
                 f"Remove model '{model_name}'?\n\nThis will free up disk space but the model will need to be re-downloaded if you want to use it again.",
@@ -7350,7 +7663,7 @@ class PCAPSentryApp:
                 return
 
             # Validate model name
-            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:\-/]*', model_to_add):
+            if not _is_valid_model_name(model_to_add):
                 messagebox.showwarning("Add Model", "Invalid model name. Only letters, digits, '.', ':', '-', '_', '/' are allowed.")
                 return
 
@@ -9041,23 +9354,8 @@ class PCAPSentryApp:
         lines.append("")
 
         # -- Ports --
-        common_ports = {22, 53, 80, 123, 443, 445, 3389, 25, 110, 143, 21, 8080}
-        port_descriptions = {
-            22:  "SSH — Secure remote terminal access",
-            53:  "DNS — Translates domain names (like google.com) to IP addresses",
-            80:  "HTTP — Unencrypted web traffic (you can read everything in it)",
-            123: "NTP — Time synchronization between computers",
-            443: "HTTPS — Encrypted web traffic (the standard for modern websites)",
-            445: "SMB — Windows file sharing (often targeted by ransomware)",
-            3389:"RDP — Remote Desktop (lets someone control a PC remotely)",
-            25:  "SMTP — Sending email",
-            110: "POP3 — Downloading email from a mail server",
-            143: "IMAP — Syncing email across devices",
-            21:  "FTP — File transfers (sends passwords in plain text!)",
-            8080:"HTTP-Alt — Alternate web port, often used by proxies",
-        }
         top_ports = stats.get("top_ports", [])
-        unusual_ports = [p for p, _ in top_ports if p not in common_ports] if top_ports else []
+        unusual_ports = [p for p, _ in top_ports if p not in COMMON_PORTS] if top_ports else []
         if top_ports:
             lines.append("  [PORTS]  What network services were used?")
             lines.append("")
@@ -9070,8 +9368,8 @@ class PCAPSentryApp:
             )
             lines.append("")
             for port, count in top_ports[:10]:
-                desc = port_descriptions.get(port, "Unknown / non-standard service")
-                flag = "  ** UNUSUAL **" if port not in common_ports else ""
+                desc = PORT_DESCRIPTIONS.get(port, "Unknown / non-standard service")
+                flag = "  ** UNUSUAL **" if port not in COMMON_PORTS else ""
                 lines.append(f"      Port {port:>5} : {desc} ({count} packets){flag}")
             if unusual_ports:
                 lines.append("")
@@ -9250,111 +9548,6 @@ class PCAPSentryApp:
             http_hosts = stats.get("http_hosts", [])
             tls_sni = stats.get("tls_sni", [])
 
-            common_ports = {22, 53, 80, 123, 443, 445, 3389, 25, 110, 143, 21, 8080}
-            port_descriptions = {
-                22:  "SSH (Secure Shell)",
-                53:  "DNS (Domain Name System)",
-                80:  "HTTP (Unencrypted Web)",
-                123: "NTP (Time Sync)",
-                443: "HTTPS (Encrypted Web)",
-                445: "SMB (Windows File Sharing)",
-                3389:"RDP (Remote Desktop)",
-                25:  "SMTP (Email Sending)",
-                110: "POP3 (Email Download)",
-                143: "IMAP (Email Sync)",
-                21:  "FTP (File Transfer)",
-                8080:"HTTP-Alt (Proxy/Alternate Web)",
-            }
-
-            pattern_education = {
-                "high_volume": (
-                    "HIGH DATA VOLUME",
-                    "A large amount of data was moved in this conversation.\n"
-                    "      This could be a legitimate download, OR it could be\n"
-                    "      data being stolen (exfiltrated) from your network.\n"
-                    "      Key question: Is the data leaving your network\n"
-                    "      (outbound) or entering it (inbound)?  Outbound bulk\n"
-                    "      transfers to unknown hosts are especially concerning.",
-                ),
-                "long_duration": (
-                    "LONG-LIVED CONNECTION",
-                    "This connection stayed open for a very long time.\n"
-                    "      Persistent connections can indicate a backdoor or\n"
-                    "      Remote Access Tool (RAT) keeping a channel open so\n"
-                    "      an attacker can send commands whenever they want.",
-                ),
-                "many_packets": (
-                    "HIGH PACKET COUNT",
-                    "An unusually large number of messages were exchanged.\n"
-                    "      Could be normal (e.g., a video call) or could be\n"
-                    "      Command-and-Control (C2) chatter — an attacker\n"
-                    "      issuing many commands to compromised machines.",
-                ),
-                "small_packets": (
-                    "SMALL PACKET PATTERN (BEACONING)",
-                    "Lots of tiny packets were sent back and forth.\n"
-                    "      This is the hallmark of 'beaconing' — malware\n"
-                    "      sending periodic 'I'm alive' check-ins to its\n"
-                    "      controller.  Look for regular timing intervals\n"
-                    "      between these packets in Wireshark.",
-                ),
-                "large_packets": (
-                    "LARGE PACKET PATTERN",
-                    "Unusually large packets suggest bulk data movement.\n"
-                    "      Is data leaving (outbound) or entering (inbound)?\n"
-                    "      Outbound is more concerning — it could be stolen\n"
-                    "      files, database dumps, or credentials.",
-                ),
-                "unusual_port": (
-                    "NON-STANDARD PORT",
-                    "This conversation used a port not associated with any\n"
-                    "      common service.  Malware often picks random high\n"
-                    "      ports to evade basic firewall rules.",
-                ),
-                "beaconing": (
-                    "BEACONING DETECTED",
-                    "Messages were sent at regular intervals — like a clock.\n"
-                    "      This is one of the strongest malware indicators.\n"
-                    "      Legitimate software rarely sends data with such\n"
-                    "      precise, periodic timing.",
-                ),
-                "dns_tunnel": (
-                    "POSSIBLE DNS TUNNELING",
-                    "Data may be hidden inside DNS queries.  Attackers use\n"
-                    "      this clever technique to sneak data out of networks\n"
-                    "      that block most traffic but allow DNS (since every\n"
-                    "      network needs DNS to function).",
-                ),
-                "c2": (
-                    "COMMAND & CONTROL (C2)",
-                    "This looks like communication between malware and its\n"
-                    "      controller.  C2 traffic is how attackers remotely\n"
-                    "      operate compromised machines — issuing commands to\n"
-                    "      steal data, spread laterally, or launch attacks.",
-                ),
-                "exfiltration": (
-                    "DATA EXFILTRATION",
-                    "This pattern suggests data is being copied out of the\n"
-                    "      network.  This is often the attacker's end goal —\n"
-                    "      stealing intellectual property, customer records,\n"
-                    "      financial data, or credentials.",
-                ),
-                "scan": (
-                    "NETWORK SCANNING",
-                    "This looks like port scanning or network reconnaissance.\n"
-                    "      Attackers scan networks to find vulnerable services\n"
-                    "      before launching a targeted attack.  Think of it as\n"
-                    "      someone rattling every door handle in a building.",
-                ),
-                "ioc": (
-                    "KNOWN MALICIOUS ADDRESS (IoC MATCH)",
-                    "One of the IPs in this flow appears on a threat\n"
-                    "      intelligence blocklist.  This means security\n"
-                    "      researchers have already linked this address to\n"
-                    "      malware, phishing, botnets, or other attacks.",
-                ),
-            }
-
             for idx, item in enumerate(suspicious_flows, 1):
                 src_ip = item.get("src", "?")
                 dst_ip = item.get("dst", "?")
@@ -9376,9 +9569,9 @@ class PCAPSentryApp:
 
                 # -- Describe the destination port --
                 dport_int = int(dport) if str(dport).isdigit() else None
-                if dport_int and dport_int in port_descriptions:
-                    lines.append(f"      Port {dport} is: {port_descriptions[dport_int]}")
-                elif dport_int and dport_int not in common_ports:
+                if dport_int and dport_int in PORT_DESCRIPTIONS_SHORT:
+                    lines.append(f"      Port {dport} is: {PORT_DESCRIPTIONS_SHORT[dport_int]}")
+                elif dport_int and dport_int not in COMMON_PORTS:
                     lines.append(f"      Port {dport} is NOT a standard service port.")
                     lines.append(f"      Ask yourself: 'What program would use port {dport}?'")
                     lines.append("      If you can't answer, this is suspicious.")
@@ -9388,7 +9581,7 @@ class PCAPSentryApp:
                 raw = item["reason"].lower()
                 matched_labels = []
                 matched_explanations = []
-                for key, (lbl, expl) in pattern_education.items():
+                for key, (lbl, expl) in PATTERN_EDUCATION.items():
                     if key in raw:
                         matched_labels.append(lbl)
                         matched_explanations.append(expl)
@@ -9745,12 +9938,13 @@ class PCAPSentryApp:
             best_mal = max(mal_scores) if mal_scores else 0.0
             output_lines.append(f"Best safe match: {best_safe}")
             output_lines.append(f"Best malware match: {best_mal}")
+            # A5 fix: Label as "Heuristic Assessment" to distinguish from primary verdict
             if best_mal - best_safe >= 10:
-                output_lines.append("Verdict: Likely Malicious")
+                output_lines.append("Heuristic Assessment: Leans Malicious")
             elif best_safe - best_mal >= 10:
-                output_lines.append("Verdict: Likely Safe")
+                output_lines.append("Heuristic Assessment: Leans Safe")
             else:
-                output_lines.append("Verdict: Suspicious / Inconclusive")
+                output_lines.append("Heuristic Assessment: Inconclusive")
 
         if use_local_model:
             output_lines.append("")
@@ -9923,11 +10117,10 @@ class PCAPSentryApp:
 
         top_ports = stats.get("top_ports", [])
         if top_ports:
-            common_ports = {22, 53, 80, 123, 443, 445, 3389, 25, 110, 143, 21, 8080}
-            unusual = [(p, c) for p, c in top_ports if p not in common_ports]
+            unusual = [(p, c) for p, c in top_ports if p not in COMMON_PORTS]
             why_lines.append("[D] PORTS")
             for port, count in top_ports[:10]:
-                flag = " << UNUSUAL" if port not in common_ports else ""
+                flag = " << UNUSUAL" if port not in COMMON_PORTS else ""
                 why_lines.append(f"      Port {port}: {count} packet(s){flag}")
             if unusual:
                 why_lines.append(f"    {len(unusual)} non-standard port(s) detected.")
@@ -10033,7 +10226,7 @@ class PCAPSentryApp:
         self._hide_llm_suggestion()
 
         # Read tkinter variables on main thread before launching worker
-        max_rows = self.max_rows_var.get()
+        max_rows = max(100, min(self.max_rows_var.get(), 2_000_000))  # S6: clamp to sane range
         parse_http = self.parse_http_var.get()
         use_high_memory = self.use_high_memory_var.get()
         offline_mode = self.offline_mode_var.get()
@@ -10184,6 +10377,10 @@ class PCAPSentryApp:
             if risk_components:
                 total_weight = sum(w for _, w in risk_components)
                 risk_score = round(sum(s * w for s, w in risk_components) / total_weight, 1)
+                # A2 fix: When only 1 component is available, cap the score to reduce
+                # misleading high-confidence verdicts from a single signal source.
+                if len(risk_components) == 1:
+                    risk_score = min(risk_score, 65.0)
             else:
                 risk_score = 0.0
 
@@ -10400,7 +10597,7 @@ class PCAPSentryApp:
             self.extracted_data = extracted_data
             self._populate_extracted_tab(extracted_data)
 
-            self.target_path_var.set("")
+            # Keep the file path populated so the user can re-analyze if needed
 
             # Fire LLM label suggestion in background (non-blocking)
             self._request_llm_suggestion_async(stats)
@@ -10460,7 +10657,7 @@ def _acquire_single_instance():
     Returns the mutex handle if this is the first instance, or ``None``
     if another instance is already running (brings it to the foreground).
     """
-    MUTEX_NAME = "Global\\PCAP_Sentry_SingleInstance"
+    MUTEX_NAME = "Local\\PCAP_Sentry_SingleInstance"
     ERROR_ALREADY_EXISTS = 183
 
     # Import wintypes submodule for type annotations

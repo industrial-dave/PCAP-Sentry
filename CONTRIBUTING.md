@@ -314,7 +314,7 @@ Every pull request automatically validates OpenSSF requirements:
 
 ```yaml
 Automated Checks (Required to Pass):
-  ✅ Test Suite - All 17 tests across 6 configurations (Ubuntu/Windows × Python 3.10/3.11/3.12)
+  ✅ Test Suite - All 21 tests across 6 configurations (Ubuntu/Windows × Python 3.10/3.11/3.12)
   ✅ Ruff Linter - 700+ code quality rules
   ✅ Bandit Security Scanner - 30+ security vulnerability checks
   ✅ CodeQL Analysis - Semantic security analysis

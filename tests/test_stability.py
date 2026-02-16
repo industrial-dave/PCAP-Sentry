@@ -323,11 +323,11 @@ def test_url_scheme_validation():
     from pcap_sentry_gui import _safe_urlopen  # noqa: PLC0415
     import urllib.request  # noqa: PLC0415
 
-    # Test 1: Allowed schemes (http:// and https://)
+    # Test 1: Allowed schemes (http:// localhost and https://)
     allowed_schemes = [
         "http://localhost:8080/api",
+        "http://127.0.0.1:11434/api",
         "https://api.example.com/endpoint",
-        "HTTP://UPPERCASE.COM/PATH",
         "HTTPS://MIXED.Case.COM/path",
     ]
 
@@ -343,6 +343,27 @@ def test_url_scheme_validation():
             pass
 
     print("✅ Allowed URL schemes (http/https) pass validation")
+
+    # Test 1b: http:// to non-localhost should be blocked
+    http_remote_urls = [
+        "http://example.com/api",
+        "HTTP://UPPERCASE.COM/PATH",
+        "http://remote-server.com:8080/endpoint",
+    ]
+    for url in http_remote_urls:
+        try:
+            _safe_urlopen(url, timeout=0.001)
+            raise AssertionError(f"Non-localhost http URL '{url}' was incorrectly allowed")
+        except ValueError as exc:
+            assert "localhost" in str(exc).lower(), f"Expected localhost error, got: {exc}"
+        except AssertionError:
+            raise
+        except Exception as exc:
+            raise AssertionError(
+                f"URL '{url}' should raise ValueError, not {type(exc).__name__}: {exc}"
+            ) from exc
+
+    print("✅ http:// to non-localhost correctly blocked")
 
     # Test 2: Blocked schemes
     blocked_schemes = [
@@ -406,3 +427,86 @@ def test_url_scheme_validation():
             ) from exc
 
     print("✅ file:// defense-in-depth protection working")
+
+
+def test_model_name_validation():
+    """Test model name validation function"""
+    print("\n=== Testing Model Name Validation ===")
+
+    from pcap_sentry_gui import _is_valid_model_name  # noqa: PLC0415
+
+    valid_names = [
+        "llama3.2:3b",
+        "model-name",
+        "my_model",
+        "test.model",
+        "path/to/model",
+        "GPT4All",
+        "mistral:7b-instruct",
+    ]
+
+    invalid_names = [
+        "",                        # Empty
+        "../../../etc/passwd",     # Path traversal
+        "model; rm -rf /",         # Command injection
+        "model & echo bad",        # Command chaining
+        "model`whoami`",           # Command substitution
+        "model$(ls)",              # Command substitution
+        " leading-space",          # Leading space
+        "a" * 200,                 # Too long
+    ]
+
+    for name in valid_names:
+        assert _is_valid_model_name(name), f"Valid name should be accepted: {name}"
+    print(f"✅ All valid model names accepted ({len(valid_names)} tested)")
+
+    for name in invalid_names:
+        assert not _is_valid_model_name(name), f"Invalid name should be rejected: {name}"
+    print(f"✅ All malicious/invalid names rejected ({len(invalid_names)} tested)")
+
+
+def test_kb_lock_exists():
+    """Test that the knowledge base lock exists for thread safety"""
+    print("\n=== Testing KB Thread Safety ===")
+
+    from pcap_sentry_gui import _kb_lock  # noqa: PLC0415
+    import threading  # noqa: PLC0415
+
+    assert isinstance(_kb_lock, type(threading.Lock())), "_kb_lock should be a threading.Lock"
+    print("✅ Knowledge base lock exists")
+
+    # Verify lock is acquirable and releasable
+    acquired = _kb_lock.acquire(timeout=1)
+    assert acquired, "Lock should be acquirable"
+    _kb_lock.release()
+    print("✅ KB lock acquire/release works")
+
+
+def test_constants_defined():
+    """Test that shared constants are properly defined at module level"""
+    print("\n=== Testing Module Constants ===")
+
+    from pcap_sentry_gui import (  # noqa: PLC0415
+        COMMON_PORTS,
+        PATTERN_EDUCATION,
+        PORT_DESCRIPTIONS,
+        PORT_DESCRIPTIONS_SHORT,
+    )
+
+    assert isinstance(COMMON_PORTS, set), "COMMON_PORTS should be a set"
+    assert 443 in COMMON_PORTS, "443 (HTTPS) should be in COMMON_PORTS"
+    assert 80 in COMMON_PORTS, "80 (HTTP) should be in COMMON_PORTS"
+    print(f"✅ COMMON_PORTS defined with {len(COMMON_PORTS)} ports")
+
+    assert isinstance(PORT_DESCRIPTIONS, dict), "PORT_DESCRIPTIONS should be a dict"
+    assert 443 in PORT_DESCRIPTIONS, "443 should have a description"
+    print(f"✅ PORT_DESCRIPTIONS defined with {len(PORT_DESCRIPTIONS)} entries")
+
+    assert isinstance(PORT_DESCRIPTIONS_SHORT, dict), "PORT_DESCRIPTIONS_SHORT should be a dict"
+    print(f"✅ PORT_DESCRIPTIONS_SHORT defined with {len(PORT_DESCRIPTIONS_SHORT)} entries")
+
+    assert isinstance(PATTERN_EDUCATION, dict), "PATTERN_EDUCATION should be a dict"
+    assert "beaconing" in PATTERN_EDUCATION, "'beaconing' should be in PATTERN_EDUCATION"
+    assert "c2" in PATTERN_EDUCATION, "'c2' should be in PATTERN_EDUCATION"
+    assert "ioc" in PATTERN_EDUCATION, "'ioc' should be in PATTERN_EDUCATION"
+    print(f"✅ PATTERN_EDUCATION defined with {len(PATTERN_EDUCATION)} patterns")

@@ -36,7 +36,7 @@ This document tracks PCAP Sentry's readiness for the [OpenSSF Best Practices Bad
 
 ### Quality (✅ Complete)
 - [x] **Working Build**: build_exe.bat and build_installer.bat work
-- [x] **Automated Tests**: tests/ directory with pytest framework (18 tests)
+- [x] **Automated Tests**: tests/ directory with pytest framework (21 tests)
 - [x] **Test Invocation**: Standard `pytest tests/` command (test_invocation suggestion)
 - [x] **Test Policy**: Formal policy in CONTRIBUTING.md - all major functionality requires tests
   - Policy documented in [Pull Request instructions](../CONTRIBUTING.md#pull-requests)
@@ -214,11 +214,11 @@ This document tracks PCAP Sentry's readiness for the [OpenSSF Best Practices Bad
   - This is a SUGGESTED requirement (best practice) - PCAP Sentry exceeds with per-commit analysis (not just daily)
 - [x] **Dynamic Analysis Before Releases (Best Practice)**: SUGGESTED that at least one dynamic analysis tool be applied before major production releases
   - Evidence: [SECURE_DESIGN_EVIDENCE.md § Dynamic Analysis Before Releases](../SECURE_DESIGN_EVIDENCE.md#dynamic-analysis-before-every-release)
-  - Tool: pytest test suite (17 automated tests) - MIT License FLOSS
+  - Tool: pytest test suite (21 automated tests) - MIT License FLOSS
   - Execution: Every commit to main (exceeds "before release" - runs continuously)
   - Test categories:
     * Security tests (path security, credential security, input validation, HMAC verification)
-    * Stability tests (10 tests: imports, settings, IOC parsing, threat intelligence, etc.)
+    * Stability tests (14 tests: imports, settings, IOC parsing, threat intelligence, URL validation, model name safety, etc.)
     * Stress tests (7 tests: large datasets, performance, memory cleanup, concurrent operations)
   - Platforms: Ubuntu + Windows (cross-platform validation)
   - Python versions: 3.10, 3.11, 3.12 (multi-version validation)
@@ -238,7 +238,7 @@ This document tracks PCAP Sentry's readiness for the [OpenSSF Best Practices Bad
   - This is a SUGGESTED requirement - marked N/A because PCAP Sentry produces only memory-safe Python code
 - [x] **Dynamic Analysis with Assertions**: SUGGESTED that project use configuration enabling many assertions during dynamic analysis/testing, disabled in production
   - Evidence: [SECURE_DESIGN_EVIDENCE.md § Assertions in Dynamic Analysis](../SECURE_DESIGN_EVIDENCE.md#assertions-in-dynamic-analysis)
-  - Test assertions: 41 assert statements across 17 tests (validates behavior, data integrity, performance)
+  - Test assertions: 57 assert statements across 21 tests (validates behavior, data integrity, performance)
   - Python assertions: Built-in `assert` keyword checks runtime conditions, fails fast on violations
   - pytest assertion rewriting: Enhanced error messages showing actual vs expected values
   - Testing configuration: Assertions ENABLED (default Python behavior, no `-O` flag in CI/CD)
@@ -247,14 +247,14 @@ This document tracks PCAP Sentry's readiness for the [OpenSSF Best Practices Bad
   - Optimization effect: `optimize=1` equivalent to Python `-O` flag, removes assertions and sets `__debug__ = False`
   - Rationale: Assertions add runtime checks during testing without performance penalty in production
   - Examples: Type validation, boundary checks, data structure integrity, performance thresholds
-  - This is a SUGGESTED requirement (best practice) - PCAP Sentry fully implements with 41 assertions in tests, disabled in production
+  - This is a SUGGESTED requirement (best practice) - PCAP Sentry fully implements with 57 assertions in tests, disabled in production
 - [x] **Dynamic Analysis Vulnerabilities Fixed Timely**: MUST fix medium+ severity exploitable vulnerabilities from dynamic analysis in a timely way after confirmation
   - Evidence: [SECURE_DESIGN_EVIDENCE.md § Fixing Dynamic Analysis Findings](../SECURE_DESIGN_EVIDENCE.md#fixing-dynamic-analysis-vulnerabilities-timely)
   - Response timeline: Critical 7-14 days, High 14-30 days, Medium 30-60 days (same as static analysis)
-  - Dynamic analysis tool: pytest test suite (17 tests running on every commit)
+  - Dynamic analysis tool: pytest test suite (21 tests running on every commit)
   - Confirmation process: Test failure → reproduce → validate exploitability → assess severity → prioritize fix
   - Current status: 0 confirmed medium+ exploitable vulnerabilities from dynamic analysis
-  - Test results: 100% pass rate across all 17 tests (CI/CD verification)
+  - Test results: 100% pass rate across all 21 tests (CI/CD verification)
   - Security tests: 4 dedicated security tests validate runtime security properties
   - Fix verification: Re-run tests after fix to confirm resolution
   - Audit trail: GitHub commits show fix, CI logs show passing tests post-fix

@@ -993,7 +993,8 @@ Performance and scalability validation:
 
 For developers and security auditors, see:
 
-- **[TEST_SUMMARY.md](TEST_SUMMARY.md)** — Complete test results with performance benchmarks
+- **[TEST_COVERAGE.md](TEST_COVERAGE.md)** — Coverage analysis and improvement roadmap
+- **[TEST_POLICY_EVIDENCE.md](TEST_POLICY_EVIDENCE.md)** — Complete test results with performance benchmarks
 - **[SECURITY_REVIEW_2026-02-15.md](SECURITY_REVIEW_2026-02-15.md)** — Comprehensive security audit with 95/100 security rating (0 medium/high vulnerabilities)
 
 ### Continuous Quality

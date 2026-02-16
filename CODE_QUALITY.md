@@ -144,7 +144,7 @@ All linting tools run automatically in CI ([.github/workflows/ci.yml](.github/wo
   run: bandit -r Python/ -f json -o bandit-report.json
 ```
 
-**Note:** Some security scans use `continue-on-error: true` to provide warnings without blocking PRs on low-severity issues.
+**Note:** Safety uses `continue-on-error: true` to provide warnings without blocking PRs. Ruff and Bandit (medium+ severity) block merges on failure.
 
 ## Local Development Workflow
 
@@ -238,7 +238,7 @@ ignore = [
 - Automatically fixable rules reduce manual work
 
 **Current Status:**
-- Main codebase (6,978 lines) regularly linted
+- Main codebase (10,700+ lines) regularly linted
 - CI enforces linting on every change
 - All contributors must pass linter checks
 

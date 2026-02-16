@@ -68,6 +68,17 @@ def _safe_urlopen(url, data=None, headers=None, timeout=30, context=None):
             "Only http:// and https:// URLs are allowed for security."
         )
 
+    # Restrict http:// to localhost only (prevent MitM on external connections)
+    if url_lower.startswith("http://"):
+        from urllib.parse import urlparse as _urlparse
+        _host = (_urlparse(url_str).hostname or "").lower()
+        _localhost = {"localhost", "127.0.0.1", "::1", "[::1]"}
+        if _host not in _localhost:
+            raise ValueError(
+                f"Unencrypted http:// connections are only allowed to localhost.\n"
+                f"Use https:// for external host: {_host}"
+            )
+
     # Explicit file:// blocking for defense-in-depth
     if "file:" in url_lower:
         raise ValueError(

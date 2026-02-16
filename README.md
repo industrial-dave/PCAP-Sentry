@@ -75,10 +75,7 @@ python Python/pcap_sentry_gui.py
 ## Documentation
 
 - **[User Manual](USER_MANUAL.md)** — Full guide covering installation, analysis, training, settings, and troubleshooting
-- **[Update System](UPDATER.md)** — Technical details on the built-in update mechanism
-- **[Update System Simplified](UPDATE_SYSTEM_SIMPLIFIED.md)** — Recent simplification improvements for reliability
 - **[Version Log](VERSION_LOG.md)** — Changelog
-- **[Test Summary](TEST_SUMMARY.md)** — Comprehensive test results and performance benchmarks
 - **[Test Coverage](TEST_COVERAGE.md)** — Coverage analysis and improvement roadmap
 - **[Test Policy Evidence](TEST_POLICY_EVIDENCE.md)** — Proof that testing policy is followed for all major changes
 - **[CI/CD](CI_CD.md)** — Continuous integration and automated testing infrastructure
@@ -112,7 +109,6 @@ PCAP_Sentry.spec              # PyInstaller build specification
 requirements.txt              # Python dependencies for source/dev builds
 version_info.txt              # Windows version metadata embedded into EXE/installer
 VERSION_LOG.md                # Human-readable changelog updated by version script
-UPDATER.md                    # Update subsystem behavior and constraints
 USER_MANUAL.md                # End-user documentation
 Python/
 ├── pcap_sentry_gui.py        # Main application (GUI + analysis engine)
@@ -137,19 +133,19 @@ dist/
 ### Run Tests
 
 ```bash
-pytest tests/                     # Run all tests (17 tests)
-pytest tests/test_stability.py    # Core functionality and security (10 tests)
+pytest tests/                     # Run all tests (21 tests)
+pytest tests/test_stability.py    # Core functionality and security (14 tests)
 pytest tests/test_stress.py       # Performance and scalability (7 tests)
 pytest -v                         # Verbose output
 ```
 
-**Test Coverage:** 17 tests (100% pass rate), 7% code coverage
+**Test Coverage:** 21 tests (100% pass rate), 7% code coverage
 - ✅ Stability tests validate core functionality, input validation, and security features
 - ✅ Stress tests verify performance (783K items/sec), memory efficiency (100% cleanup), and thread safety
 - ✅ Security score: 100/100 (production-ready)
 - 📊 Coverage report: `pytest tests/` generates htmlcov/index.html
 
-See [TEST_SUMMARY.md](TEST_SUMMARY.md) for detailed results and [SECURITY_REVIEW_2026-02-15.md](SECURITY_REVIEW_2026-02-15.md) for the complete security audit.
+See [TEST_COVERAGE.md](TEST_COVERAGE.md) for coverage analysis and [SECURITY_REVIEW_2026-02-15.md](SECURITY_REVIEW_2026-02-15.md) for the complete security audit.
 
 ## Building
 

@@ -86,12 +86,10 @@ jobs:
       - name: Run ruff linter
         run: |
           ruff check Python/ tests/ --output-format=github
-        continue-on-error: true
       
       - name: Run ruff formatter check
         run: |
           ruff format --check Python/ tests/
-        continue-on-error: true
   
   security:
     name: Security Scan
@@ -120,8 +118,21 @@ jobs:
       
       - name: Run bandit security scan
         run: |
-          bandit -r Python/ -f json -o bandit-report.json
-        continue-on-error: true
+          bandit -r Python/ -f json -o bandit-report.json || true
+          python3 << 'PYEOF'
+          import json, sys
+          try:
+              with open('bandit-report.json') as f:
+                  data = json.load(f)
+              high_med = [r for r in data.get('results', []) if r.get('issue_severity') in ('HIGH', 'MEDIUM')]
+              if high_med:
+                  for r in high_med:
+                      print(f"::error file={r['filename']},line={r['line_number']}::{r['issue_text']}")
+                  sys.exit(1)
+              print(f"Bandit: {len(data.get('results',[]))} findings, 0 HIGH/MEDIUM")
+          except Exception as e:
+              print(f'Bandit report check skipped: {e}')
+          PYEOF
       
       - name: Upload bandit report
         uses: actions/upload-artifact@v4
@@ -157,4 +168,3 @@ jobs:
       - name: Test PyInstaller spec
         run: |
           pyinstaller --noconfirm --log-level=WARN PCAP_Sentry.spec
-        continue-on-error: true
