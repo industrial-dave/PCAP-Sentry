@@ -35,6 +35,9 @@
 
 
 
+
+## 2026.02.15-26 - 2026-02-15
+- Fix: Eliminate initial analysis stuttering. Added startup grace period with 4x more aggressive throttling (2 to prevent UI flooding while threads spawn.
 ## 2026.02.15-25 - 2026-02-15
 - Fix: Eliminate initial analysis stuttering. Added startup grace period with 4x more aggressive throttling (2 to prevent UI flooding while threads spawn.
 ## 2026.02.15-24 - 2026-02-15
