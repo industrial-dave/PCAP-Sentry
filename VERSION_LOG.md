@@ -38,6 +38,9 @@
 
 
 
+
+## 2026.02.15-29 - 2026-02-15
+- Major UX improvement: Progress bar now pulses smoothly in constant motion until actual progress available, then shows real progress. Logo spins continuously throughout. Much simpler and smoother experience.
 ## 2026.02.15-28 - 2026-02-15
 - Fix: Smooth continuous progress flow - parsing shows 0-30 (no more backwards jumps)
 ## 2026.02.15-27 - 2026-02-15
