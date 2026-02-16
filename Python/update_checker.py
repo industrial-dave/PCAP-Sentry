@@ -545,6 +545,7 @@ class UpdateChecker:
 
             # Simple batch script to replace executable
             script = f'''@echo off
+title PCAP Sentry Update Installer
 echo ========================================
 echo PCAP Sentry Update Installer
 echo ========================================
@@ -552,13 +553,26 @@ echo.
 echo Waiting for PCAP Sentry to close...
 timeout /t 2 /nobreak >nul
 
-REM Wait for app to close
+REM Wait for app to close (max 30 seconds)
+set MAX_WAIT=30
+set COUNT=0
+
 :wait_loop
 tasklist /FI "IMAGENAME eq PCAP_Sentry.exe" 2>NUL | find /I /N "PCAP_Sentry.exe">NUL
 if "%ERRORLEVEL%"=="0" (
+    set /A COUNT+=1
+    if %COUNT% GEQ %MAX_WAIT% (
+        echo.
+        echo WARNING: PCAP Sentry is still running after 30 seconds.
+        echo Please close PCAP Sentry manually and press any key to continue...
+        pause >nul
+        goto install_update
+    )
     timeout /t 1 /nobreak >nul
     goto wait_loop
 )
+
+:install_update
 
 echo Backing up current version...
 copy /Y "{current_exe_path}" "{backup_path}"
@@ -582,9 +596,9 @@ if errorlevel 1 (
 
 echo Update successful!
 echo.
+echo Cleaning up temporary files...
 
 REM Refresh Windows icon cache to show new logo
-echo Refreshing desktop icons...
 ie4uinit.exe -show >nul 2>&1
 timeout /t 1 /nobreak >nul
 
@@ -596,9 +610,9 @@ echo Launching PCAP Sentry...
 cd /D "{exe_dir}"
 start "" "{exe_name}"
 
-REM Clean up
+REM Clean up and close automatically
 timeout /t 2 /nobreak >nul
-del "%~f0"
+if exist "%~f0" del "%~f0"
 exit /b 0
 '''
 
@@ -610,7 +624,8 @@ exit /b 0
             import ctypes
 
             try:
-                # SW_SHOWNORMAL = 1
+                # SW_HIDE = 0, SW_SHOWNORMAL = 1
+                # Use SW_SHOWNORMAL so user can see progress
                 result = ctypes.windll.shell32.ShellExecuteW(
                     None,  # hwnd
                     "runas",  # operation (request elevation)

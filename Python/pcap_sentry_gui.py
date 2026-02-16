@@ -350,7 +350,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.16-10"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.16-11"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -4473,9 +4473,10 @@ class PCAPSentryApp:
                                 messagebox.showinfo(
                                     "Update Ready",
                                     "The update will be applied after PCAP Sentry closes.\n\n"
-                                    "PCAP Sentry will now close and restart.",
+                                    "PCAP Sentry will now close and restart with the new version.",
                                 )
-                                self.root.quit()
+                                # Force quit immediately after user closes the messagebox
+                                self.root.after(100, self.root.destroy)
                             else:
                                 reason = getattr(checker, "_last_error", None)
                                 reason_text = f"\nReason: {reason}\n" if reason else "\n"
