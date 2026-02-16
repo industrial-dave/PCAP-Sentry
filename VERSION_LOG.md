@@ -41,6 +41,12 @@
 
 
 
+
+
+## 2026.02.16-2 - 2026-02-16
+- UX change: Removed pulsing progress bar animation and spinning logo. Progress bar now stays in determinate mode starting at 0, providing cleaner visual feedback during analysis.
+## 2026.02.16-1 - 2026-02-16
+- UX change: Removed pulsing progress bar animation and spinning logo. Progress bar now stays in determinate mode starting at 0, providing cleaner visual feedback during analysis.
 ## 2026.02.15-31 - 2026-02-15
 - Performance fix: Eliminated UI freezes during analysis. Removed blocking .update() call and optimized tree table operations. Analysis completion now processes instantly without freezing UI thread.
 ## 2026.02.15-30 - 2026-02-15

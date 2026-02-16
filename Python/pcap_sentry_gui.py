@@ -195,7 +195,7 @@ DEFAULT_MAX_ROWS = 200000
 IOC_SET_LIMIT = 50000
 
 
-_EMBEDDED_VERSION = "2026.02.15-31"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.16-2"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -5672,10 +5672,9 @@ class PCAPSentryApp:
             if self.busy_count == 1:
                 self._cancel_event.clear()
                 self.status_var.set(message)
-                self._reset_progress()  # Starts pulsing progress bar
+                self._reset_progress()  # Reset progress bar to 0%
                 self.root.configure(cursor="watch")
                 self.root.title(f"{self.root_title} - Working...")
-                self._start_logo_spin()
                 # Batch widget state changes for better performance
                 self.widget_states = {w: str(w["state"]) for w in self.busy_widgets}
                 for widget in self.busy_widgets:
@@ -5693,7 +5692,6 @@ class PCAPSentryApp:
         else:
             self.busy_count = max(0, self.busy_count - 1)
             if self.busy_count == 0:
-                self._stop_logo_spin()
                 self.root.configure(cursor="")
                 self.root_title = self._get_window_title()
                 self.root.title(self.root_title)
@@ -5711,10 +5709,9 @@ class PCAPSentryApp:
 
     def _reset_progress(self):
         self.progress.stop()
-        self.progress.configure(mode="indeterminate", maximum=100)
+        self.progress.configure(mode="determinate", maximum=100)
         self.progress["value"] = 0
-        self.progress.start(10)  # Start pulsing animation immediately
-        self.progress_percent_var.set("")
+        self.progress_percent_var.set("0%")
         self._progress_target = 0.0
         self._progress_current = 0.0
         self._progress_animating = False
@@ -5725,26 +5722,15 @@ class PCAPSentryApp:
 
     def _set_progress(self, percent, eta_seconds=None, label=None, processed=None, total=None):
         if percent is None:
-            # No percentage — keep indeterminate pulsing mode
+            # No percentage — stay at current position
             if label:
                 self.status_var.set(label)
                 if self.busy_count > 0:
                     short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
                     self.root.title(f"{self.root_title} - {short_label}")
-            # Ensure we're in indeterminate mode (pulsing)
-            try:
-                current_mode = str(self.progress.cget("mode"))
-            except Exception:
-                current_mode = ""
-            if current_mode != "indeterminate":
-                self.progress.configure(mode="indeterminate", maximum=100)
-                self.progress["value"] = 0
-                self.progress.start(10)  # Constant pulse animation
-            self.progress_percent_var.set("")
             return
         
-        # We have actual progress - switch to determinate mode
-        self.progress.stop()
+        # Update progress bar with actual percentage
         self.progress.configure(mode="determinate", maximum=100)
         percent_value = min(max(percent, 0.0), 100.0)
         
@@ -6308,7 +6294,10 @@ class PCAPSentryApp:
                         return "copy"
                     return "none"
                 widget.dnd_bind("<<Drop>>", on_drop)
-            except tk.TclError:
+            except (tk.TclError, AttributeError) as e:
+                import traceback
+                print(f"Drag/drop setup failed for widget: {e}")
+                traceback.print_exc()
                 return
 
         bind_drop(self.safe_entry, self.safe_path_var.set)
