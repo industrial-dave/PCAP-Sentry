@@ -5757,20 +5757,33 @@ class PCAPSentryApp:
         self.progress.configure(mode="determinate", maximum=100)
         percent_value = min(max(percent, 0.0), 100.0)
         
-        # Direct update for smooth, immediate progress tracking (no animation lag)
-        self._progress_current = percent_value
-        self.progress["value"] = percent_value
-        self.progress_percent_var.set(f"{percent_value:.0f}%")
-        
-        if label:
-            status_text = f"{label} {percent:.0f}%"
-            if processed is not None and total:
-                status_text = f"{label} {percent:.0f}% ({_format_bytes(processed)} / {_format_bytes(total)})"
-            self.status_var.set(status_text)
-            # Update window title with progress percentage (short label)
-            if self.busy_count > 0:
-                short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
-                self.root.title(f"{self.root_title} - {percent:.0f}% {short_label}")
+        # Don't show progress bar movement until there's meaningful progress (>0.5%)
+        # This prevents the bar from moving before the percentage text appears
+        if percent_value < 0.5:
+            self._progress_current = 0.0
+            self.progress["value"] = 0
+            self.progress_percent_var.set("")
+            # Show label without percentage when below threshold
+            if label:
+                self.status_var.set(label)
+                if self.busy_count > 0:
+                    short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
+                    self.root.title(f"{self.root_title} - {short_label}")
+        else:
+            # Direct update for smooth, immediate progress tracking (no animation lag)
+            self._progress_current = percent_value
+            self.progress["value"] = percent_value
+            self.progress_percent_var.set(f"{percent_value:.0f}%")
+            
+            if label:
+                status_text = f"{label} {percent:.0f}%"
+                if processed is not None and total:
+                    status_text = f"{label} {percent:.0f}% ({_format_bytes(processed)} / {_format_bytes(total)})"
+                self.status_var.set(status_text)
+                # Update window title with progress percentage (short label)
+                if self.busy_count > 0:
+                    short_label = label.split(' \u2014 ')[0] if ' \u2014 ' in label else label
+                    self.root.title(f"{self.root_title} - {percent:.0f}% {short_label}")
 
     def _animate_progress(self):
         """Smoothly interpolate the progress bar toward _progress_target."""
