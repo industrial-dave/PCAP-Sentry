@@ -37,6 +37,9 @@
 
 
 
+
+## 2026.02.15-28 - 2026-02-15
+- Fix: Smooth continuous progress flow - parsing shows 0-30 (no more backwards jumps)
 ## 2026.02.15-27 - 2026-02-15
 - Fix: Progress bar stays at 0 until 0.5 progress reached - prevents premature movement and percentage display during initial analysis startup
 ## 2026.02.15-26 - 2026-02-15
