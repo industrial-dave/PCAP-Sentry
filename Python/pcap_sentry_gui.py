@@ -5157,14 +5157,6 @@ class PCAPSentryApp:
             state=tk.DISABLED,
         )
         self.label_safe_button.pack(side=tk.LEFT, padx=(0, 8))
-        self.label_unsure_button = ttk.Button(
-            label_frame,
-            text="Mark Unsure",
-            style="Secondary.TButton",
-            command=lambda: self._label_current("unsure"),
-            state=tk.DISABLED,
-        )
-        self.label_unsure_button.pack(side=tk.LEFT, padx=(0, 8))
         self.label_mal_button = ttk.Button(
             label_frame,
             text="Mark as Malicious",
@@ -5173,6 +5165,14 @@ class PCAPSentryApp:
             state=tk.DISABLED,
         )
         self.label_mal_button.pack(side=tk.LEFT, padx=(0, 8))
+        self.label_unsure_button = ttk.Button(
+            label_frame,
+            text="Mark Unsure",
+            style="Secondary.TButton",
+            command=lambda: self._label_current("unsure"),
+            state=tk.DISABLED,
+        )
+        self.label_unsure_button.pack(side=tk.LEFT, padx=(0, 8))
 
         self.undo_kb_button = ttk.Button(
             label_frame,
