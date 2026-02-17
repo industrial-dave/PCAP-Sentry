@@ -8133,6 +8133,114 @@ class PCAPSentryApp:
 
         threading.Thread(target=_run, daemon=True).start()
 
+    def _verify_llm_api_key(self):
+        """Verify the LLM API key by making a test request."""
+        label = getattr(self, "_llm_verify_label", None)
+        if not label:
+            return
+
+        key = self.llm_api_key_var.get().strip()
+        if not key:
+            label.configure(text="No key provided", fg=self.colors.get("warning", "#d29922"))
+            return
+
+        provider = self.llm_provider_var.get().strip().lower()
+        if provider in ("disabled", "ollama", ""):
+            label.configure(text="Verification not needed for local providers", fg=self.colors.get("muted", "#8b949e"))
+            return
+
+        label.configure(text="Verifying...", fg=self.colors.get("accent", "#58a6ff"))
+
+        def _test():
+            try:
+                # Check if requests is available
+                try:
+                    import requests
+                except ImportError:
+                    return False, "requests library not available"
+
+                # Test based on provider
+                if provider == "openai":
+                    # Test OpenAI API
+                    url = "https://api.openai.com/v1/models"
+                    headers = {"Authorization": f"Bearer {key}"}
+                    response = requests.get(url, headers=headers, timeout=10)
+                    if response.status_code == 200:
+                        return True, "OpenAI API key valid"
+                    elif response.status_code == 401:
+                        return False, "Invalid API key"
+                    else:
+                        return False, f"HTTP {response.status_code}"
+
+                elif provider == "google":
+                    # Test Google Gemini API
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+                    response = requests.get(url, timeout=10)
+                    if response.status_code == 200:
+                        return True, "Google API key valid"
+                    elif response.status_code == 400:
+                        return False, "Invalid API key"
+                    else:
+                        return False, f"HTTP {response.status_code}"
+
+                elif provider == "anthropic":
+                    # Test Anthropic API
+                    url = "https://api.anthropic.com/v1/messages"
+                    headers = {
+                        "x-api-key": key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    }
+                    # Small test request
+                    data = {
+                        "model": "claude-3-haiku-20240307",
+                        "max_tokens": 1,
+                        "messages": [{"role": "user", "content": "Hi"}],
+                    }
+                    response = requests.post(url, headers=headers, json=data, timeout=10)
+                    if response.status_code == 200:
+                        return True, "Anthropic API key valid"
+                    elif response.status_code == 401:
+                        return False, "Invalid API key"
+                    else:
+                        return False, f"HTTP {response.status_code}"
+
+                else:
+                    # Generic OpenAI-compatible test
+                    endpoint = self.llm_endpoint_var.get().strip()
+                    if not endpoint:
+                        return False, "No endpoint configured"
+                    url = f"{endpoint}/v1/models" if not endpoint.endswith("/v1/models") else endpoint
+                    headers = {"Authorization": f"Bearer {key}"}
+                    response = requests.get(url, headers=headers, timeout=10)
+                    if response.status_code == 200:
+                        return True, f"{provider.title()} API key valid"
+                    elif response.status_code == 401:
+                        return False, "Invalid API key"
+                    else:
+                        return False, f"HTTP {response.status_code}"
+
+            except requests.exceptions.Timeout:
+                return False, "Connection timeout"
+            except requests.exceptions.ConnectionError:
+                return False, "Connection failed"
+            except Exception as e:
+                error_msg = str(e).split("\n")[0][:40]  # First line, max 40 chars
+                return False, error_msg
+
+        def _apply(result):
+            success, message = result
+            if success:
+                label.configure(text=f"✓ {message}", fg=self.colors.get("success", "#3fb950"))
+            else:
+                label.configure(text=f"✗ {message}", fg=self.colors.get("danger", "#f85149"))
+
+        def _run():
+            result = _test()
+            self.root.after(0, lambda: _apply(result))
+
+        threading.Thread(target=_run, daemon=True).start()
+
     def _open_model_manager(self):
         """Open a window to add/remove Ollama models."""
         provider = self.llm_provider_var.get().strip().lower()
@@ -9709,6 +9817,13 @@ class PCAPSentryApp:
             style="Quiet.TCheckbutton",
         )
         api_key_show_btn.pack(side=tk.LEFT, padx=(6, 0))
+        verify_api_btn = ttk.Button(
+            api_key_frame,
+            text="Verify",
+            style="Secondary.TButton",
+            command=self._verify_llm_api_key,
+        )
+        verify_api_btn.pack(side=tk.LEFT, padx=(6, 0))
         api_key_hint = tk.Label(
             api_key_frame,
             text="",
@@ -9740,13 +9855,26 @@ class PCAPSentryApp:
                 api_key_hint.configure(text="", cursor="")
                 api_key_hint.unbind("<Button-1>")
 
+        # Verification status label
+        self._llm_verify_label = tk.Label(
+            frame,
+            text=" ",
+            font=("Segoe UI", 9),
+            anchor="w",
+            width=40,
+            bg=self.colors.get("bg", "#0d1117"),
+            fg=self.colors.get("muted", "#8b949e"),
+        )
+
         def _show_api_key_row(visible):
             if visible:
                 api_key_label.grid(row=3, column=0, sticky="w", pady=6)
                 api_key_frame.grid(row=3, column=1, sticky="w", pady=6)
+                self._llm_verify_label.grid(row=4, column=1, sticky="w", pady=(0, 4))
             else:
                 api_key_label.grid_remove()
                 api_key_frame.grid_remove()
+                self._llm_verify_label.grid_remove()
 
         def _on_server_selected(*_):
             raw = _llm_server_var.get()
@@ -9772,9 +9900,9 @@ class PCAPSentryApp:
         _show_api_key_row(_resolve_display_name() in _CLOUD_PROVIDERS and not self.offline_mode_var.get())
         _update_api_key_hint(_resolve_display_name())
 
-        ttk.Label(frame, text="LLM model:").grid(row=4, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="LLM model:").grid(row=5, column=0, sticky="w", pady=6)
         model_frame = ttk.Frame(frame)
-        model_frame.grid(row=4, column=1, sticky="w", pady=6)
+        model_frame.grid(row=5, column=1, sticky="w", pady=6)
         llm_model_combo = ttk.Combobox(model_frame, textvariable=self.llm_model_var, width=42)
         llm_model_combo.pack(side=tk.LEFT)
         refresh_btn = ttk.Button(
@@ -9788,7 +9916,7 @@ class PCAPSentryApp:
         self._help_icon_grid(
             frame,
             "Model name for the selected provider. Click \u21bb to detect available models.",
-            row=4,
+            row=5,
             column=2,
             sticky="w",
         )
@@ -9796,7 +9924,7 @@ class PCAPSentryApp:
 
         # Manage Models button (below model field)
         manage_models_frame = ttk.Frame(frame)
-        manage_models_frame.grid(row=5, column=1, sticky="w", pady=(0, 6))
+        manage_models_frame.grid(row=6, column=1, sticky="w", pady=(0, 6))
         manage_models_btn = ttk.Button(
             manage_models_frame,
             text="Manage Models",
@@ -9805,23 +9933,23 @@ class PCAPSentryApp:
         )
         manage_models_btn.pack(side=tk.LEFT)
 
-        ttk.Label(frame, text="LLM endpoint:").grid(row=6, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="LLM endpoint:").grid(row=7, column=0, sticky="w", pady=6)
         endpoint_frame = ttk.Frame(frame)
-        endpoint_frame.grid(row=6, column=1, sticky="w", pady=6)
+        endpoint_frame.grid(row=7, column=1, sticky="w", pady=6)
         llm_endpoint_entry = ttk.Entry(endpoint_frame, textvariable=self.llm_endpoint_var, width=34)
         llm_endpoint_entry.pack(side=tk.LEFT)
         self._help_icon_grid(
             frame,
             "API base URL for the LLM server. Auto-filled when you pick a server above. "
             "Edit this for custom ports or remote servers.",
-            row=6,
+            row=7,
             column=2,
             sticky="w",
         )
 
-        ttk.Label(frame, text="Test LLM:").grid(row=7, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="Test LLM:").grid(row=8, column=0, sticky="w", pady=6)
         test_frame = ttk.Frame(frame)
-        test_frame.grid(row=7, column=1, sticky="w", pady=6)
+        test_frame.grid(row=8, column=1, sticky="w", pady=6)
         ttk.Button(
             test_frame, text="Test Connection", style="Secondary.TButton", command=self._test_llm_connection
         ).pack(side=tk.LEFT)
@@ -9835,7 +9963,7 @@ class PCAPSentryApp:
         )
         llm_test_status_label.pack(side=tk.LEFT)
         self._help_icon_grid(
-            frame, "Sends a small test request to verify the current LLM settings.", row=7, column=2, sticky="w"
+            frame, "Sends a small test request to verify the current LLM settings.", row=8, column=2, sticky="w"
         )
 
         def _set_llm_fields_state(*_):
