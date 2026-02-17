@@ -9535,7 +9535,7 @@ class PCAPSentryApp:
         ttk.Label(frame, text="LLM model:").grid(row=4, column=0, sticky="w", pady=6)
         model_frame = ttk.Frame(frame)
         model_frame.grid(row=4, column=1, sticky="w", pady=6)
-        llm_model_combo = ttk.Combobox(model_frame, textvariable=self.llm_model_var, width=27)
+        llm_model_combo = ttk.Combobox(model_frame, textvariable=self.llm_model_var, width=42)
         llm_model_combo.pack(side=tk.LEFT)
         refresh_btn = ttk.Button(
             model_frame,
