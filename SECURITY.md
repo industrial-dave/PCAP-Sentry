@@ -81,6 +81,22 @@ PCAP Sentry implements multiple security controls:
 - Static analysis in development
 - Input sanitization throughout codebase
 
+### Data Privacy & Encryption
+- **Chat history** encrypted using Fernet symmetric encryption (stored in `%LOCALAPPDATA%\PCAP_Sentry\settings.json`)
+- **Knowledge Base** encrypted on disk to protect network analysis data (IP addresses, ports, protocols, IOCs)
+- **API keys** stored in OS credential manager (Windows Credential Manager / keyring)
+- Encryption keys stored securely in OS keyring, never in code or config files
+- Automatic migration from plaintext to encrypted format on first save
+
+**Files That Should NEVER Be Committed:**
+- `settings.json` - Contains encrypted chat history and user preferences
+- `pcap_knowledge_base_offline.json` in AppData - Contains real network analysis data
+- `*.pcap` / `*.pcapng` - Network capture files may contain sensitive traffic
+- `app_errors.log` / `startup_errors.log` - May contain system paths or error details
+- Any files in `%LOCALAPPDATA%\PCAP_Sentry\` - User runtime data directory
+
+The repository includes an empty template `Python/pcap_knowledge_base_offline.json` for distribution only.
+
 ## Scope
 
 **In Scope:**

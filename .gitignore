@@ -28,6 +28,14 @@ assets/vcredist_x64.exe
 # Runtime / debug
 error.txt
 
+# Sensitive data - never commit
+settings.json
+*.pcap
+*.pcapng
+**/app_data/
+**/startup_errors.log
+**/app_errors.log
+
 # OS files
 Thumbs.db
 Desktop.ini
@@ -36,4 +44,3 @@ Desktop.ini
 .vscode/
 .streamlit/
 .venv-gpu/
-
