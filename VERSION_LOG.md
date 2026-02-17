@@ -70,6 +70,9 @@
 
 
 
+
+## 2026.02.17-8 - 2026-02-17
+- Mark Unsure feature
 ## 2026.02.17-7 - 2026-02-17
 - Fix pcapng reading - use PcapReader instead of RawPcapNgReader to prevent freeze
 ## 2026.02.17-6 - 2026-02-17
