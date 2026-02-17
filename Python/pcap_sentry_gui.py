@@ -9970,11 +9970,17 @@ class PCAPSentryApp:
                 api_key_frame.grid(row=3, column=1, sticky="w", pady=6)
                 api_key_hint.grid(row=4, column=1, sticky="w", pady=(0, 4))
                 self._llm_verify_label.grid(row=5, column=1, sticky="w", pady=(0, 4))
+                # Enable API key entry and verify button for cloud providers
+                api_key_entry.configure(state="normal")
+                verify_api_btn.configure(state="normal")
             else:
                 api_key_label.grid_remove()
                 api_key_frame.grid_remove()
                 api_key_hint.grid_remove()
                 self._llm_verify_label.grid_remove()
+                # Disable API key entry and verify button for local providers
+                api_key_entry.configure(state="disabled")
+                verify_api_btn.configure(state="disabled")
 
         def _on_server_selected(*_):
             raw = _llm_server_var.get()
@@ -9986,13 +9992,16 @@ class PCAPSentryApp:
             is_cloud = name in _CLOUD_PROVIDERS
             _show_api_key_row(is_cloud)
             _update_api_key_hint(name)
-            _set_llm_fields_state()
+            # Clear verification status when switching servers
+            self._llm_verify_label.configure(text=" ")
+            self._detect_hint_label.configure(text="")
             # Clear current model selection and refresh model list when changing servers
             self.llm_model_var.set("")
             if prov != "disabled":
                 self._llm_server_just_changed = True
                 self._refresh_llm_models(llm_model_combo)
-            self._detect_hint_label.configure(text="")
+            # Update field states (enable/disable) based on provider
+            _set_llm_fields_state(skip_refresh=True)
 
         llm_provider_combo.bind("<<ComboboxSelected>>", _on_server_selected)
 
@@ -10050,9 +10059,10 @@ class PCAPSentryApp:
         ttk.Label(frame, text="Test LLM:").grid(row=9, column=0, sticky="w", pady=6)
         test_frame = ttk.Frame(frame)
         test_frame.grid(row=9, column=1, sticky="w", pady=6)
-        ttk.Button(
+        test_llm_btn = ttk.Button(
             test_frame, text="Test Connection", style="Secondary.TButton", command=self._test_llm_connection
-        ).pack(side=tk.LEFT)
+        )
+        test_llm_btn.pack(side=tk.LEFT)
         llm_test_status_label = tk.Label(
             test_frame,
             textvariable=self.llm_test_status_var,
@@ -10066,24 +10076,27 @@ class PCAPSentryApp:
             frame, "Sends a small test request to verify the current LLM settings.", row=9, column=2, sticky="w"
         )
 
-        def _set_llm_fields_state(*_):
+        def _set_llm_fields_state(skip_refresh=False, *_):
             provider = self.llm_provider_var.get().strip().lower()
             state = "normal" if provider != "disabled" else "disabled"
             llm_model_combo.configure(state=state)
             llm_endpoint_entry.configure(state=state)
             refresh_btn.configure(state=state)
             detect_btn.configure(state=state)
+            test_llm_btn.configure(state=state)
             is_ollama = provider == "ollama"
             manage_models_btn.configure(state=("normal" if (state == "normal" and is_ollama) else "disabled"))
             if state == "disabled":
                 self._set_llm_test_status("Disabled", self.colors.get("muted", "#8b949e"))
-                # Clear model list when disabled
-                self._refresh_llm_models(llm_model_combo)
+                if not skip_refresh:
+                    # Clear model list when disabled
+                    self._refresh_llm_models(llm_model_combo)
             else:
                 if not self.llm_test_status_var.get():
                     self._set_llm_test_status("Not tested", self.colors.get("muted", "#8b949e"))
-                # Refresh model list for active provider
-                self._refresh_llm_models(llm_model_combo)
+                if not skip_refresh:
+                    # Refresh model list for active provider
+                    self._refresh_llm_models(llm_model_combo)
 
         llm_model_combo.bind("<<ComboboxSelected>>", _set_llm_fields_state)
         llm_model_combo.bind("<KeyRelease>", _set_llm_fields_state)
