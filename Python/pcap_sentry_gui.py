@@ -3110,7 +3110,7 @@ class PCAPSentryApp:
 
         self.root_title = self._get_window_title()
         self.root.title(self.root_title)
-        
+
         # Restore window geometry from last session
         saved_geometry = self.settings.get("window_geometry", "1200x950")
         self.root.geometry(saved_geometry)
@@ -3235,12 +3235,12 @@ class PCAPSentryApp:
         self._build_header()
         self._build_tabs()
         self._build_status()
-        
+
         # Restore chat history from last session
         self.chat_history = self.settings.get("chat_history", [])
-        if self.chat_history and hasattr(self, 'chat_text') and self.chat_text:
+        if self.chat_history and hasattr(self, "chat_text") and self.chat_text:
             self.root.after(500, self._restore_chat_history)
-        
+
         if APP_DATA_FALLBACK_NOTICE and not self.settings.get("app_data_notice_shown"):
             self.root.after(200, self._show_app_data_notice)
 
@@ -3281,11 +3281,11 @@ class PCAPSentryApp:
         try:
             # Get current window geometry
             window_geometry = self.root.geometry()
-            
+
             # Get selected tab index
             selected_tab_index = 0
             try:
-                if hasattr(self, 'notebook') and self.notebook:
+                if hasattr(self, "notebook") and self.notebook:
                     tab_map = [self.analyze_tab, self.train_tab, self.kb_tab, self.chat_tab]
                     current_tab = self.notebook.select()
                     for idx, tab in enumerate(tab_map):
@@ -3294,15 +3294,15 @@ class PCAPSentryApp:
                             break
             except Exception:
                 pass
-            
+
             # Capture chat history (limit to last 100 messages to avoid file bloat)
             chat_history_snapshot = self.chat_history[-100:] if len(self.chat_history) > 100 else self.chat_history
-            
+
             # Capture last used file paths
             last_safe_path = self.safe_path_var.get().strip() if self.safe_path_var else ""
             last_mal_path = self.mal_path_var.get().strip() if self.mal_path_var else ""
             last_target_path = self.target_path_var.get().strip() if self.target_path_var else ""
-            
+
             settings_snapshot = {
                 "max_rows": int(self.max_rows_var.get()),
                 "parse_http": bool(self.parse_http_var.get()),
@@ -3849,7 +3849,7 @@ class PCAPSentryApp:
             notebook.select(tab_map[saved_tab_index])
         else:
             notebook.select(self.analyze_tab)
-        
+
         # Store notebook reference for later use
         self.notebook = notebook
 
@@ -7411,92 +7411,96 @@ class PCAPSentryApp:
         """Open a window to review and reclassify unsure items."""
         kb = load_knowledge_base()
         unsure_items = kb.get("unsure", [])
-        
+
         if not unsure_items:
             messagebox.showinfo("Unsure Items", "No unsure items to review.")
             return
-        
+
         # Create review window
         review_window = tk.Toplevel(self.root)
         review_window.title("Review Unsure Items")
         review_window.geometry("900x600")
         review_window.transient(self.root)
-        
+
         # Header
         header = ttk.Frame(review_window, padding=10)
         header.pack(fill=tk.X)
-        ttk.Label(header, text=f"Reviewing {len(unsure_items)} unsure item(s)", 
-                 font=("Segoe UI", 12, "bold")).pack(side=tk.LEFT)
-        
+        ttk.Label(header, text=f"Reviewing {len(unsure_items)} unsure item(s)", font=("Segoe UI", 12, "bold")).pack(
+            side=tk.LEFT
+        )
+
         # Main content with scrollbar
         main_frame = ttk.Frame(review_window)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
+
         canvas = tk.Canvas(main_frame, highlightthickness=0)
         scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
+
+        scrollable_frame.bind("<Configure>", lambda _: canvas.configure(scrollregion=canvas.bbox("all")))
+
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
-        
+
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
+
         # Track items to remove/reclassify
         items_to_process = []
-        
+
         def reclassify(index, new_label):
             """Reclassify an unsure item to safe or malicious."""
             item = unsure_items[index]
             items_to_process.append(("reclassify", index, new_label, item))
-            
+
         def delete_item(index):
             """Remove an unsure item without reclassifying."""
             items_to_process.append(("delete", index, None, None))
-        
+
         # Create review cards for each unsure item
         for idx, item in enumerate(unsure_items):
             card = ttk.LabelFrame(scrollable_frame, text=f"  Item {idx + 1}  ", padding=12)
             card.pack(fill=tk.X, pady=8, padx=4)
-            
+
             # Display summary info
             summary = item.get("summary", "No summary available")
             info_text = tk.Text(card, height=6, wrap=tk.WORD, font=("Segoe UI", 10))
             info_text.insert("1.0", summary)
             info_text.configure(state=tk.DISABLED)
             info_text.pack(fill=tk.X, pady=(0, 8))
-            
+
             # Buttons for reclassification
             button_frame = ttk.Frame(card)
             button_frame.pack(fill=tk.X)
-            
-            ttk.Button(button_frame, text="Mark as Safe", style="Success.TButton",
-                      command=lambda i=idx: reclassify(i, "safe")).pack(side=tk.LEFT, padx=(0, 4))
-            ttk.Button(button_frame, text="Mark as Malicious", style="Warning.TButton",
-                      command=lambda i=idx: reclassify(i, "malicious")).pack(side=tk.LEFT, padx=(0, 4))
-            ttk.Button(button_frame, text="Delete", style="Secondary.TButton",
-                      command=lambda i=idx: delete_item(i)).pack(side=tk.LEFT, padx=(0, 4))
-        
+
+            ttk.Button(
+                button_frame, text="Mark as Safe", style="Success.TButton", command=lambda i=idx: reclassify(i, "safe")
+            ).pack(side=tk.LEFT, padx=(0, 4))
+            ttk.Button(
+                button_frame,
+                text="Mark as Malicious",
+                style="Warning.TButton",
+                command=lambda i=idx: reclassify(i, "malicious"),
+            ).pack(side=tk.LEFT, padx=(0, 4))
+            ttk.Button(
+                button_frame, text="Delete", style="Secondary.TButton", command=lambda i=idx: delete_item(i)
+            ).pack(side=tk.LEFT, padx=(0, 4))
+
         # Bottom buttons
         bottom_frame = ttk.Frame(review_window, padding=10)
         bottom_frame.pack(fill=tk.X, side=tk.BOTTOM)
-        
+
         def apply_changes():
             """Apply all reclassifications and close the window."""
             if not items_to_process:
                 review_window.destroy()
                 return
-            
+
             try:
                 # Reload KB to ensure we have latest data
                 kb = load_knowledge_base()
                 unsure = kb.get("unsure", [])
-                
+
                 # Process items in reverse order to maintain indices
                 for action, index, new_label, item in sorted(items_to_process, key=lambda x: x[1], reverse=True):
                     if index < len(unsure):
@@ -7507,7 +7511,7 @@ class PCAPSentryApp:
                         elif action == "delete":
                             # Just remove from unsure
                             unsure.pop(index)
-                
+
                 save_knowledge_base(kb)
                 self._refresh_kb()
                 messagebox.showinfo("Review Complete", f"Processed {len(items_to_process)} item(s).")
@@ -7515,10 +7519,11 @@ class PCAPSentryApp:
             except Exception as e:
                 _write_error_log("Error applying unsure item changes", e, sys.exc_info()[2])
                 messagebox.showerror("Error", f"Failed to apply changes: {e!s}")
-        
+
         ttk.Button(bottom_frame, text="Apply Changes", command=apply_changes).pack(side=tk.RIGHT, padx=(4, 0))
-        ttk.Button(bottom_frame, text="Cancel", style="Secondary.TButton",
-                  command=review_window.destroy).pack(side=tk.RIGHT)
+        ttk.Button(bottom_frame, text="Cancel", style="Secondary.TButton", command=review_window.destroy).pack(
+            side=tk.RIGHT
+        )
 
     def _llm_is_enabled(self):
         provider = self.llm_provider_var.get().strip().lower()
@@ -7853,18 +7858,25 @@ class PCAPSentryApp:
         """Select the best/recommended model from available models based on provider and preferences."""
         if not available_models:
             return None
-        
+
         # Define recommended models by priority for each provider type
         # Patterns to match against (case-insensitive, partial matches)
         ollama_preferences = [
             # Reasoning models (best for analysis)
-            "deepseek-r1", "qwq", "qwen-qwq",
+            "deepseek-r1",
+            "qwq",
+            "qwen-qwq",
             # Large capable models
-            "llama3.3", "llama3.2", "llama3.1", "llama3",
-            "mistral-nemo", "gemma2", "phi4",
+            "llama3.3",
+            "llama3.2",
+            "llama3.1",
+            "llama3",
+            "mistral-nemo",
+            "gemma2",
+            "phi4",
             # Fallback to any available
         ]
-        
+
         cloud_preferences = {
             # OpenAI
             "openai": ["gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
@@ -7885,18 +7897,18 @@ class PCAPSentryApp:
             # Perplexity
             "perplexity": ["llama-3.1-sonar-large", "llama-3.1-sonar-small"],
         }
-        
+
         # Determine which preference list to use
         endpoint = self.llm_endpoint_var.get().strip().lower()
         preferences = ollama_preferences
-        
+
         if provider == "openai_compatible" and endpoint:
             # Try to detect cloud provider from endpoint
             for key, prefs in cloud_preferences.items():
                 if key in endpoint:
                     preferences = prefs
                     break
-        
+
         # Try to match preferences in order
         for pref in preferences:
             pref_lower = pref.lower()
@@ -7904,7 +7916,7 @@ class PCAPSentryApp:
                 model_lower = model.lower()
                 if pref_lower in model_lower:
                     return model
-        
+
         # If no preference matched, return the first model
         return available_models[0]
 
@@ -7977,7 +7989,7 @@ class PCAPSentryApp:
                     if not combo.winfo_exists():
                         return
                     combo["values"] = names
-                    
+
                     if select_best and names:
                         # Try to select the best/recommended model for this provider
                         selected = self._select_best_model(names, provider)
@@ -7991,10 +8003,10 @@ class PCAPSentryApp:
         def run():
             names = worker()
             # Check if this refresh was triggered by a server change
-            select_best = getattr(self, '_llm_server_just_changed', False)
+            select_best = getattr(self, "_llm_server_just_changed", False)
             if select_best:
                 self._llm_server_just_changed = False
-            self.root.after(0, lambda: (apply_with_best_model(names, select_best) if select_best else apply(names)))
+            self.root.after(0, lambda: apply_with_best_model(names, select_best) if select_best else apply(names))
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -9337,16 +9349,21 @@ class PCAPSentryApp:
             endpoint = self.llm_endpoint_var.get().strip()
 
             # Only auto-detect for local LLM providers (not disabled or cloud services)
-            if provider == "disabled" or provider == "":
+            if provider in ("disabled", ""):
                 return
-            
+
             # Skip cloud services (non-localhost endpoints)
             if endpoint:
                 # Parse endpoint to check if it's local
                 from urllib.parse import urlparse
+
                 parsed = urlparse(endpoint)
                 hostname = parsed.hostname or ""
-                is_local = hostname in ("localhost", "127.0.0.1", "") or hostname.startswith("192.168.") or hostname.startswith("10.")
+                is_local = (
+                    hostname in ("localhost", "127.0.0.1", "")
+                    or hostname.startswith("192.168.")
+                    or hostname.startswith("10.")
+                )
                 if not is_local:
                     return  # Skip cloud/remote endpoints
 
@@ -11758,7 +11775,7 @@ class PCAPSentryApp:
     def _refresh_kb(self):
         kb = load_knowledge_base()
         self.kb_cache = kb  # Update cache with fresh KB
-        unsure_count = len(kb.get('unsure', []))
+        unsure_count = len(kb.get("unsure", []))
         self.kb_summary_var.set(
             f"Safe entries: {len(kb['safe'])} | Unsure entries: {unsure_count} | Malware entries: {len(kb['malicious'])}"
         )
