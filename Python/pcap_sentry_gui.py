@@ -7778,7 +7778,7 @@ class PCAPSentryApp:
         threading.Thread(target=run, daemon=True).start()
 
     def _detect_llm_server(self, server_var, servers, model_combo):
-        """Scan all known LLM server ports for running instances."""
+        """Scan local LLM server ports for running instances (skip cloud providers)."""
         hint = getattr(self, "_detect_hint_label", None)
 
         if hint:
@@ -9113,9 +9113,24 @@ class PCAPSentryApp:
     def _auto_detect_llm(self):
         try:
             provider = self.llm_provider_var.get().strip().lower()
+            endpoint = self.llm_endpoint_var.get().strip()
 
-            # If LLM is already configured, verify it works and update model if needed
-            if provider not in ("", "disabled"):
+            # Only auto-detect for local LLM providers (not disabled or cloud services)
+            if provider == "disabled" or provider == "":
+                return
+            
+            # Skip cloud services (non-localhost endpoints)
+            if endpoint:
+                # Parse endpoint to check if it's local
+                from urllib.parse import urlparse
+                parsed = urlparse(endpoint)
+                hostname = parsed.hostname or ""
+                is_local = hostname in ("localhost", "127.0.0.1", "") or hostname.startswith("192.168.") or hostname.startswith("10.")
+                if not is_local:
+                    return  # Skip cloud/remote endpoints
+
+            # If LLM is configured with local provider, verify it works and update model if needed
+            if provider in ("ollama", "openai_compatible"):
                 self._verify_and_update_llm_at_startup()
                 return
 
@@ -9506,7 +9521,9 @@ class PCAPSentryApp:
             _show_api_key_row(is_cloud)
             _update_api_key_hint(name)
             _set_llm_fields_state()
-            self._refresh_llm_models(llm_model_combo)
+            # Refresh model list when changing servers
+            if prov != "disabled":
+                self._refresh_llm_models(llm_model_combo)
             self._detect_hint_label.configure(text="")
 
         llm_provider_combo.bind("<<ComboboxSelected>>", _on_server_selected)
@@ -9588,9 +9605,12 @@ class PCAPSentryApp:
             manage_models_btn.configure(state=("normal" if (state == "normal" and is_ollama) else "disabled"))
             if state == "disabled":
                 self._set_llm_test_status("Disabled", self.colors.get("muted", "#8b949e"))
+                # Clear model list when disabled
+                self._refresh_llm_models(llm_model_combo)
             else:
                 if not self.llm_test_status_var.get():
                     self._set_llm_test_status("Not tested", self.colors.get("muted", "#8b949e"))
+                # Refresh model list for active provider
                 self._refresh_llm_models(llm_model_combo)
 
         llm_model_combo.bind("<<ComboboxSelected>>", _set_llm_fields_state)
