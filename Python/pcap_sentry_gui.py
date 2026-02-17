@@ -2345,13 +2345,7 @@ def _fast_parse_pcap_path(
     captures (>50 MB).
     """
     DNS, DNSQR, IP, _PcapReader, _Raw, _TCP, _UDP = _get_scapy()
-    from scapy.utils import RawPcapReader, RawPcapNgReader
-
-    # Import PacketMetadataNg to handle pcapng files
-    try:
-        from scapy.utils import PacketMetadataNg
-    except ImportError:
-        PacketMetadataNg = None
+    # Note: Using PcapReader for both .pcap and .pcapng (more reliable than RawPcapNgReader)
 
     tls_support = _get_tls_support()
     pd = _get_pandas()
@@ -2394,35 +2388,19 @@ def _fast_parse_pcap_path(
         progress_cb(0.0, None, 0, file_size)
 
     try:
-        # Detect file format and use appropriate reader
-        # Check magic bytes: pcapng starts with 0x0a0d0d0a, pcap with 0xa1b2c3d4 or 0xd4c3b2a1
-        is_pcapng = False
-        try:
-            with open(resolved_path, 'rb') as f:
-                magic = f.read(4)
-                if magic == b'\x0a\x0d\x0d\x0a':  # pcapng Section Header Block magic
-                    is_pcapng = True
-                elif resolved_path.lower().endswith('.pcapng'):
-                    is_pcapng = True
-        except Exception:
-            # Fallback to extension check
-            if resolved_path.lower().endswith('.pcapng'):
-                is_pcapng = True
+        # Use PcapReader which handles both .pcap and .pcapng formats
+        # Extract raw bytes for fast parsing (RawPcapNgReader can freeze on some files)
+        reader = _PcapReader(resolved_path)
+        linktype = 1  # Assume Ethernet (most common)
         
-        # Use appropriate reader
-        if is_pcapng:
-            reader = RawPcapNgReader(resolved_path)
-        else:
-            reader = RawPcapReader(resolved_path)
-        
-        # Get linktype - RawPcapNgReader doesn't have linktype attribute
-        try:
-            linktype = reader.linktype  # 1=Ethernet, 101=Raw IP, 113=Linux Cooked
-        except AttributeError:
-            linktype = 1  # Default to Ethernet for pcapng
-
         with reader:
-            for raw_data, pkt_metadata in reader:
+            for pkt in reader:
+                # Get raw bytes from packet
+                if hasattr(pkt, 'original') and pkt.original:
+                    raw_data = bytes(pkt.original)
+                else:
+                    raw_data = bytes(pkt)
+                
                 data_len = len(raw_data)
 
                 # ── Determine IP start offset based on link type ──
@@ -2575,16 +2553,9 @@ def _fast_parse_pcap_path(
 
                 # ── Reservoir sampling ──
                 if should_sample_rows:
-                    # Extract timestamp - handle both pcap and pcapng metadata formats
-                    if hasattr(pkt_metadata, 'sec'):
-                        # Regular pcap metadata
-                        ts = float(pkt_metadata.sec) + float(pkt_metadata.usec) / 1_000_000.0
-                    elif hasattr(pkt_metadata, 'tshigh') and hasattr(pkt_metadata, 'tslow'):
-                        # pcapng metadata (PacketMetadataNg)
-                        # Combine tshigh and tslow, adjust for resolution
-                        ts_raw = (pkt_metadata.tshigh << 32) | pkt_metadata.tslow
-                        tsresol = getattr(pkt_metadata, 'tsresol', 6)  # Default to microseconds (10^-6)
-                        ts = ts_raw / (10 ** tsresol)
+                    # Extract timestamp from packet (PcapReader provides pkt.time)
+                    if hasattr(pkt, 'time') and pkt.time:
+                        ts = float(pkt.time)
                     else:
                         # Fallback - use packet count as pseudo-timestamp
                         ts = float(packet_count)
