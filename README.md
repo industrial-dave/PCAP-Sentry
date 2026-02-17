@@ -43,7 +43,15 @@
 
 ## Quick Start
 
-### Option 1: Installer (Recommended)
+### Option 1: Windows Package Manager (winget) - Easiest
+
+```powershell
+winget install industrial-dave.PCAP-Sentry
+```
+
+**Note:** Pending submission to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs). Once approved, this will be the fastest way to install.
+
+### Option 2: Installer (Recommended)
 
 1. Download **PCAP_Sentry_Setup.exe** from the [Releases](https://github.com/industrial-dave/PCAP-Sentry/releases) page.
 2. Run the installer and follow the prompts.
@@ -53,7 +61,7 @@
 
 Optional: download `pcap_knowledge_base_offline.json` from the [Releases](https://github.com/industrial-dave/PCAP-Sentry/releases) page and import it via **Knowledge Base** > **Restore** to use it as a starter KB.
 
-### Option 2: Run from Source
+### Option 3: Run from Source
 
 ```bash
 git clone https://github.com/industrial-dave/PCAP-Sentry.git
