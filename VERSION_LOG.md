@@ -72,6 +72,19 @@
 
 
 
+## 2026.02.17-10 - 2026-02-17
+- **UX:** Move API key link below the API key field for better visibility
+- **UX:** Make cancel button instant (1ms polling instead of 30ms when cancelling)
+- **UX:** Always default to best model for selected LLM provider (deepseek-r1 for Ollama, gpt-4o for OpenAI, claude-3.5-sonnet for Anthropic)
+- **UX:** Ensure all LLM fields update appropriately when server selection changes
+- **UX:** Ensure all LLM fields are in appropriate state on dialog startup
+- **Fix:** Disable LLM by default (don't assume Ollama is installed)
+- **Fix:** Preserve empty values in settings instead of forcing Ollama defaults
+- **Fix:** Disable deprecated use_local_model flag
+- **Fix:** Enable/disable Test Connection button appropriately
+- **Fix:** Enable/disable API key Show checkbox with API key fields
+- **Fix:** Clear verification status when switching servers
+- **Fix:** Prevent double model refresh on startup and server change
 ## 2026.02.17-9 - 2026-02-17
 - Update VERSION_LOG with comprehensive change details for v2026.2.17-8
 ## 2026.02.17-8 - 2026-02-17
