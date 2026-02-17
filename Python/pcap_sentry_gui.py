@@ -7710,6 +7710,65 @@ class PCAPSentryApp:
         models = payload.get("data", []) if isinstance(payload, dict) else []
         return [m.get("id") for m in models if isinstance(m, dict) and m.get("id")]
 
+    def _select_best_model(self, available_models, provider):
+        """Select the best/recommended model from available models based on provider and preferences."""
+        if not available_models:
+            return None
+        
+        # Define recommended models by priority for each provider type
+        # Patterns to match against (case-insensitive, partial matches)
+        ollama_preferences = [
+            # Reasoning models (best for analysis)
+            "deepseek-r1", "qwq", "qwen-qwq",
+            # Large capable models
+            "llama3.3", "llama3.2", "llama3.1", "llama3",
+            "mistral-nemo", "gemma2", "phi4",
+            # Fallback to any available
+        ]
+        
+        cloud_preferences = {
+            # OpenAI
+            "openai": ["gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+            # Claude via OpenRouter
+            "anthropic": ["claude-3.5-sonnet", "claude-3-opus", "claude-3-sonnet"],
+            # Google
+            "gemini": ["gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash"],
+            # Mistral
+            "mistral": ["mistral-large", "mistral-medium", "mistral-small"],
+            # DeepSeek
+            "deepseek": ["deepseek-chat", "deepseek-reasoner"],
+            # Groq
+            "groq": ["llama-3.3-70b", "llama-3.1-70b", "mixtral-8x7b"],
+            # Together AI
+            "together": ["meta-llama/Llama-3.3-70B", "meta-llama/Llama-3.1-70B"],
+            # OpenRouter
+            "openrouter": ["anthropic/claude-3.5-sonnet", "google/gemini-2.0-flash"],
+            # Perplexity
+            "perplexity": ["llama-3.1-sonar-large", "llama-3.1-sonar-small"],
+        }
+        
+        # Determine which preference list to use
+        endpoint = self.llm_endpoint_var.get().strip().lower()
+        preferences = ollama_preferences
+        
+        if provider == "openai_compatible" and endpoint:
+            # Try to detect cloud provider from endpoint
+            for key, prefs in cloud_preferences.items():
+                if key in endpoint:
+                    preferences = prefs
+                    break
+        
+        # Try to match preferences in order
+        for pref in preferences:
+            pref_lower = pref.lower()
+            for model in available_models:
+                model_lower = model.lower()
+                if pref_lower in model_lower:
+                    return model
+        
+        # If no preference matched, return the first model
+        return available_models[0]
+
     def _refresh_llm_models(self, combo=None):
         provider = self.llm_provider_var.get().strip().lower()
         endpoint = self.llm_endpoint_var.get().strip()
@@ -7771,9 +7830,32 @@ class PCAPSentryApp:
                 except tk.TclError:
                     return
 
+        def apply_with_best_model(names, select_best=False):
+            """Apply model list and optionally select the best model for the provider."""
+            names = _dedupe_names(names)
+            if combo is not None:
+                try:
+                    if not combo.winfo_exists():
+                        return
+                    combo["values"] = names
+                    
+                    if select_best and names:
+                        # Try to select the best/recommended model for this provider
+                        selected = self._select_best_model(names, provider)
+                        if selected:
+                            self.llm_model_var.set(selected)
+                    elif names and not self.llm_model_var.get().strip():
+                        self.llm_model_var.set(names[0])
+                except tk.TclError:
+                    return
+
         def run():
             names = worker()
-            self.root.after(0, lambda: apply(names))
+            # Check if this refresh was triggered by a server change
+            select_best = getattr(self, '_llm_server_just_changed', False)
+            if select_best:
+                self._llm_server_just_changed = False
+            self.root.after(0, lambda: (apply_with_best_model(names, select_best) if select_best else apply(names)))
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -9521,8 +9603,9 @@ class PCAPSentryApp:
             _show_api_key_row(is_cloud)
             _update_api_key_hint(name)
             _set_llm_fields_state()
-            # Refresh model list when changing servers
+            # Refresh model list when changing servers and flag to select best model
             if prov != "disabled":
+                self._llm_server_just_changed = True
                 self._refresh_llm_models(llm_model_combo)
             self._detect_hint_label.configure(text="")
 
