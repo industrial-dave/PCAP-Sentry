@@ -613,6 +613,8 @@ MODEL_FILE = os.path.join(_get_app_data_dir(), "pcap_local_model.joblib")
 _KEYRING_SERVICE = "PCAP_Sentry"
 _KEYRING_USERNAME_LLM = "llm_api_key"
 _KEYRING_USERNAME_OTX = "otx_api_key"
+_KEYRING_USERNAME_CHAT_KEY = "chat_encryption_key"
+_KEYRING_USERNAME_KB_KEY = "kb_encryption_key"
 
 
 def _keyring_available():
@@ -693,6 +695,68 @@ def _delete_otx_api_key() -> None:
         pass
 
 
+# ── Data encryption helpers ──────────────────────────────────────────────────
+def _get_or_create_encryption_key(username: str) -> bytes | None:
+    """Get or create an encryption key stored in the OS credential store."""
+    if not _keyring_available():
+        return None
+    try:
+        import keyring
+        from cryptography.fernet import Fernet
+
+        # Try to load existing key
+        key_str = keyring.get_password(_KEYRING_SERVICE, username)
+        if key_str:
+            return key_str.encode()
+        
+        # Generate new key
+        new_key = Fernet.generate_key()
+        keyring.set_password(_KEYRING_SERVICE, username, new_key.decode())
+        return new_key
+    except Exception:
+        return None
+
+
+def _encrypt_json(data: dict | list, username: str) -> str | None:
+    """Encrypt JSON-serializable data. Returns base64-encoded encrypted string or None on error."""
+    if data is None:
+        return None
+    try:
+        from cryptography.fernet import Fernet
+        import base64
+
+        key = _get_or_create_encryption_key(username)
+        if not key:
+            return None
+        
+        cipher = Fernet(key)
+        json_str = json.dumps(data)
+        encrypted_bytes = cipher.encrypt(json_str.encode('utf-8'))
+        return base64.b64encode(encrypted_bytes).decode('ascii')
+    except Exception:
+        return None
+
+
+def _decrypt_json(encrypted_str: str, username: str) -> dict | list | None:
+    """Decrypt base64-encoded encrypted JSON data. Returns parsed JSON or None on error."""
+    if not encrypted_str:
+        return None
+    try:
+        from cryptography.fernet import Fernet
+        import base64
+
+        key = _get_or_create_encryption_key(username)
+        if not key:
+            return None
+        
+        cipher = Fernet(key)
+        encrypted_bytes = base64.b64decode(encrypted_str.encode('ascii'))
+        decrypted_bytes = cipher.decrypt(encrypted_bytes)
+        return json.loads(decrypted_bytes.decode('utf-8'))
+    except Exception:
+        return None
+
+
 def _default_settings():
     return {
         "max_rows": DEFAULT_MAX_ROWS,
@@ -739,6 +803,16 @@ def load_settings():
                         # Migrate plaintext OTX key to keyring on first load
                         _store_otx_api_key(data["otx_api_key"])
                         defaults["otx_api_key"] = data["otx_api_key"]
+                    
+                    # Decrypt chat_history if encrypted
+                    encrypted_chat = data.get("chat_history_encrypted")
+                    if encrypted_chat:
+                        decrypted = _decrypt_json(encrypted_chat, _KEYRING_USERNAME_CHAT_KEY)
+                        if decrypted is not None:
+                            defaults["chat_history"] = decrypted
+                    elif data.get("chat_history"):
+                        # Migrate plaintext chat history on first load
+                        defaults["chat_history"] = data["chat_history"]
                 return defaults
     except Exception:
         pass
@@ -757,6 +831,14 @@ def save_settings(settings):
             settings = dict(settings)
             settings.pop("llm_api_key", None)
             settings.pop("otx_api_key", None)
+            
+            # Encrypt chat_history
+            chat_history = settings.get("chat_history", [])
+            if chat_history:
+                encrypted = _encrypt_json(chat_history, _KEYRING_USERNAME_CHAT_KEY)
+                if encrypted:
+                    settings["chat_history_encrypted"] = encrypted
+                    settings.pop("chat_history", None)
         # Use tempfile.mkstemp for atomic write (avoids symlink race on
         # a predictable ".tmp" path).
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(SETTINGS_FILE), suffix=".tmp")
@@ -792,7 +874,29 @@ def load_knowledge_base():
         try:
             if os.path.exists(KNOWLEDGE_BASE_FILE):
                 with open(KNOWLEDGE_BASE_FILE, encoding="utf-8") as f:
-                    data = json.load(f)
+                    content = f.read().strip()
+                
+                # Try to decrypt if keyring is available
+                if _keyring_available() and content:
+                    try:
+                        # Check if content looks like encrypted data (base64)
+                        if not content.startswith("{"):
+                            decrypted = _decrypt_json(content, _KEYRING_USERNAME_KB_KEY)
+                            if decrypted and isinstance(decrypted, dict):
+                                data = decrypted
+                            else:
+                                # Decryption failed, try plain JSON
+                                data = json.loads(content)
+                        else:
+                            # Looks like plain JSON, migrate to encrypted
+                            data = json.loads(content)
+                    except Exception:
+                        # Fall back to plain JSON parsing
+                        data = json.loads(content)
+                else:
+                    # No keyring, use plain JSON
+                    data = json.loads(content)
+                
                 if isinstance(data, dict):
                     data.setdefault("safe", [])
                     data.setdefault("malicious", [])
@@ -812,8 +916,21 @@ def save_knowledge_base(data):
         os.makedirs(os.path.dirname(KNOWLEDGE_BASE_FILE), exist_ok=True)
         fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(KNOWLEDGE_BASE_FILE), suffix=".tmp")
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
+            # Encrypt KB data if keyring is available
+            if _keyring_available():
+                encrypted = _encrypt_json(data, _KEYRING_USERNAME_KB_KEY)
+                if encrypted:
+                    # Write encrypted string
+                    with os.fdopen(fd, "w", encoding="utf-8") as f:
+                        f.write(encrypted)
+                else:
+                    # Encryption failed, fall back to plain JSON
+                    with os.fdopen(fd, "w", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2)
+            else:
+                # No keyring, write plain JSON
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
             os.replace(tmp_path, KNOWLEDGE_BASE_FILE)
         except BaseException:
             with contextlib.suppress(OSError):
@@ -8167,23 +8284,21 @@ class PCAPSentryApp:
                     response = requests.get(url, headers=headers, timeout=10)
                     if response.status_code == 200:
                         return True, "OpenAI API key valid"
-                    elif response.status_code == 401:
+                    if response.status_code == 401:
                         return False, "Invalid API key"
-                    else:
-                        return False, f"HTTP {response.status_code}"
+                    return False, f"HTTP {response.status_code}"
 
-                elif provider == "google":
+                if provider == "google":
                     # Test Google Gemini API
                     url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
                     response = requests.get(url, timeout=10)
                     if response.status_code == 200:
                         return True, "Google API key valid"
-                    elif response.status_code == 400:
+                    if response.status_code == 400:
                         return False, "Invalid API key"
-                    else:
-                        return False, f"HTTP {response.status_code}"
+                    return False, f"HTTP {response.status_code}"
 
-                elif provider == "anthropic":
+                if provider == "anthropic":
                     # Test Anthropic API
                     url = "https://api.anthropic.com/v1/messages"
                     headers = {
@@ -8200,25 +8315,22 @@ class PCAPSentryApp:
                     response = requests.post(url, headers=headers, json=data, timeout=10)
                     if response.status_code == 200:
                         return True, "Anthropic API key valid"
-                    elif response.status_code == 401:
+                    if response.status_code == 401:
                         return False, "Invalid API key"
-                    else:
-                        return False, f"HTTP {response.status_code}"
+                    return False, f"HTTP {response.status_code}"
 
-                else:
-                    # Generic OpenAI-compatible test
-                    endpoint = self.llm_endpoint_var.get().strip()
-                    if not endpoint:
-                        return False, "No endpoint configured"
-                    url = f"{endpoint}/v1/models" if not endpoint.endswith("/v1/models") else endpoint
-                    headers = {"Authorization": f"Bearer {key}"}
-                    response = requests.get(url, headers=headers, timeout=10)
-                    if response.status_code == 200:
-                        return True, f"{provider.title()} API key valid"
-                    elif response.status_code == 401:
-                        return False, "Invalid API key"
-                    else:
-                        return False, f"HTTP {response.status_code}"
+                # Generic OpenAI-compatible test
+                endpoint = self.llm_endpoint_var.get().strip()
+                if not endpoint:
+                    return False, "No endpoint configured"
+                url = f"{endpoint}/v1/models" if not endpoint.endswith("/v1/models") else endpoint
+                headers = {"Authorization": f"Bearer {key}"}
+                response = requests.get(url, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    return True, f"{provider.title()} API key valid"
+                if response.status_code == 401:
+                    return False, "Invalid API key"
+                return False, f"HTTP {response.status_code}"
 
             except requests.exceptions.Timeout:
                 return False, "Connection timeout"
