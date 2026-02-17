@@ -64,6 +64,9 @@
 
 
 
+
+## 2026.02.17-2 - 2026-02-17
+- Suppress Bandit B608 false positive for batch script creation
 ## 2026.02.17-1 - 2026-02-17
 - **Critical Fix:** Handle .pcapng files without linktype attribute (RawPcapNgReader compatibility) - resolves "object has no attribute 'linktype'" errors
 - **UX Improvement:** Ask user choice when LLM fails instead of automatically saving label (prevents accidental duplicates)
