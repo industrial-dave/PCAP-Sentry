@@ -2347,6 +2347,12 @@ def _fast_parse_pcap_path(
     DNS, DNSQR, IP, _PcapReader, _Raw, _TCP, _UDP = _get_scapy()
     from scapy.utils import RawPcapReader
 
+    # Import PacketMetadataNg to handle pcapng files
+    try:
+        from scapy.utils import PacketMetadataNg
+    except ImportError:
+        PacketMetadataNg = None
+
     tls_support = _get_tls_support()
     pd = _get_pandas()
 
@@ -2550,7 +2556,20 @@ def _fast_parse_pcap_path(
 
                 # ── Reservoir sampling ──
                 if should_sample_rows:
-                    ts = float(pkt_metadata.sec) + float(pkt_metadata.usec) / 1_000_000.0
+                    # Extract timestamp - handle both pcap and pcapng metadata formats
+                    if hasattr(pkt_metadata, 'sec'):
+                        # Regular pcap metadata
+                        ts = float(pkt_metadata.sec) + float(pkt_metadata.usec) / 1_000_000.0
+                    elif hasattr(pkt_metadata, 'tshigh') and hasattr(pkt_metadata, 'tslow'):
+                        # pcapng metadata (PacketMetadataNg)
+                        # Combine tshigh and tslow, adjust for resolution
+                        ts_raw = (pkt_metadata.tshigh << 32) | pkt_metadata.tslow
+                        tsresol = getattr(pkt_metadata, 'tsresol', 6)  # Default to microseconds (10^-6)
+                        ts = ts_raw / (10 ** tsresol)
+                    else:
+                        # Fallback - use packet count as pseudo-timestamp
+                        ts = float(packet_count)
+                    
                     row = {
                         "Time": ts,
                         "Size": pkt_size,
