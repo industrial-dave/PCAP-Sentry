@@ -3881,7 +3881,8 @@ class PCAPSentryApp:
         # Status message
         status_label = ttk.Label(status, textvariable=self.status_var, font=("Segoe UI", 11))
         status_label.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
-        ttk.Label(status, textvariable=self.sample_note_var, style="Hint.TLabel").pack(side=tk.RIGHT)
+        # Note: Bottom-right status label disabled per user request
+        # ttk.Label(status, textvariable=self.sample_note_var, style="Hint.TLabel").pack(side=tk.RIGHT)
 
     def _open_preferences(self):
         window = tk.Toplevel(self.root)
