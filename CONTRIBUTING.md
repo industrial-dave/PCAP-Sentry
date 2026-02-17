@@ -6,6 +6,26 @@ Thank you for your interest in contributing to PCAP Sentry! This document provid
 
 This project is committed to providing a welcoming and inclusive experience for everyone. Be respectful and considerate in all interactions.
 
+## Responsible Use & Ethics
+
+**PCAP Sentry is an educational tool for defensive security research.** By contributing, you agree:
+
+✅ **DO:**
+- Contribute features that help users **learn** network traffic analysis
+- Focus on **defensive** security capabilities (threat detection, analysis, research)
+- Support lawful and ethical use cases
+- Document security implications of new features
+- Follow responsible disclosure for security issues
+
+❌ **DO NOT:**
+- Add features designed primarily for **offensive** hacking or unauthorized access
+- Include exploits, attack tools, or malicious code
+- Contribute code that facilitates illegal surveillance or privacy violations
+- Promote or enable unauthorized network interception
+- Include techniques primarily useful for evading detection
+
+**If in doubt**, open an issue to discuss whether a feature aligns with the project's educational and defensive security mission.
+
 ## How Can I Contribute?
 
 ### Reporting Bugs

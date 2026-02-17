@@ -13,6 +13,31 @@ PCAP Sentry follows a date-based versioning scheme (YYYY.MM.DD-increment). We re
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
+### Responsible Disclosure Policy
+
+We are committed to working with security researchers to address vulnerabilities responsibly.
+
+**Guidelines for Researchers:**
+- ✅ Report vulnerabilities privately (not via public issues)
+- ✅ Give us reasonable time to fix before public disclosure (90 days preferred)
+- ✅ Avoid exploiting vulnerabilities beyond proof-of-concept testing
+- ✅ Do not access, modify, or delete user data
+- ✅ Use your own test systems, not production environments
+- ❌ Do not perform testing that violates laws or terms of service
+
+**What We Promise:**
+- Acknowledge receipt within 48 hours
+- Work diligently to verify and fix valid issues
+- Credit researchers (unless anonymity requested)
+- Not pursue legal action against researchers following these guidelines
+- Coordinate disclosure timeline with you
+
+**Out of Scope:**
+- Vulnerabilities in third-party dependencies (report to upstream)
+- Social engineering attacks
+- Physical attacks requiring access to user's device
+- Issues requiring malicious PCAP files (expected by design)
+
 ### Preferred Method: Private Security Advisory
 
 Use GitHub's private security advisory feature:
@@ -96,6 +121,49 @@ PCAP Sentry implements multiple security controls:
 - Any files in `%LOCALAPPDATA%\PCAP_Sentry\` - User runtime data directory
 
 The repository includes an empty template `Python/pcap_knowledge_base_offline.json` for distribution only.
+
+## Responsible Use
+
+### Legal Compliance
+
+**Users are responsible for complying with all applicable laws** when using PCAP Sentry, including:
+
+⚠️ **Network Monitoring Laws:**
+- Wiretapping and electronic surveillance regulations (e.g., 18 U.S.C. § 2511 in the U.S.)
+- Computer fraud and abuse laws (e.g., CFAA in the U.S.)
+- Privacy regulations (GDPR, CCPA, etc.)
+- National and local data protection laws
+
+⚠️ **Authorization Required:**
+- Obtain legal authority before capturing or analyzing network traffic
+- Ensure you have consent from network owners or participants
+- Follow corporate policies regarding network monitoring
+- Respect privacy rights and confidentiality obligations
+
+⚠️ **Export Control:**
+- This software may be subject to U.S. Export Administration Regulations (EAR)
+- Do not export to embargoed countries or denied parties
+- Verify compliance with your local export/import regulations
+
+**Prohibited Uses:**
+- ❌ Unauthorized network interception or surveillance
+- ❌ Violating wiretapping, privacy, or computer fraud laws
+- ❌ Accessing networks without permission
+- ❌ Any illegal or malicious activity
+
+**Consult legal counsel** if you have questions about lawful use in your jurisdiction.
+
+### Educational Purpose
+
+PCAP Sentry is designed for **defensive security education and research**. The project:
+
+- ✅ Supports learning and skill development
+- ✅ Enables security research and analysis
+- ✅ Helps identify malicious network patterns
+- ❌ Does not promote or facilitate illegal activities
+- ❌ Is not intended for offensive security operations
+
+**Users must verify they have legal authority** to analyze network traffic before using this tool.
 
 ## Scope
 

@@ -1088,6 +1088,157 @@ By using PCAP Sentry, you acknowledge:
 4. **No liability** — Developers are not liable for decisions made based on this tool's output
 5. **Legal compliance** — You must comply with applicable laws regarding network monitoring
 
+### Legal Compliance Requirements
+
+#### Network Monitoring Laws
+
+**⚠️ CRITICAL:** Analyzing network traffic may be **illegal without proper authorization**.
+
+**United States:**
+- **18 U.S.C. § 2511** (Wiretap Act) — Prohibits unauthorized interception of electronic communications
+- **18 U.S.C. § 1030** (Computer Fraud and Abuse Act) — Prohibits unauthorized computer access
+- **Stored Communications Act** — Regulates access to stored communications
+- **State wiretapping laws** — May be stricter than federal law (check your state)
+
+**European Union:**
+- **GDPR** — Requires lawful basis for processing personal data (including IP addresses)
+- **ePrivacy Directive** — Regulates electronic communications monitoring
+- **National laws** — Each EU member state has specific requirements
+
+**Other Jurisdictions:**
+- **Canada:** PIPEDA and Criminal Code provisions
+- **UK:** Investigatory Powers Act, Data Protection Act
+- **Australia:** Telecommunications (Interception and Access) Act
+- **Consult local laws** for your jurisdiction
+
+#### When You Need Authorization
+
+You **MUST** have legal authority before analyzing network traffic in these scenarios:
+
+❌ **WITHOUT Authorization:**
+- Intercepting traffic on networks you don't own or operate
+- Monitoring employee communications without notice/consent
+- Capturing WiFi traffic in public spaces
+- Accessing communications of third parties without warrants (law enforcement only)
+- Analyzing traffic in violation of terms of service (e.g., ISP agreements)
+
+✅ **WITH Authorization:**
+- Your own home network traffic
+- Corporate network with employer consent and employee notice
+- Research networks with explicit permission
+- Honeypots and lab environments you control
+- Public packet captures (e.g., from security research datasets)
+- Law enforcement with proper legal authority (warrants, court orders)
+
+#### Privacy Considerations
+
+Network captures may contain **personal information** and **confidential data**:
+
+- **Usernames and passwords** (in cleartext protocols)
+- **Email addresses and contact information**
+- **Browsing history** (DNS queries, HTTP requests)
+- **Private communications** (if not encrypted)
+- **Trade secrets or proprietary information**
+
+**Your Responsibilities:**
+1. ✅ Minimize collection of personal information
+2. ✅ Secure PCAPs and analysis results (encrypt, access control)
+3. ✅ Delete captures when no longer needed
+4. ✅ Comply with data protection regulations (GDPR, CCPA, etc.)
+5. ✅ Respect confidentiality and privacy expectations
+
+#### Export Control Compliance
+
+**U.S. Export Administration Regulations (EAR):**
+
+This software uses cryptographic functions and may be subject to export controls.
+
+**Restricted Destinations (Do NOT Export To):**
+- ❌ Cuba, Iran, North Korea, Syria
+- ❌ Russia-occupied regions (Crimea, Donetsk, Luhansk)
+- ❌ Any country under U.S. embargo
+- ❌ Denied Persons List / Entity List parties
+
+**International Users:**
+- Verify compliance with your country's import regulations
+- Some countries restrict cryptographic software
+- Export control laws apply to **digital transfers** (downloads, emails, cloud storage)
+
+**Exemptions:**
+- This software may qualify for publicly available exemptions
+- Standard cryptography library usage (not custom crypto)
+- Educational use may have additional exemptions
+
+**Consult an Attorney:** Export control laws are complex. If you plan to distribute this software internationally, consult an export control attorney.
+
+#### Prohibited Uses
+
+This software **MUST NOT** be used for:
+
+❌ **Illegal Surveillance:**
+- Wiretapping without legal authority
+- Spying on communications without consent
+- Stalking or harassment
+
+❌ **Unauthorized Access:**
+- Hacking or penetrating networks without permission
+- Circumventing security measures
+- Violating Computer Fraud and Abuse Act (CFAA) or equivalent laws
+
+❌ **Privacy Violations:**
+- Collecting personal data without lawful basis
+- Violating GDPR, CCPA, or other privacy regulations
+- Breaching confidentiality obligations
+
+❌ **Malicious Activity:**
+- Developing or deploying malware
+- Conducting attacks or exploits
+- Aiding criminal activity
+
+#### Recommended Practices
+
+To minimize legal risk:
+
+1. **Get Written Authorization**
+   - Document permission to monitor networks
+   - Maintain copies of consent forms
+   - Update authorizations when scope changes
+
+2. **Provide Notice**
+   - Inform users their traffic may be monitored
+   - Display banners on login screens
+   - Include monitoring clauses in policies
+
+3. **Minimize Collection**
+   - Capture only what's necessary for your purpose
+   - Use filters to exclude irrelevant traffic
+   - Avoid capturing credentials when possible
+
+4. **Secure Your Data**
+   - Encrypt PCAP files and analysis results
+   - Use access controls and authentication
+   - Store in secure locations (not public cloud without encryption)
+
+5. **Document Your Purpose**
+   - Maintain logs of why captures were taken
+   - Record educational/research rationale
+   - Create audit trail for compliance
+
+6. **Consult Experts**
+   - Legal counsel for compliance questions
+   - Privacy officer for GDPR/data protection
+   - Export control attorney for international use
+
+#### Disclaimer
+
+This section provides **general information only** and does not constitute legal advice. Laws vary by jurisdiction and change frequently. 
+
+**Consult a qualified attorney** licensed in your jurisdiction before:
+- Analyzing network traffic in a professional capacity
+- Monitoring employee or customer networks
+- Distributing this software internationally
+- Using in any legally sensitive context
+
 For production security needs, use enterprise-grade tools from established vendors with:
 - Validated detection accuracy
 - Compliance certifications

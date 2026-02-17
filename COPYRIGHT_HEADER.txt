@@ -1,0 +1,44 @@
+# Copyright Header Template for Source Files
+
+Add this header to Python source files to strengthen copyright protection:
+
+```python
+# PCAP Sentry - Network Traffic Analysis Tool
+# Copyright (C) 2026 industrial-dave
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+# DISCLAIMER: This tool is for educational purposes only. Use responsibly
+# and ensure you have legal authority to analyze network traffic.
+```
+
+## Why Add Copyright Headers?
+
+1. **Strengthens Copyright Protection** - Establishes authorship in each file
+2. **GPL Compliance** - Recommended best practice for GPL-licensed software
+3. **Attribution** - Makes it clear who owns the code
+4. **Legal Clarity** - Reminds users of GPL terms and educational purpose
+
+## When to Add
+
+- All Python source files in Python/ directory
+- Build scripts (if distributing as part of releases)
+- Any substantial code contributions
+
+## When NOT to Add
+
+- Configuration files (JSON, TOML, INI)
+- Documentation (MD files already reference LICENSE)
+- Small utility scripts (<50 lines)
+- Third-party code (respect original licenses)

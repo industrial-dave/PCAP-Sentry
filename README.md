@@ -223,6 +223,60 @@ By using this tool, you acknowledge:
 
 See [LICENSE](LICENSE) for full warranty disclaimer and limitation of liability.
 
+## 🔒 Legal Compliance & Export Control
+
+### Network Monitoring Legality
+
+**⚠️ IMPORTANT:** Network traffic analysis may be subject to legal restrictions in your jurisdiction.
+
+**You are responsible for:**
+- ✅ Obtaining **legal authorization** before capturing or analyzing network traffic
+- ✅ Complying with **wiretapping and electronic surveillance laws** (e.g., 18 U.S.C. § 2511 in the United States, GDPR in the EU)
+- ✅ Ensuring you have **consent from network owners** or participants
+- ✅ Respecting **privacy rights** and confidentiality obligations
+- ✅ Following **corporate policies** regarding network monitoring
+
+**Prohibited Uses:**
+- ❌ Intercepting communications without legal authority
+- ❌ Unauthorized network access or surveillance
+- ❌ Violating wiretapping, privacy, or computer fraud laws
+- ❌ Any illegal or malicious activity
+
+**If in doubt, consult a qualified attorney** before analyzing network traffic.
+
+### Export Control Notice
+
+This software uses cryptographic functions and may be subject to export control regulations.
+
+**U.S. Export Controls:**
+- This software may be subject to U.S. Export Administration Regulations (EAR)
+- Public availability and standard cryptography library usage may qualify for exemptions
+- Users are responsible for compliance with applicable export control laws
+
+**Restricted Destinations:**
+- Do not export to embargoed countries (Cuba, Iran, North Korea, Syria, Russia-occupied regions)
+- Do not export to prohibited parties (Denied Persons List, Entity List, etc.)
+
+**International Users:**
+- Verify compliance with your local export/import regulations
+- Some features may be restricted in certain jurisdictions
+
+**Disclaimer:** Export control laws are complex and change frequently. This notice is informational only and does not constitute legal advice. Consult an export control attorney or the U.S. Department of Commerce Bureau of Industry and Security for specific guidance.
+
+### Dual-Use Technology Notice
+
+This software is a **dual-use security tool** that can be used for both defensive (security analysis) and potentially offensive purposes.
+
+**Intended Use:** Educational training and defensive security research only.
+
+**Prohibited Use:** This software must not be used for:
+- ❌ Unauthorized computer access
+- ❌ Network attacks or exploitation
+- ❌ Violation of computer fraud laws (e.g., CFAA in the U.S.)
+- ❌ Privacy violations or illegal surveillance
+
+**User Responsibility:** You are solely responsible for ensuring your use of this software complies with all applicable laws and regulations.
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
