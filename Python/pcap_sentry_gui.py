@@ -350,7 +350,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.16-22"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.17-1"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -6279,7 +6279,7 @@ class PCAPSentryApp:
             self.busy_count += 1
             if self.busy_count == 1:
                 self._cancel_event.clear()
-                self.status_var.set(message)
+                # self.status_var.set(message)  # Disabled automatic status messages
                 self._reset_progress()
                 # Don't start progress animation yet - wait for first real update
                 self.progress.configure(mode="indeterminate")
@@ -6303,7 +6303,7 @@ class PCAPSentryApp:
                 self.cancel_button.configure(state=tk.NORMAL)
                 self.cancel_button.pack(side=tk.LEFT, padx=(4, 0))
             else:
-                self.status_var.set(message)
+                pass  # self.status_var.set(message)  # Disabled automatic status messages
         else:
             self.busy_count = max(0, self.busy_count - 1)
             if self.busy_count == 0:
@@ -7442,8 +7442,10 @@ class PCAPSentryApp:
 
         def failed(err):
             self.sample_note_var.set("")
-            messagebox.showwarning("LLM Suggestion", f"LLM suggestion failed: {err}\n\nUsing selected label.")
-            on_apply(intended_label)
+            prompt = f"LLM suggestion failed: {err}\n\nDo you still want to mark this capture as '{intended_label}'?"
+            choice = messagebox.askyesno("LLM Suggestion Failed", prompt)
+            if choice:
+                on_apply(intended_label)
 
         self._run_task(task, done, on_error=failed, message="Contacting LLM...")
 

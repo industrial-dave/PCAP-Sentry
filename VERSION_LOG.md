@@ -63,6 +63,9 @@
 
 
 
+
+## 2026.02.17-1 - 2026-02-17
+- UX fixes: Ask user choice when LLM fails instead of auto-saving; Disabled automatic progress status messages
 ## 2026.02.16-22 - 2026-02-16
 - Fixed update process crash after download completes
 ## 2026.02.16-21 - 2026-02-16
