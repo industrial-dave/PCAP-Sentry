@@ -73,6 +73,10 @@
 
 
 
+## 2026.02.17-11 - 2026-02-17
+- **Fix:** Model field now always matches selected server (automatically clears invalid models when switching servers)
+- **Fix:** Auto-select best model when current model is not in the provider's available models list
+
 ## 2026.02.17-10 - 2026-02-17
 - **UX:** Move API key link below the API key field for better visibility
 - **UX:** Make cancel button instant (1ms polling instead of 30ms when cancelling)
