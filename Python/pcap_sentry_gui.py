@@ -9936,15 +9936,16 @@ class PCAPSentryApp:
             command=self._verify_llm_api_key,
         )
         verify_api_btn.pack(side=tk.LEFT, padx=(6, 0))
+        
+        # API key hint link (shown below API key field)
         api_key_hint = tk.Label(
-            api_key_frame,
+            frame,
             text="",
             anchor="w",
             fg=self.colors.get("muted", "#8b949e"),
             bg=self.colors.get("bg", "#0d1117"),
             font=("Segoe UI", 8),
         )
-        api_key_hint.pack(side=tk.LEFT, padx=(8, 0))
 
         # API key signup links per provider
         _API_KEY_URLS = {
@@ -9982,10 +9983,12 @@ class PCAPSentryApp:
             if visible:
                 api_key_label.grid(row=3, column=0, sticky="w", pady=6)
                 api_key_frame.grid(row=3, column=1, sticky="w", pady=6)
-                self._llm_verify_label.grid(row=4, column=1, sticky="w", pady=(0, 4))
+                api_key_hint.grid(row=4, column=1, sticky="w", pady=(0, 4))
+                self._llm_verify_label.grid(row=5, column=1, sticky="w", pady=(0, 4))
             else:
                 api_key_label.grid_remove()
                 api_key_frame.grid_remove()
+                api_key_hint.grid_remove()
                 self._llm_verify_label.grid_remove()
 
         def _on_server_selected(*_):
@@ -10012,9 +10015,9 @@ class PCAPSentryApp:
         _show_api_key_row(_resolve_display_name() in _CLOUD_PROVIDERS and not self.offline_mode_var.get())
         _update_api_key_hint(_resolve_display_name())
 
-        ttk.Label(frame, text="LLM model:").grid(row=5, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="LLM model:").grid(row=6, column=0, sticky="w", pady=6)
         model_frame = ttk.Frame(frame)
-        model_frame.grid(row=5, column=1, sticky="w", pady=6)
+        model_frame.grid(row=6, column=1, sticky="w", pady=6)
         llm_model_combo = ttk.Combobox(model_frame, textvariable=self.llm_model_var, width=42)
         llm_model_combo.pack(side=tk.LEFT)
         refresh_btn = ttk.Button(
@@ -10028,7 +10031,7 @@ class PCAPSentryApp:
         self._help_icon_grid(
             frame,
             "Model name for the selected provider. Click \u21bb to detect available models.",
-            row=5,
+            row=6,
             column=2,
             sticky="w",
         )
@@ -10036,7 +10039,7 @@ class PCAPSentryApp:
 
         # Manage Models button (below model field)
         manage_models_frame = ttk.Frame(frame)
-        manage_models_frame.grid(row=6, column=1, sticky="w", pady=(0, 6))
+        manage_models_frame.grid(row=7, column=1, sticky="w", pady=(0, 6))
         manage_models_btn = ttk.Button(
             manage_models_frame,
             text="Manage Models",
@@ -10045,23 +10048,23 @@ class PCAPSentryApp:
         )
         manage_models_btn.pack(side=tk.LEFT)
 
-        ttk.Label(frame, text="LLM endpoint:").grid(row=7, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="LLM endpoint:").grid(row=8, column=0, sticky="w", pady=6)
         endpoint_frame = ttk.Frame(frame)
-        endpoint_frame.grid(row=7, column=1, sticky="w", pady=6)
+        endpoint_frame.grid(row=8, column=1, sticky="w", pady=6)
         llm_endpoint_entry = ttk.Entry(endpoint_frame, textvariable=self.llm_endpoint_var, width=34)
         llm_endpoint_entry.pack(side=tk.LEFT)
         self._help_icon_grid(
             frame,
             "API base URL for the LLM server. Auto-filled when you pick a server above. "
             "Edit this for custom ports or remote servers.",
-            row=7,
+            row=8,
             column=2,
             sticky="w",
         )
 
-        ttk.Label(frame, text="Test LLM:").grid(row=8, column=0, sticky="w", pady=6)
+        ttk.Label(frame, text="Test LLM:").grid(row=9, column=0, sticky="w", pady=6)
         test_frame = ttk.Frame(frame)
-        test_frame.grid(row=8, column=1, sticky="w", pady=6)
+        test_frame.grid(row=9, column=1, sticky="w", pady=6)
         ttk.Button(
             test_frame, text="Test Connection", style="Secondary.TButton", command=self._test_llm_connection
         ).pack(side=tk.LEFT)
@@ -10075,7 +10078,7 @@ class PCAPSentryApp:
         )
         llm_test_status_label.pack(side=tk.LEFT)
         self._help_icon_grid(
-            frame, "Sends a small test request to verify the current LLM settings.", row=8, column=2, sticky="w"
+            frame, "Sends a small test request to verify the current LLM settings.", row=9, column=2, sticky="w"
         )
 
         def _set_llm_fields_state(*_):
@@ -10104,7 +10107,7 @@ class PCAPSentryApp:
         # Button row
         frame.grid_columnconfigure(1, weight=1)
         button_frame = ttk.Frame(frame)
-        button_frame.grid(row=8, column=0, columnspan=3, sticky="e", pady=(24, 0))
+        button_frame.grid(row=10, column=0, columnspan=3, sticky="e", pady=(24, 0))
         ttk.Button(button_frame, text="Save", command=lambda: self._save_llm_settings(window)).pack(
             side=tk.LEFT, padx=2
         )
