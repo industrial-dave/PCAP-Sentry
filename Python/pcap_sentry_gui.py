@@ -9044,9 +9044,9 @@ class PCAPSentryApp:
         try:
             provider = self.llm_provider_var.get().strip().lower()
 
-            # If LLM is already configured, verify it works
+            # If LLM is already configured, verify it works and update model if needed
             if provider not in ("", "disabled"):
-                self._verify_llm_at_startup()
+                self._verify_and_update_llm_at_startup()
                 return
 
             # Skip auto-detect if user explicitly disabled it
@@ -9096,6 +9096,62 @@ class PCAPSentryApp:
             threading.Thread(target=run, daemon=True).start()
         except Exception:
             pass  # Don't crash startup if LLM auto-detect fails to initialize
+
+    def _verify_and_update_llm_at_startup(self):
+        """Verify that a configured LLM is reachable at startup and update model name if needed."""
+        try:
+
+            def worker():
+                try:
+                    provider = self.llm_provider_var.get().strip().lower()
+                    endpoint = self.llm_endpoint_var.get().strip()
+
+                    if provider == "ollama":
+                        if not endpoint:
+                            endpoint = "http://localhost:11434"
+                        # Try to probe Ollama and get actual model name
+                        model_name = self._probe_ollama(endpoint)
+                        if model_name:
+                            return {"success": True, "model": model_name}
+                        return {"success": False}
+                    if provider == "openai_compatible" and endpoint:
+                        # Try to probe OpenAI-compatible endpoint and get model
+                        api_key = self.llm_api_key_var.get().strip()
+                        model_id = self._probe_openai_compat(endpoint, api_key=api_key)
+                        if model_id:
+                            return {"success": True, "model": model_id}
+                        return {"success": False}
+                except Exception:
+                    pass
+                return {"success": False}
+
+            def apply_result(result):
+                try:
+                    # Check if shutting down or root still exists before updating UI
+                    if self._shutting_down or not self.root or not self.root.winfo_exists():
+                        return
+                    if result.get("success"):
+                        # Update model name if detected
+                        if "model" in result:
+                            self.llm_model_var.set(result["model"])
+                            self._save_settings_from_vars()
+                        self._set_llm_test_status("Auto", self.colors.get("accent", "#58a6ff"))
+                    else:
+                        self._set_llm_test_status("Not tested", self.colors.get("muted", "#8b949e"))
+                except Exception:
+                    pass
+
+            def run():
+                try:
+                    result = worker()
+                    if not self._shutting_down:
+                        self.root.after(0, lambda: apply_result(result))
+                except Exception:
+                    pass
+
+            threading.Thread(target=run, daemon=True).start()
+        except Exception:
+            pass  # Don't crash startup if LLM verification fails
 
     def _verify_llm_at_startup(self):
         """Verify that a configured LLM is reachable at startup."""
