@@ -7397,8 +7397,8 @@ class PCAPSentryApp:
                     self._set_progress(100, label="Complete \u2713")
                     self.root.after(800, lambda: self._finish_task(error, payload, error_tb, on_success, on_error))
             else:
-                # Poll at 100ms for smooth progress updates
-                interval = 30 if self._cancel_event.is_set() else 100
+                # Poll at 100ms for smooth progress updates, 1ms when cancelling for instant response
+                interval = 1 if self._cancel_event.is_set() else 100
                 self.root.after(interval, check)
 
         self.root.after(100, check)
