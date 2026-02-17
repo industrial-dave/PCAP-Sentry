@@ -8086,44 +8086,29 @@ class PCAPSentryApp:
                 pass
             return []
 
-        def apply(names):
+        def apply_with_best_model(names):
+            """Apply model list and select the best model for the provider."""
             names = _dedupe_names(names)
             if combo is not None:
                 try:
                     if not combo.winfo_exists():
                         return
                     combo["values"] = names
+
                     if names and not self.llm_model_var.get().strip():
-                        self.llm_model_var.set(names[0])
-                except tk.TclError:
-                    return
-
-        def apply_with_best_model(names, select_best=False):
-            """Apply model list and optionally select the best model for the provider."""
-            names = _dedupe_names(names)
-            if combo is not None:
-                try:
-                    if not combo.winfo_exists():
-                        return
-                    combo["values"] = names
-
-                    if select_best and names:
-                        # Try to select the best/recommended model for this provider
+                        # Always select the best/recommended model for this provider
                         selected = self._select_best_model(names, provider)
                         if selected:
                             self.llm_model_var.set(selected)
-                    elif names and not self.llm_model_var.get().strip():
-                        self.llm_model_var.set(names[0])
                 except tk.TclError:
                     return
 
         def run():
             names = worker()
-            # Check if this refresh was triggered by a server change
-            select_best = getattr(self, "_llm_server_just_changed", False)
-            if select_best:
+            # Clear server change flag if it was set
+            if getattr(self, "_llm_server_just_changed", False):
                 self._llm_server_just_changed = False
-            self.root.after(0, lambda: apply_with_best_model(names, select_best) if select_best else apply(names))
+            self.root.after(0, lambda: apply_with_best_model(names))
 
         threading.Thread(target=run, daemon=True).start()
 
