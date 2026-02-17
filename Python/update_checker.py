@@ -544,7 +544,7 @@ class UpdateChecker:
             exe_dir = os.path.dirname(current_exe_path)
             exe_name = os.path.basename(current_exe_path)
 
-            # Simple batch script to replace executable
+            # Simple batch script to replace executable (not SQL - suppressing B608 false positive)
             script = f'''@echo off
 title PCAP Sentry Update Installer
 echo ========================================
@@ -615,7 +615,7 @@ REM Clean up and close automatically
 timeout /t 2 /nobreak >nul
 if exist "%~f0" del "%~f0"
 exit /b 0
-'''
+'''  # nosec B608  # Batch script creation, not SQL
 
             with open(script_path, "w", encoding="utf-8") as f:
                 f.write(script)
