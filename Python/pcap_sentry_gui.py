@@ -2389,7 +2389,12 @@ def _fast_parse_pcap_path(
 
     try:
         reader = RawPcapReader(resolved_path)
-        linktype = reader.linktype  # 1=Ethernet, 101=Raw IP, 113=Linux Cooked
+        # RawPcapNgReader (used for .pcapng) doesn't have linktype attribute
+        # Default to Ethernet (1) if not available
+        try:
+            linktype = reader.linktype  # 1=Ethernet, 101=Raw IP, 113=Linux Cooked
+        except AttributeError:
+            linktype = 1  # Default to Ethernet
 
         with reader:
             for raw_data, pkt_metadata in reader:
