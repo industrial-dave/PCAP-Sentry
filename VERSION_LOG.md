@@ -61,6 +61,12 @@
 
 
 
+
+
+## 2026.02.16-22 - 2026-02-16
+- Fixed update process crash after download completes
+## 2026.02.16-21 - 2026-02-16
+- Minor tweaks and improvements
 ## 2026.02.16-20 - 2026-02-16
 - Minor tweaks and improvements
 ## 2026.02.16-19 - 2026-02-16

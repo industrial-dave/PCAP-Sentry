@@ -350,7 +350,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.16-20"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.16-22"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -4370,8 +4370,30 @@ class PCAPSentryApp:
         # Smooth animation state for download progress
         _dl_anim = {"current": 0.0, "target": 0.0, "started": False, "anim_id": None}
 
+        def _cleanup_progress_window():
+            """Safely destroy progress window after canceling animation."""
+            if _dl_anim["anim_id"] is not None:
+                try:
+                    self.root.after_cancel(_dl_anim["anim_id"])
+                except Exception:
+                    pass
+                _dl_anim["anim_id"] = None
+            try:
+                progress_window.destroy()
+            except Exception:
+                pass
+
         def _animate_dl():
             """Ease-out interpolation for download progress bar."""
+            # Check if progress window still exists
+            try:
+                if not progress_bar.winfo_exists():
+                    _dl_anim["anim_id"] = None
+                    return
+            except tk.TclError:
+                _dl_anim["anim_id"] = None
+                return
+
             diff = _dl_anim["target"] - _dl_anim["current"]
             if abs(diff) < 0.3:
                 _dl_anim["current"] = _dl_anim["target"]
@@ -4392,7 +4414,7 @@ class PCAPSentryApp:
                     self.root.after(
                         0,
                         lambda: (
-                            progress_window.destroy(),
+                            _cleanup_progress_window(),
                             messagebox.showerror(
                                 "Download Failed",
                                 "Failed to fetch release information from GitHub.",
@@ -4405,7 +4427,7 @@ class PCAPSentryApp:
                     self.root.after(
                         0,
                         lambda: (
-                            progress_window.destroy(),
+                            _cleanup_progress_window(),
                             messagebox.showerror(
                                 "Download Failed", "No installer or executable found in the latest release."
                             ),
@@ -4445,7 +4467,7 @@ class PCAPSentryApp:
                     _write_error_log(f"Update download successful: {dest_path}")
 
                     def on_success():
-                        progress_window.destroy()
+                        _cleanup_progress_window()
                         if is_installer:
                             # Installer handles placing files in the right
                             # Program Files directory – just launch it.
@@ -4499,8 +4521,10 @@ class PCAPSentryApp:
                     self.root.after(
                         0,
                         lambda: (
-                            progress_window.destroy(),
-                            messagebox.showerror("Download Failed", f"Failed to download the update.\n\nError: {download_error}"),
+                            _cleanup_progress_window(),
+                            messagebox.showerror(
+                                "Download Failed", f"Failed to download the update.\n\nError: {download_error}"
+                            ),
                         ),
                     )
 
@@ -4509,7 +4533,7 @@ class PCAPSentryApp:
                 self.root.after(
                     0,
                     lambda exc=e: (
-                        progress_window.destroy(),
+                        _cleanup_progress_window(),
                         messagebox.showerror("Update Error", f"An error occurred during update: {exc!s}"),
                     ),
                 )
@@ -6925,8 +6949,6 @@ class PCAPSentryApp:
             bind_drop(self.target_drop_area, self.target_path_var.set, "target_drop_area")
         bind_drop(self.analyze_tab, self.target_path_var.set, "analyze_tab")
         bind_drop(self.result_text, self.target_path_var.set, "result_text")
-
-
 
     _ALLOWED_DROP_EXTENSIONS = {
         ".pcap",
@@ -9466,7 +9488,7 @@ class PCAPSentryApp:
         def task():
             provider = self.llm_provider_var.get().strip().lower()
             endpoint = self.llm_endpoint_var.get().strip()
-            
+
             if provider == "ollama":
                 if not endpoint:
                     endpoint = "http://localhost:11434"
