@@ -451,12 +451,19 @@ def _get_tls_support():
         return _tls_cache
 
 
-def _preload_scapy_background():
+def _preload_scapy_background(app=None):
     """Pre-import Scapy in a background thread to avoid delay on first analysis."""
     global _scapy_preload_done
     if _scapy_preload_done:
         return
     _scapy_preload_done = True
+
+    # Update status bar to show loading
+    if app and hasattr(app, 'status_var'):
+        try:
+            app.status_var.set("Ready (loading libraries...)")
+        except Exception:
+            pass
 
     def _preload():
         try:
@@ -464,6 +471,13 @@ def _preload_scapy_background():
             _get_tls_support()
         except Exception:
             pass  # Silently fail, will retry on first analysis
+        finally:
+            # Update status bar back to Ready when done
+            if app and hasattr(app, 'root'):
+                try:
+                    app.root.after(0, lambda: app.status_var.set("Ready"))
+                except Exception:
+                    pass
 
     thread = threading.Thread(target=_preload, daemon=True, name="ScapyPreload")
     thread.start()
@@ -3416,7 +3430,7 @@ class PCAPSentryApp:
 
         # Pre-load Scapy in background to avoid delay on first analysis
         try:
-            self.root.after(600, _preload_scapy_background)
+            self.root.after(600, lambda: _preload_scapy_background(self))
         except Exception:
             pass  # Don't crash if Scapy preload can't be scheduled
 
