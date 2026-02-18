@@ -1,8 +1,8 @@
 # Ruff configuration for PCAP Sentry
 # Fast Python linter and formatter
 
-# Target Python 3.10+ (project supports 3.10, 3.11, 3.12)
-target-version = "py310"
+# Target Python 3.11+ (project supports 3.11, 3.12, 3.13)
+target-version = "py311"
 
 # Line length to match project style
 line-length = 120

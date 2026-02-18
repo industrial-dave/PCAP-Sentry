@@ -29,7 +29,7 @@ If you have a local clone of this repository:
 2. **Delete your local repository**
 3. **Clone fresh from GitHub**:
    ```bash
-   git clone https://github.com/industrial-dave/PCAP-Sentry.git
+   git clone https://github.com/retr0verride/PCAP-Sentry.git
    ```
 
 **DO NOT** try to merge or pull - this will create issues due to the history rewrite.

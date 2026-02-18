@@ -2091,7 +2091,7 @@ key = os.urandom(32)  # Unpredictable, cryptographically secure
 #### Primary Distribution Channel: GitHub Releases (HTTPS)
 
 **Distribution Method:** All official releases are published via GitHub Releases at:
-- **URL:** https://github.com/industrial-dave/PCAP-Sentry/releases
+- **URL:** https://github.com/retr0verride/PCAP-Sentry/releases
 - **Protocol:** HTTPS (HTTP over TLS 1.2+)
 - **Certificate:** GitHub.com uses EV SSL certificate (Extended Validation)
 - **TLS Configuration:** GitHub enforces TLS 1.2 minimum, prefers TLS 1.3
@@ -2365,12 +2365,12 @@ $ grep -n "http://" Python/update_checker.py
 **Primary Clone Method (HTTPS):** [README.md:55](README.md#L55)
 
 ```bash
-git clone https://github.com/industrial-dave/PCAP-Sentry.git
+git clone https://github.com/retr0verride/PCAP-Sentry.git
 ```
 
 **Alternative Clone Method (SSH):**
 ```bash
-git clone git@github.com:industrial-dave/PCAP-Sentry.git
+git clone git@github.com:retr0verride/PCAP-Sentry.git
 ```
 
 **Both methods provide MITM protection:**
@@ -2498,10 +2498,10 @@ Currently, builds are **not** reproducible (different builds produce different h
 
 | Channel | URL | Protocol | Purpose |
 |---------|-----|----------|---------|
-| **Releases** | https://github.com/industrial-dave/PCAP-Sentry/releases | HTTPS | Binary downloads |
-| **Repository** | https://github.com/industrial-dave/PCAP-Sentry.git | HTTPS | Source code |
-| **Repository** | git@github.com:industrial-dave/PCAP-Sentry.git | SSH | Source code |
-| **CI Badges** | https://github.com/industrial-dave/PCAP-Sentry/actions | HTTPS | Build status |
+| **Releases** | https://github.com/retr0verride/PCAP-Sentry/releases | HTTPS | Binary downloads |
+| **Repository** | https://github.com/retr0verride/PCAP-Sentry.git | HTTPS | Source code |
+| **Repository** | git@github.com:retr0verride/PCAP-Sentry.git | SSH | Source code |
+| **CI Badges** | https://github.com/retr0verride/PCAP-Sentry/actions | HTTPS | Build status |
 
 **Unofficial/Mirror Channels:**
 
@@ -2818,7 +2818,7 @@ $ safety check --json
 }
 ```
 
-**CI Evidence:** [GitHub Actions CI Logs](https://github.com/industrial-dave/PCAP-Sentry/actions/workflows/ci.yml)
+**CI Evidence:** [GitHub Actions CI Logs](https://github.com/retr0verride/PCAP-Sentry/actions/workflows/ci.yml)
 - Security job runs on every commit
 - Fails if critical/high vulnerabilities found
 - Logs available for audit
@@ -2829,7 +2829,7 @@ $ safety check --json
 
 **Status:** ✅ **No security alerts**
 
-Check: [Security Tab → Code Scanning Alerts](https://github.com/industrial-dave/PCAP-Sentry/security/code-scanning)
+Check: [Security Tab → Code Scanning Alerts](https://github.com/retr0verride/PCAP-Sentry/security/code-scanning)
 
 **Expected result:**
 - 0 open security alerts
@@ -2885,7 +2885,7 @@ Check: [Security Tab → Code Scanning Alerts](https://github.com/industrial-dav
 
 1. **CI/CD Logs** (Public)
    - All security scans logged
-   - Available at: https://github.com/industrial-dave/PCAP-Sentry/actions
+   - Available at: https://github.com/retr0verride/PCAP-Sentry/actions
    - Retention: 90 days (GitHub Actions default)
 
 2. **Git Commit History** (Public)
@@ -2896,12 +2896,12 @@ Check: [Security Tab → Code Scanning Alerts](https://github.com/industrial-dav
 3. **Release Notes** (Public)
    - Security fixes documented with `[SECURITY]` prefix
    - CVE IDs referenced when applicable
-   - Available at: https://github.com/industrial-dave/PCAP-Sentry/releases
+   - Available at: https://github.com/retr0verride/PCAP-Sentry/releases
 
 4. **Security Advisories** (Public when disclosed)
    - Published vulnerabilities tracked formally
    - Includes timeline from disclosure to fix
-   - Available at: https://github.com/industrial-dave/PCAP-Sentry/security/advisories
+   - Available at: https://github.com/retr0verride/PCAP-Sentry/security/advisories
 
 ---
 
@@ -3493,7 +3493,7 @@ GitHub automatically scans all public repositories for leaked secrets using part
 - **Enabled:** Automatic (all public repositories)
 - **Alerts:** None (no secrets detected)
 - **Location:** Repository → Security tab → Secret scanning alerts
-- **Check:** https://github.com/industrial-dave/PCAP-Sentry/security/secret-scanning
+- **Check:** https://github.com/retr0verride/PCAP-Sentry/security/secret-scanning
 
 **Evidence:** Zero secret scanning alerts = No leaked credentials detected
 
@@ -4207,8 +4207,8 @@ gh release create "v%VERSION%" "dist\PCAP_Sentry_Setup.exe"
 ```
 
 **Evidence:**
-- **CI Logs:** Public logs at https://github.com/industrial-dave/PCAP-Sentry/actions show Ruff/Bandit/CodeQL results
-- **GitHub Security Tab:** CodeQL findings at https://github.com/industrial-dave/PCAP-Sentry/security/code-scanning
+- **CI Logs:** Public logs at https://github.com/retr0verride/PCAP-Sentry/actions show Ruff/Bandit/CodeQL results
+- **GitHub Security Tab:** CodeQL findings at https://github.com/retr0verride/PCAP-Sentry/security/code-scanning
 - **Build Scripts:** build_release.bat requires code from main branch
 
 ---
@@ -4592,7 +4592,7 @@ def process_file(filename):
 ```
 
 **Evidence in PCAP Sentry:**
-- **CI/CD Integration:** [.github/workflows/ci.yml:121-123](https://github.com/industrial-dave/PCAP-Sentry/blob/main/.github/workflows/ci.yml#L121-L123)
+- **CI/CD Integration:** [.github/workflows/ci.yml:121-123](https://github.com/retr0verride/PCAP-Sentry/blob/main/.github/workflows/ci.yml#L121-L123)
 - **Runs:** Every commit, every pull request
 - **Configuration:** Default Bandit configuration (all security checks enabled)
 - **Report:** JSON artifact uploaded for review
@@ -4689,7 +4689,7 @@ def convert_image(user_filename):  # ← Source: user input
 ```
 
 **Evidence in PCAP Sentry:**
-- **CI/CD Integration:** [.github/workflows/codeql.yml](https://github.com/industrial-dave/PCAP-Sentry/blob/main/.github/workflows/codeql.yml)
+- **CI/CD Integration:** [.github/workflows/codeql.yml](https://github.com/retr0verride/PCAP-Sentry/blob/main/.github/workflows/codeql.yml)
 - **Runs:** Every commit + weekly scheduled scans
 - **Results:** GitHub Security tab → Code scanning alerts
 - **Query Suites:** `security-extended` configuration
@@ -4936,8 +4936,8 @@ Run metrics:
 **Status:** ✅ **0 security issues**
 
 **Evidence:** 
-- CI artifact: [bandit-report.json](https://github.com/industrial-dave/PCAP-Sentry/actions) (uploaded after every CI run)
-- CI logs: https://github.com/industrial-dave/PCAP-Sentry/actions/workflows/ci.yml
+- CI artifact: [bandit-report.json](https://github.com/retr0verride/PCAP-Sentry/actions) (uploaded after every CI run)
+- CI logs: https://github.com/retr0verride/PCAP-Sentry/actions/workflows/ci.yml
 
 ---
 
@@ -4956,7 +4956,7 @@ Run metrics:
 - Dismissed alerts: 0
 
 **Evidence:**
-- GitHub Security dashboard: https://github.com/industrial-dave/PCAP-Sentry/security/code-scanning
+- GitHub Security dashboard: https://github.com/retr0verride/PCAP-Sentry/security/code-scanning
 - Public visibility of code scanning results (open source project)
 
 ---
@@ -5491,7 +5491,7 @@ Run bandit security scan
 
 #### Workflow 1: CI (Continuous Integration)
 
-**File:** [.github/workflows/ci.yml](https://github.com/industrial-dave/PCAP-Sentry/blob/main/.github/workflows/ci.yml)
+**File:** [.github/workflows/ci.yml](https://github.com/retr0verride/PCAP-Sentry/blob/main/.github/workflows/ci.yml)
 
 **Triggers:**
 ```yaml
@@ -5550,7 +5550,7 @@ on:
 
 #### Workflow 2: CodeQL
 
-**File:** [.github/workflows/codeql.yml](https://github.com/industrial-dave/PCAP-Sentry/blob/main/.github/workflows/codeql.yml)
+**File:** [.github/workflows/codeql.yml](https://github.com/retr0verride/PCAP-Sentry/blob/main/.github/workflows/codeql.yml)
 
 **Triggers:**
 ```yaml
@@ -5609,7 +5609,7 @@ Commit: ghi789 (2026-02-15 16:45)
 
 **Frequency on this day:** 3 commits = 3 static analysis runs (not just 1 daily run)
 
-**Evidence:** Public CI logs at https://github.com/industrial-dave/PCAP-Sentry/actions
+**Evidence:** Public CI logs at https://github.com/retr0verride/PCAP-Sentry/actions
 
 ---
 
@@ -5819,7 +5819,7 @@ Commit: ghi789 (2026-02-15 16:45)
 **All static analysis execution is publicly visible:**
 
 **GitHub Actions Page:**
-https://github.com/industrial-dave/PCAP-Sentry/actions
+https://github.com/retr0verride/PCAP-Sentry/actions
 
 **What's Visible:**
 - ✅ Every workflow run (with timestamp)
@@ -6180,7 +6180,7 @@ Dynamic analysis examines software **by executing it** and observing its runtime
 
 **CI/CD Configuration:**
 
-**File:** [.github/workflows/ci.yml:22-54](https://github.com/industrial-dave/PCAP-Sentry/blob/main/.github/workflows/ci.yml#L22-L54)
+**File:** [.github/workflows/ci.yml:22-54](https://github.com/retr0verride/PCAP-Sentry/blob/main/.github/workflows/ci.yml#L22-L54)
 
 ```yaml
 jobs:
@@ -6456,7 +6456,7 @@ Actual: False
 **All dynamic analysis execution is publicly visible:**
 
 **GitHub Actions:**
-https://github.com/industrial-dave/PCAP-Sentry/actions
+https://github.com/retr0verride/PCAP-Sentry/actions
 
 **What's visible:**
 - ✅ Every test run (with timestamps)
@@ -6551,7 +6551,7 @@ def test_path_security():
 
 **CI/CD Documentation:**
 - [CI_CD.md](CI_CD.md) - CI/CD workflows and automation
-- [.github/workflows/ci.yml](https://github.com/industrial-dave/PCAP-Sentry/blob/main/.github/workflows/ci.yml) - Test automation configuration
+- [.github/workflows/ci.yml](https://github.com/retr0verride/PCAP-Sentry/blob/main/.github/workflows/ci.yml) - Test automation configuration
 
 ---
 
@@ -6861,7 +6861,7 @@ PCAP_Sentry.spec        # PyInstaller spec (Python-only)
 
 #### 3. Repository Language Statistics
 
-From GitHub repository [`industrial-dave/PCAP-Sentry`](https://github.com/industrial-dave/PCAP-Sentry):
+From GitHub repository [`retr0verride/PCAP-Sentry`](https://github.com/retr0verride/PCAP-Sentry):
 
 ```
 Languages:
@@ -7623,7 +7623,7 @@ tests/test_stress.py::test_memory_cleanup PASSED           [100%]
 **Status:** ✅ **100% pass rate** (21/21 tests passed)
 
 **Evidence:** 
-- CI logs: https://github.com/industrial-dave/PCAP-Sentry/actions/workflows/ci.yml
+- CI logs: https://github.com/retr0verride/PCAP-Sentry/actions/workflows/ci.yml
 - Public test results visible in every PR and commit
 - No failing tests = no detected vulnerabilities
 
@@ -7947,7 +7947,7 @@ tests/test_stability.py::test_path_security PASSED  ✅
 
 **GitHub Actions:**
 ```
-https://github.com/industrial-dave/PCAP-Sentry/actions
+https://github.com/retr0verride/PCAP-Sentry/actions
 ```
 
 **Latest CI Run:**
@@ -8044,7 +8044,7 @@ https://github.com/industrial-dave/PCAP-Sentry/actions
 | **Response Timeline** | Critical 7-14d, High 14-30d, Medium 30-60d | [SECURITY.md:41-50](SECURITY.md#L41-L50) |
 | **Current Vulnerabilities** | 0 confirmed medium+ issues | 100% test pass rate |
 | **Fix Verification** | Re-run tests after fix (automated) | CI/CD blocks merge until green |
-| **Audit Trail** | Public CI logs for all commits | https://github.com/industrial-dave/PCAP-Sentry/actions |
+| **Audit Trail** | Public CI logs for all commits | https://github.com/retr0verride/PCAP-Sentry/actions |
 | **Process** | Detect → Triage → Fix → Verify → Deploy | Unified with static analysis process |
 
 **✅ Zero confirmed medium+ vulnerabilities from dynamic analysis.**  

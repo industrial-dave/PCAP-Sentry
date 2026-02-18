@@ -40,7 +40,7 @@ import urllib.error
 import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, UTC
 from typing import Any
 from collections.abc import Callable
 
@@ -93,7 +93,7 @@ def _check_threat_intel() -> bool:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _init_error_logs() -> None:
@@ -6297,7 +6297,7 @@ class PCAPSentryApp:
             try:
                 time_val = row.get("Time", None)
                 if time_val is not None:
-                    value: datetime = datetime.fromtimestamp(float(time_val), timezone.utc)
+                    value: datetime = datetime.fromtimestamp(float(time_val), UTC)
                     return value.strftime("%Y-%m-%d %H:%M:%SZ")
                 return ""
             except Exception:

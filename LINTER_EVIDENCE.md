@@ -50,7 +50,7 @@ Ruff is configured with industry-standard rule sets covering:
 **Key Settings:**
 ```toml
 # Target Python version
-target-version = "py310"
+target-version = "py311"
 
 # Line length
 line-length = 120
@@ -226,7 +226,7 @@ lint:
 - ✅ Runs on every push to main
 - ✅ Runs on every pull request
 - ✅ Blocks merge if linting fails
-- ✅ CI badge shows status: [![CI](https://github.com/industrial-dave/PCAP-Sentry/actions/workflows/ci.yml/badge.svg)](https://github.com/industrial-dave/PCAP-Sentry/actions/workflows/ci.yml)
+- ✅ CI badge shows status: [![CI](https://github.com/retr0verride/PCAP-Sentry/actions/workflows/ci.yml/badge.svg)](https://github.com/retr0verride/PCAP-Sentry/actions/workflows/ci.yml)
 
 ### 6. Additional Security Linters
 
