@@ -10606,9 +10606,8 @@ class PCAPSentryApp:
             self._detect_hint_label.configure(text="")
             # Clear current model selection and refresh model list when changing servers
             self.llm_model_var.set("")
-            if prov != "disabled":
-                self._llm_server_just_changed = True
-                self._refresh_llm_models(llm_model_combo)
+            self._llm_server_just_changed = prov != "disabled"
+            self._refresh_llm_models(llm_model_combo)
             # Update field states (enable/disable) based on provider
             _set_llm_fields_state(skip_refresh=True)
 
@@ -10656,6 +10655,9 @@ class PCAPSentryApp:
         endpoint_frame.grid(row=8, column=1, sticky="w", pady=6)
         llm_endpoint_entry = ttk.Entry(endpoint_frame, textvariable=self.llm_endpoint_var, width=34)
         llm_endpoint_entry.pack(side=tk.LEFT)
+        # Refresh model list when the endpoint URL is committed (focus leaves or Enter pressed)
+        llm_endpoint_entry.bind("<FocusOut>", lambda _: self._refresh_llm_models(llm_model_combo))
+        llm_endpoint_entry.bind("<Return>", lambda _: self._refresh_llm_models(llm_model_combo))
         self._help_icon_grid(
             frame,
             "API base URL for the LLM server. Auto-filled when you pick a server above. "
