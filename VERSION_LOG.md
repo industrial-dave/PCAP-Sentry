@@ -76,8 +76,11 @@
 
 
 
-## 2026.02.17-13 - 2026-02-17
-- Model validation fixes: auto-clear invalid models, startup validation, enhanced cloud provider handling
+## 2026.02.17-14 - 2026-02-17
+- **UX:** Provide default model lists for cloud providers without API keys (Gemini, OpenAI, Claude, etc.)
+- **Fix:** Empty model dropdown now shows provider-specific defaults when API key is not yet configured
+- **UX:** Users can now select and save model preferences before adding API keys
+
 ## 2026.02.17-13 - 2026-02-17
 - **Fix:** Invalid model persistence when no models available (automatically clear invalid models like llama3 when Gemini selected)
 - **Fix:** Startup model validation ensures saved model matches provider (auto-fixes mismatches on program startup)
