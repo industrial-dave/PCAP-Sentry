@@ -5382,7 +5382,7 @@ class PCAPSentryApp:
         self.results_notebook.add(self.results_tab, text="  Results  ")
         self.results_notebook.add(self.why_tab, text="  Why  ")
         self.results_notebook.add(self.education_tab, text="  Education  ")
-        self.results_notebook.add(self.accuracy_tab, text="  \U0001f50e Update  ")
+        self.results_notebook.add(self.accuracy_tab, text="  🔎 Refine  ")
         self.results_notebook.add(self.packets_tab, text="  Packets  ")
         self.results_notebook.add(self.extracted_tab, text="  \U0001f511  Extracted Info  ")
 
