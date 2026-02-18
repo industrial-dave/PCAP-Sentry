@@ -6723,18 +6723,19 @@ class PCAPSentryApp:
         percent_value = min(max(percent, 0.0), 100.0)
 
         # Set target and kick off smooth animation
-        self._progress_target = percent_value
+        # Ensure progress only moves forward (never backwards)
+        self._progress_target = max(percent_value, self._progress_target)
         # Update displayed percentage text immediately for responsiveness
-        self.progress_percent_var.set(f"{percent_value:.0f}%")
+        self.progress_percent_var.set(f"{self._progress_target:.0f}%")
 
         if not self._progress_animating:
             self._progress_animating = True
             self._animate_progress()
 
         if label:
-            status_text = f"{label} {percent:.0f}%"
+            status_text = f"{label} {self._progress_target:.0f}%"
             if processed is not None and total:
-                status_text = f"{label} {percent:.0f}% ({_format_bytes(processed)} / {_format_bytes(total)})"
+                status_text = f"{label} {self._progress_target:.0f}% ({_format_bytes(processed)} / {_format_bytes(total)})"
             if eta_seconds is not None and eta_seconds > 0:
                 eta_min, eta_sec = divmod(int(eta_seconds), 60)
                 if eta_min > 0:
@@ -6744,7 +6745,7 @@ class PCAPSentryApp:
             self.status_var.set(status_text)
             if self.busy_count > 0:
                 short_label = label.split(" \u2014 ")[0] if " \u2014 " in label else label
-                self.root.title(f"{self.root_title} - {percent:.0f}% {short_label}")
+                self.root.title(f"{self.root_title} - {self._progress_target:.0f}% {short_label}")
 
     def _animate_progress(self):
         """Smoothly interpolate the progress bar toward _progress_target."""
