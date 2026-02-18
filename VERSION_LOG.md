@@ -76,6 +76,9 @@
 
 
 
+
+## 2026.02.17-14 - 2026-02-17
+- Cloud provider default model lists: show models before API key configuration
 ## 2026.02.17-14 - 2026-02-17
 - **UX:** Provide default model lists for cloud providers without API keys (Gemini, OpenAI, Claude, etc.)
 - **Fix:** Empty model dropdown now shows provider-specific defaults when API key is not yet configured
