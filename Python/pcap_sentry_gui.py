@@ -10249,7 +10249,6 @@ class PCAPSentryApp:
         """Save LLM settings and close dialog."""
         self._save_settings_from_vars()
         self._update_llm_header_indicator()
-        messagebox.showinfo("LLM Settings", "LLM settings saved successfully.", parent=window)
         window.destroy()
 
     def _test_llm_connection(self):
