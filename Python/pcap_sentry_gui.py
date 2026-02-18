@@ -71,6 +71,9 @@ except ImportError as _uc_err:
 _sklearn_available = None
 _tkinterdnd2_available = None
 _threat_intel_available = None
+_scapy_cache = None
+_tls_cache = None
+_scapy_preload_done = False
 
 
 def _check_threat_intel():
@@ -350,7 +353,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.17-17"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.17-18"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version():
@@ -416,10 +419,14 @@ def _get_numpy():
 
 
 def _get_scapy():
+    global _scapy_cache
+    if _scapy_cache is not None:
+        return _scapy_cache
     try:
         from scapy.all import DNS, DNSQR, IP, TCP, UDP, PcapReader, Raw
 
-        return DNS, DNSQR, IP, PcapReader, Raw, TCP, UDP
+        _scapy_cache = (DNS, DNSQR, IP, PcapReader, Raw, TCP, UDP)
+        return _scapy_cache
     except Exception as exc:
         _show_startup_error(
             "Scapy is required but was not found. Please reinstall PCAP Sentry or contact support.",
@@ -429,14 +436,38 @@ def _get_scapy():
 
 
 def _get_tls_support():
+    global _tls_cache
+    if _tls_cache is not None:
+        return _tls_cache
     try:
         from scapy.layers.tls.all import TLS
         from scapy.layers.tls.extensions import TLSExtALPN, TLSExtServerName
         from scapy.layers.tls.handshake import TLSClientHello
 
-        return TLS, TLSClientHello, TLSExtServerName, TLSExtALPN
+        _tls_cache = (TLS, TLSClientHello, TLSExtServerName, TLSExtALPN)
+        return _tls_cache
     except Exception:
-        return None, None, None, None
+        _tls_cache = (None, None, None, None)
+        return _tls_cache
+
+
+def _preload_scapy_background():
+    """Pre-import Scapy in a background thread to avoid delay on first analysis."""
+    global _scapy_preload_done
+    if _scapy_preload_done:
+        return
+    _scapy_preload_done = True
+    
+    def _preload():
+        try:
+            _get_scapy()
+            _get_tls_support()
+        except Exception:
+            pass  # Silently fail, will retry on first analysis
+    
+    thread = threading.Thread(target=_preload, daemon=True, name="ScapyPreload")
+    thread.start()
+
 
 
 def _format_tls_version(version):
@@ -3379,6 +3410,12 @@ class PCAPSentryApp:
             self.root.after(400, self._auto_detect_llm)
         except Exception:
             pass  # Don't crash if LLM auto-detect can't be scheduled
+
+        # Pre-load Scapy in background to avoid delay on first analysis
+        try:
+            self.root.after(600, _preload_scapy_background)
+        except Exception:
+            pass  # Don't crash if Scapy preload can't be scheduled
 
     def _on_close(self):
         """Handle window close – cancel timers, backup KB, persist all state, then destroy."""

@@ -80,8 +80,13 @@
 
 
 
-## 2026.02.17-17 - 2026-02-17
+
+## 2026.02.17-18 - 2026-02-17
 - Minor tweaks and improvements
+## 2026.02.17-18 - 2026-02-17
+- **Performance:** Pre-load Scapy library in background on startup (eliminates 20+ second delay on first analysis)
+- **Performance:** Cache Scapy and TLS imports for instant access during analysis
+
 ## 2026.02.17-17 - 2026-02-17
 - **UX:** Simplified analysis progress messages (removed "Phase X:" prefix for clearer status updates)
 - **UX:** Removed success popup when saving LLM settings (dialog now saves silently)
