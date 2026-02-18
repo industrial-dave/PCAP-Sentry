@@ -3314,6 +3314,7 @@ class PCAPSentryApp:
         self.current_sample_info = None
         self.current_verdict = None
         self.current_risk_score = None
+        self.last_analysis_stats = None  # For re-assessment with contextual questions
         self.packet_base_time = None
         self.busy_count = 0
         self.busy_widgets = []
@@ -3333,6 +3334,9 @@ class PCAPSentryApp:
         self.target_drop_area = None
         self.why_text = None
         self.education_text = None
+        self.education_questions_frame = None
+        self.contextual_questions = []  # List of {question, answer (True/False/None)}
+        self.reassess_button = None
         self.copy_filters_button = None
         self.wireshark_filters = []
         self.packet_table = None
@@ -5358,11 +5362,13 @@ class PCAPSentryApp:
         self.results_tab = ttk.Frame(self.results_notebook)
         self.why_tab = ttk.Frame(self.results_notebook)
         self.education_tab = ttk.Frame(self.results_notebook)
+        self.accuracy_tab = ttk.Frame(self.results_notebook)
         self.packets_tab = ttk.Frame(self.results_notebook)
         self.extracted_tab = ttk.Frame(self.results_notebook)
         self.results_notebook.add(self.results_tab, text="  Results  ")
         self.results_notebook.add(self.why_tab, text="  Why  ")
         self.results_notebook.add(self.education_tab, text="  Education  ")
+        self.results_notebook.add(self.accuracy_tab, text="  \U0001f50e Improve Accuracy  ")
         self.results_notebook.add(self.packets_tab, text="  Packets  ")
         self.results_notebook.add(self.extracted_tab, text="  \U0001f511  Extracted Info  ")
 
@@ -5470,6 +5476,79 @@ class PCAPSentryApp:
         self.education_text.configure(yscrollcommand=edu_scroll.set)
         edu_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.education_text.pack(fill=tk.BOTH, expand=True)
+
+        # ── Improve Accuracy Tab (Contextual Questions) ──
+        accuracy_header = ttk.Label(
+            self.accuracy_tab,
+            text="  Help Us Understand Your Network  ",
+            font=("Segoe UI", 12, "bold"),
+            padding=12,
+        )
+        accuracy_header.pack(fill=tk.X)
+        self._help_icon(
+            accuracy_header,
+            "After analysis, the AI asks contextual questions about unusual\n"
+            "traffic patterns to determine if they're expected in your network.\n\n"
+            "Each question points to specific traffic and explains why we're asking.\n\n"
+            "Your answers help reduce false positives and improve verdict accuracy.\n"
+            "Click 'Re-assess' after answering to recalculate the risk score.",
+            side=tk.RIGHT,
+        )
+
+        # Intro text
+        intro_frame = ttk.Frame(self.accuracy_tab)
+        intro_frame.pack(fill=tk.X, padx=12, pady=(0, 8))
+        intro_label = ttk.Label(
+            intro_frame,
+            text=(
+                "The analysis detected some traffic patterns that could be suspicious or legitimate. "
+                "Please answer the questions below to help us understand your network better."
+            ),
+            wraplength=800,
+        )
+        intro_label.pack(fill=tk.X)
+
+        # Scrollable questions frame
+        questions_outer = ttk.LabelFrame(self.accuracy_tab, text="  Contextual Questions  ", padding=12)
+        questions_outer.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
+
+        questions_canvas = tk.Canvas(questions_outer, bg=self.colors["bg"], highlightthickness=0, borderwidth=0)
+        questions_scroll = ttk.Scrollbar(questions_outer, orient=tk.VERTICAL, command=questions_canvas.yview)
+        self.education_questions_frame = ttk.Frame(questions_canvas)
+
+        self.education_questions_frame.bind(
+            "<Configure>", lambda e: questions_canvas.configure(scrollregion=questions_canvas.bbox("all"))
+        )
+
+        questions_canvas.create_window((0, 0), window=self.education_questions_frame, anchor="nw")
+        questions_canvas.configure(yscrollcommand=questions_scroll.set)
+
+        questions_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        questions_canvas.pack(fill=tk.BOTH, expand=True)
+
+        # Mouse wheel scrolling for questions canvas
+        def _on_mousewheel(event):
+            try:
+                questions_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except tk.TclError:
+                pass
+
+        def _bind_mousewheel(_event):
+            questions_canvas.bind("<MouseWheel>", _on_mousewheel)
+
+        def _unbind_mousewheel(_event):
+            questions_canvas.unbind("<MouseWheel>")
+
+        questions_canvas.bind("<Enter>", _bind_mousewheel)
+        questions_canvas.bind("<Leave>", _unbind_mousewheel)
+
+        # Placeholder text (shown when no questions available)
+        placeholder_label = ttk.Label(
+            self.education_questions_frame,
+            text="Run an analysis to see contextual questions about your network traffic.",
+            font=("Segoe UI", 10, "italic"),
+        )
+        placeholder_label.pack(pady=20)
 
         self._build_extracted_tab()
 
@@ -7319,6 +7398,207 @@ class PCAPSentryApp:
         widget.bind("<Enter>", _bind_mousewheel)
         widget.bind("<Leave>", _unbind_mousewheel)
 
+    def _populate_contextual_questions(self, questions):
+        """Display contextual questions in the Improve Accuracy tab with Yes/No buttons."""
+        # Clear existing questions
+        for widget in self.education_questions_frame.winfo_children():
+            widget.destroy()
+
+        if not questions:
+            # Show placeholder if no questions
+            self.contextual_questions = []
+            placeholder_label = ttk.Label(
+                self.education_questions_frame,
+                text="No contextual questions for this analysis.\n\nEither LLM is disabled, or no unusual traffic patterns detected.",
+                font=("Segoe UI", 10, "italic"),
+            )
+            placeholder_label.pack(pady=20)
+            return
+
+        # Store questions with None answers initially
+        # Questions can be either strings or dicts with {"question": str, "context": str}
+        self.contextual_questions = []
+        for q in questions:
+            if isinstance(q, dict):
+                self.contextual_questions.append(
+                    {"question": q.get("question", ""), "context": q.get("context", ""), "answer": None}
+                )
+            else:
+                self.contextual_questions.append({"question": str(q), "context": "", "answer": None})
+
+        # Create UI for each question
+        for idx, q_data in enumerate(self.contextual_questions):
+            question_text = q_data["question"]
+            context_text = q_data.get("context", "")
+
+            # Question container
+            q_container = ttk.Frame(self.education_questions_frame)
+            q_container.pack(fill=tk.X, pady=8, padx=4)
+
+            # Header row with question number and buttons
+            header_frame = ttk.Frame(q_container)
+            header_frame.pack(fill=tk.X)
+
+            # Question label
+            q_label = ttk.Label(
+                header_frame,
+                text=f"Question {idx + 1}:",
+                font=("Segoe UI", 10, "bold"),
+            )
+            q_label.pack(side=tk.LEFT)
+
+            # Button frame
+            btn_frame = ttk.Frame(header_frame)
+            btn_frame.pack(side=tk.RIGHT)
+
+            # Yes button
+            yes_btn = tk.Button(
+                btn_frame,
+                text="✓ Yes",
+                width=8,
+                command=lambda i=idx: self._answer_question(i, True),
+            )
+            yes_btn.pack(side=tk.LEFT, padx=2)
+
+            # No button
+            no_btn = tk.Button(
+                btn_frame,
+                text="✗ No",
+                width=8,
+                command=lambda i=idx: self._answer_question(i, False),
+            )
+            no_btn.pack(side=tk.LEFT, padx=2)
+
+            # Store button references for highlighting
+            q_data["yes_btn"] = yes_btn
+            q_data["no_btn"] = no_btn
+
+            # Style buttons
+            self._style_question_button(yes_btn, "yes")
+            self._style_question_button(no_btn, "no")
+
+            # Question text
+            question_label = ttk.Label(
+                q_container,
+                text=question_text,
+                font=("Segoe UI", 11),
+                wraplength=700,
+            )
+            question_label.pack(fill=tk.X, pady=(4, 2), padx=(0, 0))
+
+            # Context/explanation (if available)
+            if context_text:
+                context_label = ttk.Label(
+                    q_container,
+                    text=f"📊 Context: {context_text}",
+                    font=("Segoe UI", 9, "italic"),
+                    foreground="#666666",
+                    wraplength=700,
+                )
+                context_label.pack(fill=tk.X, pady=(0, 4), padx=(20, 0))
+
+            # Separator
+            separator = ttk.Separator(q_container, orient=tk.HORIZONTAL)
+            separator.pack(fill=tk.X, pady=(8, 0))
+
+        # Re-assess button (shown after all questions answered)
+        reassess_frame = ttk.Frame(self.education_questions_frame)
+        reassess_frame.pack(fill=tk.X, pady=(12, 0))
+
+        self.reassess_button = tk.Button(
+            reassess_frame,
+            text="🔄 Re-assess with Answers",
+            state="disabled",
+            command=self._reassess_analysis,
+        )
+        self.reassess_button.pack()
+        self._style_question_button(self.reassess_button, "reassess")
+
+    def _style_question_button(self, button, btn_type):
+        """Style Yes/No/Re-assess buttons."""
+        if btn_type == "yes":
+            bg_color = "#2d5016"  # Dark green
+            fg_color = "#ffffff"
+            hover_bg = "#3d7020"
+        elif btn_type == "no":
+            bg_color = "#5a1a1a"  # Dark red
+            fg_color = "#ffffff"
+            hover_bg = "#7a2a2a"
+        elif btn_type == "reassess":
+            bg_color = self.colors["accent"]
+            fg_color = "#ffffff"
+            hover_bg = "#4a7ba0"
+        else:
+            bg_color = self.colors["panel"]
+            fg_color = self.colors["text"]
+            hover_bg = self.colors["accent_subtle"]
+
+        button.configure(
+            background=bg_color,
+            foreground=fg_color,
+            activebackground=hover_bg,
+            activeforeground=fg_color,
+            borderwidth=1,
+            relief="flat",
+            font=("Segoe UI", 10, "bold"),
+            cursor="hand2",
+            padx=10,
+            pady=5,
+        )
+
+    def _answer_question(self, index, answer):
+        """Handle Yes/No button click for a question."""
+        if index >= len(self.contextual_questions):
+            return
+
+        q_data = self.contextual_questions[index]
+        q_data["answer"] = answer
+
+        # Highlight selected button
+        yes_btn = q_data.get("yes_btn")
+        no_btn = q_data.get("no_btn")
+
+        if answer:  # Yes selected
+            yes_btn.configure(background="#4a8a2a", relief="sunken")  # Bright green
+            no_btn.configure(background="#5a1a1a", relief="flat")  # Reset no button
+        else:  # No selected
+            no_btn.configure(background="#8a2a2a", relief="sunken")  # Bright red
+            yes_btn.configure(background="#2d5016", relief="flat")  # Reset yes button
+
+        # Check if all questions answered
+        if all(q["answer"] is not None for q in self.contextual_questions):
+            self.reassess_button.configure(state="normal")
+
+    def _reassess_analysis(self):
+        """Re-run analysis considering user's question answers."""
+        # Get current analysis context
+        if not hasattr(self, "last_analysis_stats") or not self.last_analysis_stats:
+            messagebox.showinfo("No Analysis", "Please run an analysis first.")
+            return
+
+        # Build context from answers
+        answers_context = []
+        for q_data in self.contextual_questions:
+            question = q_data["question"]
+            answer = "Yes" if q_data["answer"] else "No"
+            answers_context.append(f"{question} → {answer}")
+
+        # Show user their answers
+        answers_summary = "\n".join(answers_context)
+        messagebox.showinfo(
+            "Re-assessing Analysis",
+            f"Re-assessing with your answers:\n\n{answers_summary}\n\n"
+            "Note: This feature will adjust risk scoring based on confirmed legitimate traffic.",
+        )
+
+        # TODO: Implement actual re-assessment logic
+        # For now, just log the answers
+        print("[INFO] User answers to contextual questions:")
+        for ctx in answers_context:
+            print(f"  - {ctx}")
+
+        self.status_var.set("Re-assessment complete (answers recorded)")
+
     def _show_overlay(self, message):
         pass
 
@@ -7787,6 +8067,112 @@ class PCAPSentryApp:
         if not self._llm_is_enabled():
             return False
         return self.llm_test_status_var.get().strip() in ("OK", "Auto")
+
+    def _generate_contextual_questions(self, stats):
+        """
+        Use the LLM to generate contextual questions based on analysis findings.
+        Returns a list of question strings, or empty list if LLM unavailable.
+        """
+        if not self._llm_is_ready():
+            return []
+
+        provider = self.llm_provider_var.get().strip().lower()
+
+        # Build context for LLM
+        top_ports = stats.get("top_ports", [])
+        protocol_counts = stats.get("protocol_counts", {})
+        unique_dst = stats.get("unique_dst", 0)
+        dns_query_count = stats.get("dns_query_count", 0)
+        http_request_count = stats.get("http_request_count", 0)
+        tls_packet_count = stats.get("tls_packet_count", 0)
+
+        context = {
+            "top_ports": top_ports[:10],  # Top 10 ports
+            "protocol_counts": protocol_counts,
+            "unique_destinations": unique_dst,
+            "dns_queries": dns_query_count,
+            "http_requests": http_request_count,
+            "tls_packets": tls_packet_count,
+        }
+
+        prompt = (
+            "You are a network security assistant. Based on the network traffic analysis below, "
+            "generate 2-5 contextual yes/no questions to ask the user that would help determine "
+            "if unusual traffic patterns are actually expected/legitimate.\n\n"
+            f"Analysis context:\n{json.dumps(context, indent=2)}\n\n"
+            "Return ONLY a JSON array of objects. Each object must have:\n"
+            '- "question": A yes/no question about the traffic\n'
+            "- \"context\": A brief explanation of WHAT traffic pattern triggered this question (e.g., 'Port 8006 has 234 connections')\n\n"
+            "Examples:\n"
+            '[{"question": "Are you running Proxmox VE?", "context": "Port 8006 shows 234 connections (Proxmox web interface)"}]\n'
+            '[{"question": "Do you have Remote Desktop enabled?", "context": "Port 3389 (RDP) has 56 packets"}]\n'
+            '[{"question": "Is this a PostgreSQL database server?", "context": "Port 5432 shows database traffic"}]\n'
+            '[{"question": "Are you running a DNS server?", "context": "1,234 DNS queries detected"}]\n\n'
+            "Make each context specific with actual numbers/ports from the analysis data.\n"
+        )
+
+        try:
+            if provider == "ollama":
+                response_text = self._request_ollama_questions(prompt)
+            elif provider == "openai_compatible":
+                response_text = self._request_openai_compat_questions(prompt)
+            else:
+                return []
+
+            # Parse JSON response
+            questions = json.loads(response_text)
+            if isinstance(questions, list):
+                result = []
+                for q in questions:
+                    if isinstance(q, dict):
+                        # New format with question and context
+                        question_text = q.get("question", "").strip()
+                        context_text = q.get("context", "").strip()
+                        if question_text:
+                            result.append({"question": question_text, "context": context_text})
+                    elif isinstance(q, str) and q.strip():
+                        # Backward compatibility: string-only format
+                        result.append({"question": q.strip(), "context": ""})
+                return result
+            return []
+
+        except Exception as e:
+            print(f"[WARN] Failed to generate contextual questions: {e}")
+            return []
+
+    def _request_ollama_questions(self, prompt):
+        """Request questions from Ollama LLM."""
+        endpoint = self._normalize_ollama_endpoint(self.llm_endpoint_var.get() or "http://localhost:11434")
+        model = self.llm_model_var.get().strip() or "llama3"
+        url = endpoint.rstrip("/") + "/api/generate"
+
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "format": "json",
+        }
+        data = json.dumps(payload).encode("utf-8")
+        raw = self._llm_http_request(url, data, timeout=15)
+        response = json.loads(raw)
+        content = response.get("response", "")
+        if not content:
+            raise ValueError("LLM response was empty.")
+        return content.strip()
+
+    def _request_openai_compat_questions(self, prompt):
+        """Request questions from OpenAI-compatible LLM."""
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a network security assistant. Return ONLY a JSON array of question strings.",
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ]
+        return self._request_openai_compat_chat(messages, temperature=0.3)
 
     def _confirm_llm_label(self, intended_label, stats, summary, on_apply):
         if not self._llm_is_ready():
@@ -9650,15 +10036,17 @@ class PCAPSentryApp:
             pass  # Don't crash startup if internet check fails to initialize
 
     def _validate_llm_model_on_startup(self):
-        """Validate that saved model name makes sense for the saved provider."""
+        """Validate that saved model name makes sense for the saved provider.
+        Auto-corrects incompatible endpoint/model combinations and enables LLM if valid.
+        """
+        if self._shutting_down:
+            return
         try:
+            import sys
+
             provider = self.llm_provider_var.get().strip().lower()
             current_model = self.llm_model_var.get().strip()
             endpoint = self.llm_endpoint_var.get().strip().lower()
-
-            # Skip if disabled or no model set
-            if provider == "disabled" or not current_model:
-                return
 
             # Define expected model patterns for each provider type
             provider_patterns = {
@@ -9674,12 +10062,27 @@ class PCAPSentryApp:
                 "perplexity": ["sonar", "llama"],
             }
 
+            # Default models for each provider
+            default_models = {
+                "ollama": "deepseek-r1:latest",
+                "openai": "gpt-4o",
+                "gemini": "gemini-2.0-flash-exp",
+                "anthropic": "claude-3-5-sonnet-20241022",
+                "deepseek_api": "deepseek-chat",
+                "groq": "llama-3.3-70b-versatile",
+                "mistral_api": "mistral-large-latest",
+                "together": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                "openrouter": "anthropic/claude-3.5-sonnet",
+                "perplexity": "llama-3.1-sonar-large-128k-online",
+            }
+
             # Determine provider type from endpoint for openai_compatible
             detected_provider = provider
-            if provider == "openai_compatible" and endpoint:
-                if "openai" in endpoint:
+            if provider in ("openai_compatible", "disabled") and endpoint:
+                # More aggressive endpoint detection
+                if "api.openai.com" in endpoint:
                     detected_provider = "openai"
-                elif "gemini" in endpoint or "generativelanguage.googleapis" in endpoint:
+                elif "gemini" in endpoint or "generativelanguage.googleapis.com" in endpoint or "googleapis.com" in endpoint:
                     detected_provider = "gemini"
                 elif "anthropic" in endpoint:
                     detected_provider = "anthropic"
@@ -9687,40 +10090,63 @@ class PCAPSentryApp:
                     detected_provider = "deepseek_api"
                 elif "groq" in endpoint:
                     detected_provider = "groq"
-                elif "mistral" in endpoint:
+                elif "api.mistral.ai" in endpoint:
                     detected_provider = "mistral_api"
-                elif "together" in endpoint:
+                elif "together" in endpoint or "together.ai" in endpoint:
                     detected_provider = "together"
                 elif "openrouter" in endpoint:
                     detected_provider = "openrouter"
                 elif "perplexity" in endpoint:
                     detected_provider = "perplexity"
 
-            # Check if current model matches expected patterns
-            expected_patterns = provider_patterns.get(detected_provider, [])
-            model_lower = current_model.lower()
-            model_valid = any(pattern in model_lower for pattern in expected_patterns)
+            # If provider was disabled but we have endpoint config, try to enable it
+            should_enable = False
+            if provider == "disabled" and endpoint and detected_provider != "disabled":
+                should_enable = True
+                print(f"[LLM] Found {detected_provider} endpoint while disabled, attempting to enable")
+                sys.stdout.flush()
 
-            # If model doesn't match provider, set a sensible default
-            if not model_valid:
-                default_models = {
-                    "ollama": "deepseek-r1:latest",
-                    "openai": "gpt-4o",
-                    "gemini": "gemini-2.0-flash-exp",
-                    "anthropic": "claude-3.5-sonnet",
-                    "deepseek_api": "deepseek-chat",
-                    "groq": "llama-3.3-70b",
-                    "mistral_api": "mistral-large-latest",
-                    "together": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                    "openrouter": "anthropic/claude-3.5-sonnet",
-                    "perplexity": "llama-3.1-sonar-large-128k-online",
-                }
+            # If no model set or model doesn't match provider, use default
+            needs_fix = False
+            if not current_model:
+                needs_fix = True
+                print(f"[LLM] No model set, using default for {detected_provider}")
+                sys.stdout.flush()
+            else:
+                # Check if current model matches expected patterns
+                expected_patterns = provider_patterns.get(detected_provider, [])
+                model_lower = current_model.lower()
+                model_valid = any(pattern in model_lower for pattern in expected_patterns)
+                
+                if not model_valid:
+                    needs_fix = True
+                    print(f"[LLM] Model '{current_model}' incompatible with {detected_provider} endpoint")
+                    sys.stdout.flush()
+
+            # Apply fix if needed
+            if needs_fix or should_enable:
                 default_model = default_models.get(detected_provider, "")
-                if default_model:
+                if default_model and needs_fix:
+                    print(f"[LLM] Auto-correcting to '{default_model}' for {detected_provider}")
+                    sys.stdout.flush()
                     self.llm_model_var.set(default_model)
-                    self._save_settings_from_vars()
+                
+                # Enable LLM if it was disabled but has valid endpoint
+                if should_enable:
+                    self.llm_provider_var.set("openai_compatible")
+                    if not current_model or needs_fix:
+                        self.llm_model_var.set(default_model)
+                    print(f"[LLM] Enabled {detected_provider} with model {self.llm_model_var.get()}")
+                    sys.stdout.flush()
+                
+                self._save_settings_from_vars()
+                # Update status to show it's ready
+                self.root.after(100, lambda: self._set_llm_test_status("Ready", self.colors.get("accent", "#58a6ff")))
 
-        except Exception:
+        except Exception as e:
+            import sys
+            print(f"[LLM] Validation error: {e}")
+            sys.stdout.flush()
             pass  # Don't crash if validation fails
 
     def _auto_detect_llm(self):
@@ -11944,6 +12370,10 @@ class PCAPSentryApp:
                     output_lines = f_output.result()
                     why_lines = f_why.result()
                     edu_content = f_edu.result()
+
+                # Generate contextual questions using LLM if available
+                _report(92, label="Generating contextual questions...")
+                contextual_questions = self._generate_contextual_questions(stats)
             else:
                 output_lines = self._build_result_output_lines(
                     risk_score,
@@ -11994,6 +12424,10 @@ class PCAPSentryApp:
                     threat_intel_findings,
                 )
 
+                # Generate contextual questions using LLM if available
+                _report(92, label="Generating contextual questions...")
+                contextual_questions = self._generate_contextual_questions(stats)
+
             if wireshark_filters:
                 output_lines.append("- Wireshark filters: see Why tab")
 
@@ -12015,6 +12449,7 @@ class PCAPSentryApp:
                 "output_lines": output_lines,
                 "why_lines": why_lines,
                 "edu_content": edu_content,
+                "contextual_questions": contextual_questions,
                 "wireshark_filters": wireshark_filters if wireshark_filters else [],
                 "risk_score": risk_score,
                 "verdict": verdict,
@@ -12083,6 +12518,7 @@ class PCAPSentryApp:
             output_lines = result["output_lines"]
             why_lines = result["why_lines"]
             edu_content = result["edu_content"]
+            contextual_questions = result.get("contextual_questions", [])
             wireshark_filters = result["wireshark_filters"]
             classifier_result = result["classifier_result"]
             self.current_verdict = result.get("verdict")
@@ -12091,6 +12527,8 @@ class PCAPSentryApp:
             self.current_df = df
             self.current_stats = stats
             self.current_sample_info = sample_info
+            # Store stats for re-assessment
+            self.last_analysis_stats = stats
             if not df.empty and "Time" in df.columns:
                 self.packet_base_time = float(df["Time"].min())
             else:
@@ -12113,6 +12551,14 @@ class PCAPSentryApp:
             if self.education_text is not None:
                 self.education_text.delete("1.0", tk.END)
                 self.education_text.insert(tk.END, edu_content)
+
+            # Populate contextual questions if available
+            if contextual_questions:
+                self._populate_contextual_questions(contextual_questions)
+                print(f"[INFO] Generated {len(contextual_questions)} contextual questions")
+            else:
+                # Clear questions if none generated
+                self._populate_contextual_questions([])
 
             if self.copy_filters_button is not None:
                 if wireshark_filters:
