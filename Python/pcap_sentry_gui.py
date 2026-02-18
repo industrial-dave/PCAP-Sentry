@@ -9600,11 +9600,12 @@ class PCAPSentryApp:
                 return  # Already offline, skip check
 
             def _probe():
-                # Try multiple endpoints to avoid false positives from firewall/proxy
+                # Test endpoints sequentially from fastest to slowest
+                # If any succeed, return True immediately
                 endpoints = [
-                    "https://www.cloudflare.com",
-                    "https://www.google.com",
-                    "https://www.microsoft.com",
+                    "https://www.cloudflare.com",  # Fastest (global CDN)
+                    "https://www.google.com",      # Very fast
+                    "https://www.microsoft.com",   # Slightly slower
                 ]
                 for url in endpoints:
                     try:
@@ -9613,19 +9614,24 @@ class PCAPSentryApp:
                             method="HEAD",
                             headers={"User-Agent": "PCAP-Sentry/connectivity-check"},
                         )
-                        _safe_urlopen(req, timeout=8)  # Increased timeout
+                        _safe_urlopen(req, timeout=8)
                         return True  # At least one endpoint is reachable
                     except Exception:
                         continue  # Try next endpoint
-                return False  # All endpoints failed
+                return False  # All 3 endpoints failed - truly offline
 
             def _apply(online):
                 try:
                     if self._shutting_down:
                         return
                     if not online and not self.offline_mode_var.get():
-                        # Don't auto-enable offline mode, just warn the user
-                        self.status_var.set("Warning: Internet connectivity check failed. Threat intelligence may not work. Click 'Offline' button if needed.")
+                        # All 3 endpoints failed - enable offline mode
+                        self.offline_mode_var.set(True)
+                        self._save_settings_from_vars()
+                        self.root_title = self._get_window_title()
+                        self.root.title(self.root_title)
+                        self._update_online_header_indicator()
+                        self.status_var.set("No internet detected (checked 3 endpoints) — offline mode enabled automatically.")
                 except Exception:
                     pass  # Don't crash startup if we can't set offline mode
 
