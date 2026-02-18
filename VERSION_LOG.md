@@ -86,6 +86,9 @@
 
 
 
+
+## 2026.02.18-3 - 2026-02-18
+- Minor tweaks and improvements
 ## 2026.02.18-2 - 2026-02-18
 - UX: Model list auto-updates with visual loading indicator when server changes - Fixes startup crash
 ## 2026.02.18-1 - 2026-02-18
