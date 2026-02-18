@@ -8086,30 +8086,37 @@ class PCAPSentryApp:
                         return []
                 if provider == "openai_compatible":
                     api_key = self.llm_api_key_var.get().strip()
-                    
+
                     # If no API key, provide default model lists for known cloud providers
                     # This allows users to select models before configuring API keys
                     if not api_key and endpoint:
                         endpoint_lower = endpoint.lower()
                         if "openai" in endpoint_lower:
                             return ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"]
-                        elif "gemini" in endpoint_lower or "generativelanguage.googleapis" in endpoint_lower:
+                        if "gemini" in endpoint_lower or "generativelanguage.googleapis" in endpoint_lower:
                             return ["gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.0-pro"]
-                        elif "anthropic" in endpoint_lower:
+                        if "anthropic" in endpoint_lower:
                             return ["claude-3.5-sonnet", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"]
-                        elif "deepseek" in endpoint_lower:
+                        if "deepseek" in endpoint_lower:
                             return ["deepseek-chat", "deepseek-reasoner"]
-                        elif "groq" in endpoint_lower:
+                        if "groq" in endpoint_lower:
                             return ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "mixtral-8x7b-32768"]
-                        elif "mistral" in endpoint_lower:
+                        if "mistral" in endpoint_lower:
                             return ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"]
-                        elif "together" in endpoint_lower:
-                            return ["meta-llama/Llama-3.3-70B-Instruct-Turbo", "meta-llama/Llama-3.1-70B-Instruct-Turbo"]
-                        elif "openrouter" in endpoint_lower:
-                            return ["anthropic/claude-3.5-sonnet", "google/gemini-2.0-flash-exp", "meta-llama/llama-3.3-70b-instruct"]
-                        elif "perplexity" in endpoint_lower:
+                        if "together" in endpoint_lower:
+                            return [
+                                "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                                "meta-llama/Llama-3.1-70B-Instruct-Turbo",
+                            ]
+                        if "openrouter" in endpoint_lower:
+                            return [
+                                "anthropic/claude-3.5-sonnet",
+                                "google/gemini-2.0-flash-exp",
+                                "meta-llama/llama-3.3-70b-instruct",
+                            ]
+                        if "perplexity" in endpoint_lower:
                             return ["llama-3.1-sonar-large-128k-online", "llama-3.1-sonar-small-128k-online"]
-                    
+
                     return self._list_openai_compat_models(endpoint, api_key=api_key)
             except Exception:
                 pass
