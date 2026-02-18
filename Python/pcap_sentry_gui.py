@@ -5517,7 +5517,7 @@ class PCAPSentryApp:
         self.education_questions_frame = ttk.Frame(questions_canvas)
 
         self.education_questions_frame.bind(
-            "<Configure>", lambda e: questions_canvas.configure(scrollregion=questions_canvas.bbox("all"))
+            "<Configure>", lambda _: questions_canvas.configure(scrollregion=questions_canvas.bbox("all"))
         )
 
         questions_canvas.create_window((0, 0), window=self.education_questions_frame, anchor="nw")
@@ -10082,7 +10082,11 @@ class PCAPSentryApp:
                 # More aggressive endpoint detection
                 if "api.openai.com" in endpoint:
                     detected_provider = "openai"
-                elif "gemini" in endpoint or "generativelanguage.googleapis.com" in endpoint or "googleapis.com" in endpoint:
+                elif (
+                    "gemini" in endpoint
+                    or "generativelanguage.googleapis.com" in endpoint
+                    or "googleapis.com" in endpoint
+                ):
                     detected_provider = "gemini"
                 elif "anthropic" in endpoint:
                     detected_provider = "anthropic"
@@ -10117,7 +10121,7 @@ class PCAPSentryApp:
                 expected_patterns = provider_patterns.get(detected_provider, [])
                 model_lower = current_model.lower()
                 model_valid = any(pattern in model_lower for pattern in expected_patterns)
-                
+
                 if not model_valid:
                     needs_fix = True
                     print(f"[LLM] Model '{current_model}' incompatible with {detected_provider} endpoint")
@@ -10130,7 +10134,7 @@ class PCAPSentryApp:
                     print(f"[LLM] Auto-correcting to '{default_model}' for {detected_provider}")
                     sys.stdout.flush()
                     self.llm_model_var.set(default_model)
-                
+
                 # Enable LLM if it was disabled but has valid endpoint
                 if should_enable:
                     self.llm_provider_var.set("openai_compatible")
@@ -10138,13 +10142,14 @@ class PCAPSentryApp:
                         self.llm_model_var.set(default_model)
                     print(f"[LLM] Enabled {detected_provider} with model {self.llm_model_var.get()}")
                     sys.stdout.flush()
-                
+
                 self._save_settings_from_vars()
                 # Update status to show it's ready
                 self.root.after(100, lambda: self._set_llm_test_status("Ready", self.colors.get("accent", "#58a6ff")))
 
         except Exception as e:
             import sys
+
             print(f"[LLM] Validation error: {e}")
             sys.stdout.flush()
             pass  # Don't crash if validation fails
