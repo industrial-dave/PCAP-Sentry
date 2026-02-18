@@ -10134,8 +10134,8 @@ class PCAPSentryApp:
         llm_provider_combo.bind("<<ComboboxSelected>>", _on_server_selected)
 
         # Initial visibility
-        _show_api_key_row(_resolve_display_name() in _CLOUD_PROVIDERS)
-        _update_api_key_hint(_resolve_display_name())
+        _show_api_key_row(_strip_cloud(_resolve_display_name()) in _CLOUD_PROVIDERS)
+        _update_api_key_hint(_strip_cloud(_resolve_display_name()))
 
         ttk.Label(frame, text="LLM model:").grid(row=6, column=0, sticky="w", pady=6)
         model_frame = ttk.Frame(frame)
