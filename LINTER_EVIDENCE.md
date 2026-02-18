@@ -50,7 +50,7 @@ Ruff is configured with industry-standard rule sets covering:
 **Key Settings:**
 ```toml
 # Target Python version
-target-version = "py311"
+target-version = "py312"
 
 # Line length
 line-length = 120
