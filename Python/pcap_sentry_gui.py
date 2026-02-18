@@ -459,7 +459,7 @@ def _preload_scapy_background(app=None):
     _scapy_preload_done = True
 
     # Update status bar to show loading
-    if app and hasattr(app, 'status_var'):
+    if app and hasattr(app, "status_var"):
         try:
             app.status_var.set("Ready (loading libraries...)")
         except Exception:
@@ -473,7 +473,7 @@ def _preload_scapy_background(app=None):
             pass  # Silently fail, will retry on first analysis
         finally:
             # Update status bar back to Ready when done
-            if app and hasattr(app, 'root'):
+            if app and hasattr(app, "root"):
                 try:
                     app.root.after(0, lambda: app.status_var.set("Ready"))
                 except Exception:
@@ -6735,7 +6735,9 @@ class PCAPSentryApp:
         if label:
             status_text = f"{label} {self._progress_target:.0f}%"
             if processed is not None and total:
-                status_text = f"{label} {self._progress_target:.0f}% ({_format_bytes(processed)} / {_format_bytes(total)})"
+                status_text = (
+                    f"{label} {self._progress_target:.0f}% ({_format_bytes(processed)} / {_format_bytes(total)})"
+                )
             if eta_seconds is not None and eta_seconds > 0:
                 eta_min, eta_sec = divmod(int(eta_seconds), 60)
                 if eta_min > 0:
@@ -8489,12 +8491,11 @@ class PCAPSentryApp:
             if combo is not None:
                 combo["values"] = []
             return
-        
+
         # Show loading indicator
         if combo is not None:
             try:
                 if combo.winfo_exists():
-                    old_value = self.llm_model_var.get()
                     self.llm_model_var.set("Loading models...")
                     combo["values"] = ["Loading models..."]
                     combo.configure(state="disabled")
