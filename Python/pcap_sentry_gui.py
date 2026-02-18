@@ -41,6 +41,8 @@ import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
+from typing import Any
+from collections.abc import Callable
 
 
 class AnalysisCancelledError(Exception):
@@ -58,6 +60,7 @@ from tkinter import font as tkfont
 # Import update checker
 try:
     from update_checker import BackgroundUpdateChecker, UpdateChecker
+
     _update_checker_available = True
 except ImportError as _uc_err:
     _update_checker_available = False
@@ -399,13 +402,13 @@ def _get_pandas() -> Any:
     return pd
 
 
-def _get_figure() -> type[Figure]:
+def _get_figure() -> type:
     from matplotlib.figure import Figure
 
     return Figure
 
 
-def _get_figure_canvas() -> type[FigureCanvasTkAgg]:
+def _get_figure_canvas() -> type:
     from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
     return FigureCanvasTkAgg
@@ -1273,7 +1276,7 @@ def _vectorize_kb(kb) -> dict[str, list[list[float]]]:
     result: dict[str, list[list[float]]] = {"safe": safe_vectors, "malicious": mal_vectors}
     # Pre-compute normalized centroids for classify_vector to avoid re-normalizing every call
     if safe_vectors and mal_vectors:
-        all_vectors[list[float]] = safe_vectors + mal_vectors
+        all_vectors: list[list[float]] = safe_vectors + mal_vectors
         normalizer = _compute_normalizer(all_vectors)
         safe_norm = [_normalize_vector(v, normalizer) for v in safe_vectors]
         mal_norm = [_normalize_vector(v, normalizer) for v in mal_vectors]
@@ -3061,20 +3064,20 @@ def detect_behavioral_anomalies(df, stats, flow_df=None):
     return findings
 
 
-def _empty_figure(message) -> Figure:
-    Figure: type[Figure] = _get_figure()
-    fig: Figure = Figure(figsize=(6, 4), dpi=100)
+def _empty_figure(message):
+    Figure = _get_figure()
+    fig = Figure(figsize=(6, 4), dpi=100)
     ax = fig.add_subplot(111)
     ax.text(0.5, 0.5, message, ha="center", va="center")
     ax.set_axis_off()
     return fig
 
 
-def _plot_scatter(df) -> Figure:
+def _plot_scatter(df):
     if df.empty:
         return _empty_figure("No data")
-    Figure: type[Figure] = _get_figure()
-    fig: Figure = Figure(figsize=(7, 4), dpi=100)
+    Figure = _get_figure()
+    fig = Figure(figsize=(7, 4), dpi=100)
     ax = fig.add_subplot(111)
     time_base = df["Time"].min()
     colors: dict[str, str] = {"TCP": "tab:blue", "UDP": "tab:orange", "Other": "tab:green"}
@@ -3087,11 +3090,11 @@ def _plot_scatter(df) -> Figure:
     return fig
 
 
-def _plot_port_hist(df) -> Figure:
+def _plot_port_hist(df):
     if df.empty:
         return _empty_figure("No data")
-    Figure: type[Figure] = _get_figure()
-    fig: Figure = Figure(figsize=(7, 4), dpi=100)
+    Figure = _get_figure()
+    fig = Figure(figsize=(7, 4), dpi=100)
     ax = fig.add_subplot(111)
     for proto, group in df.groupby("Proto"):
         values = group["DPort"]
@@ -3105,11 +3108,11 @@ def _plot_port_hist(df) -> Figure:
     return fig
 
 
-def _plot_proto_pie(df) -> Figure:
+def _plot_proto_pie(df):
     if df.empty:
         return _empty_figure("No data")
-    Figure: type[Figure] = _get_figure()
-    fig: Figure = Figure(figsize=(6, 4), dpi=100)
+    Figure = _get_figure()
+    fig = Figure(figsize=(6, 4), dpi=100)
     ax = fig.add_subplot(111)
     counts = df["Proto"].value_counts()
     ax.pie(counts.values, labels=counts.index, autopct="%1.1f%%")
@@ -3117,12 +3120,12 @@ def _plot_proto_pie(df) -> Figure:
     return fig
 
 
-def _plot_top_dns(df) -> Figure:
+def _plot_top_dns(df):
     dns_queries = [q for q in df["DnsQuery"] if q]
     if not dns_queries:
         return _empty_figure("No DNS queries")
-    Figure: type[Figure] = _get_figure()
-    fig: Figure = Figure(figsize=(7, 4), dpi=100)
+    Figure = _get_figure()
+    fig = Figure(figsize=(7, 4), dpi=100)
     ax = fig.add_subplot(111)
     top_dns = Counter(dns_queries).most_common(10)
     labels = [q for q, _ in top_dns]
@@ -3134,12 +3137,12 @@ def _plot_top_dns(df) -> Figure:
     return fig
 
 
-def _plot_top_http(df) -> Figure:
+def _plot_top_http(df):
     http_hosts = [h for h in df["HttpHost"] if h]
     if not http_hosts:
         return _empty_figure("No HTTP hosts")
-    Figure: type[Figure] = _get_figure()
-    fig: Figure = Figure(figsize=(7, 4), dpi=100)
+    Figure = _get_figure()
+    fig = Figure(figsize=(7, 4), dpi=100)
     ax = fig.add_subplot(111)
     top_hosts = Counter(http_hosts).most_common(10)
     labels = [h for h, _ in top_hosts]
@@ -3151,12 +3154,12 @@ def _plot_top_http(df) -> Figure:
     return fig
 
 
-def _plot_top_tls_sni(df) -> Figure:
+def _plot_top_tls_sni(df):
     tls_sni = [s for s in df["TlsSni"] if s]
     if not tls_sni:
         return _empty_figure("No TLS SNI")
-    Figure: type[Figure] = _get_figure()
-    fig: Figure = Figure(figsize=(7, 4), dpi=100)
+    Figure = _get_figure()
+    fig = Figure(figsize=(7, 4), dpi=100)
     ax = fig.add_subplot(111)
     top_sni = Counter(tls_sni).most_common(10)
     labels = [s for s, _ in top_sni]
@@ -3168,13 +3171,13 @@ def _plot_top_tls_sni(df) -> Figure:
     return fig
 
 
-def _plot_top_flows(df, flow_df=None) -> Figure:
+def _plot_top_flows(df, flow_df=None):
     if flow_df is None:
         flow_df = compute_flow_stats(df)
     if flow_df.empty:
         return _empty_figure("No flows")
-    Figure: type[Figure] = _get_figure()
-    fig: Figure = Figure(figsize=(7, 4), dpi=100)
+    Figure = _get_figure()
+    fig = Figure(figsize=(7, 4), dpi=100)
     ax = fig.add_subplot(111)
     top = flow_df.head(10)
     ax.bar(top["Flow"], top["Bytes"])
@@ -3187,8 +3190,8 @@ def _plot_top_flows(df, flow_df=None) -> Figure:
 def _add_chart_tab(notebook, title, fig) -> None:
     frame = ttk.Frame(notebook)
     notebook.add(frame, text=title)
-    FigureCanvasTkAgg: type[FigureCanvasTkAgg] = _get_figure_canvas()
-    canvas: FigureCanvasTkAgg = FigureCanvasTkAgg(fig, master=frame)
+    FigureCanvasTkAgg = _get_figure_canvas()
+    canvas = FigureCanvasTkAgg(fig, master=frame)
     canvas.draw()
     canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
@@ -4310,8 +4313,12 @@ class PCAPSentryApp:
             "llm_enabled": self.llm_provider_var.get().strip().lower() != "disabled",
             "llm_provider": self.llm_provider_var.get().strip().lower() or "disabled",
             "llm_model": self.llm_model_var.get().strip(),
-            "last_llm_provider": self.llm_provider_var.get().strip().lower() if self.llm_provider_var.get().strip().lower() != "disabled" else self.last_llm_provider,
-            "last_llm_model": self.llm_model_var.get().strip() if self.llm_provider_var.get().strip().lower() != "disabled" else self.last_llm_model,
+            "last_llm_provider": self.llm_provider_var.get().strip().lower()
+            if self.llm_provider_var.get().strip().lower() != "disabled"
+            else self.last_llm_provider,
+            "last_llm_model": self.llm_model_var.get().strip()
+            if self.llm_provider_var.get().strip().lower() != "disabled"
+            else self.last_llm_model,
             "llm_endpoint": self.llm_endpoint_var.get().strip(),
             "llm_api_key": self.llm_api_key_var.get().strip(),
             "otx_api_key": self.otx_api_key_var.get().strip(),
@@ -5818,7 +5825,14 @@ class PCAPSentryApp:
             show="headings",
             height=10,
         )
-        col_widths: dict[str, int] = {"Type": 105, "Protocol": 90, "Source": 130, "Destination": 130, "Value": 250, "Detail": 160}
+        col_widths: dict[str, int] = {
+            "Type": 105,
+            "Protocol": 90,
+            "Source": 130,
+            "Destination": 130,
+            "Value": 250,
+            "Detail": 160,
+        }
         for col in cred_cols:
             self.cred_table.heading(col, text=col)
             self.cred_table.column(col, width=col_widths.get(col, 120), anchor=tk.W, stretch=True)
@@ -5850,7 +5864,9 @@ class PCAPSentryApp:
         )
 
         # -- Hosts / MAC / Hostname section --
-        host_frame: ttk.Labelframe = ttk.LabelFrame(container, text="  Hosts \u2014 IP / MAC / Computer Name  ", padding=8)
+        host_frame: ttk.Labelframe = ttk.LabelFrame(
+            container, text="  Hosts \u2014 IP / MAC / Computer Name  ", padding=8
+        )
         host_frame.pack(fill=tk.BOTH, expand=True, pady=(6, 0))
         self._help_icon(
             host_frame,
@@ -8166,7 +8182,9 @@ class PCAPSentryApp:
 
         def failed(err) -> None:
             self.sample_note_var.set("")
-            prompt: str = f"LLM suggestion failed: {err}\n\nDo you still want to mark this capture as '{intended_label}'?"
+            prompt: str = (
+                f"LLM suggestion failed: {err}\n\nDo you still want to mark this capture as '{intended_label}'?"
+            )
             choice: bool = messagebox.askyesno("LLM Suggestion Failed", prompt)
             if choice:
                 on_apply(intended_label)
@@ -8965,7 +8983,7 @@ class PCAPSentryApp:
             else:
                 selected: str = model_combo.get()
                 # Extract model name (before " — ")
-                model_to_add: str = selected.split(" — ")[0] if " — " in selected else selected
+                model_to_add: str = selected.split(" — ", maxsplit=1)[0] if " — " in selected else selected
 
             if not model_to_add:
                 messagebox.showwarning("Add Model", "Enter or select a model name.")
@@ -10151,7 +10169,7 @@ class PCAPSentryApp:
                 # Parse endpoint to check if it's local
                 from urllib.parse import urlparse
 
-                parsed: ParseResult = urlparse(endpoint)
+                parsed = urlparse(endpoint)
                 hostname: str = parsed.hostname or ""
                 is_local: bool = (
                     hostname in ("localhost", "127.0.0.1", "")
