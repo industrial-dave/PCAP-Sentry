@@ -9595,9 +9595,55 @@ class PCAPSentryApp:
 
     def _check_internet_and_set_offline(self):
         """Check internet connectivity at startup; auto-enable offline mode if unreachable."""
-        # Disabled: Auto-detection was causing false positives (firewall/proxy issues)
-        # Users can manually toggle offline mode via the header button or preferences
-        pass
+        try:
+            if self.offline_mode_var.get():
+                return  # Already offline, skip check
+
+            def _probe():
+                # Try multiple endpoints to avoid false positives from firewall/proxy
+                endpoints = [
+                    "https://www.cloudflare.com",
+                    "https://www.google.com",
+                    "https://www.microsoft.com",
+                ]
+                for url in endpoints:
+                    try:
+                        req = urllib.request.Request(
+                            url,
+                            method="HEAD",
+                            headers={"User-Agent": "PCAP-Sentry/connectivity-check"},
+                        )
+                        _safe_urlopen(req, timeout=8)  # Increased timeout
+                        return True  # At least one endpoint is reachable
+                    except Exception:
+                        continue  # Try next endpoint
+                return False  # All endpoints failed
+
+            def _apply(online):
+                try:
+                    if self._shutting_down:
+                        return
+                    if not online and not self.offline_mode_var.get():
+                        self.offline_mode_var.set(True)
+                        self._save_settings_from_vars()
+                        self.root_title = self._get_window_title()
+                        self.root.title(self.root_title)
+                        self._update_online_header_indicator()
+                        self.status_var.set("No internet detected — offline mode enabled automatically.")
+                except Exception:
+                    pass  # Don't crash startup if we can't set offline mode
+
+            def _run():
+                try:
+                    online = _probe()
+                    if not self._shutting_down:
+                        self.root.after(0, lambda: _apply(online))
+                except Exception:
+                    pass  # Don't crash startup
+
+            threading.Thread(target=_run, daemon=True, name="InternetCheck").start()
+        except Exception:
+            pass  # Don't crash startup if internet check fails to initialize
 
     def _validate_llm_model_on_startup(self):
         """Validate that saved model name makes sense for the saved provider."""
