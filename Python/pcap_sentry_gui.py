@@ -355,7 +355,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.18-8"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.18-9"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version() -> str:
@@ -4904,16 +4904,9 @@ class PCAPSentryApp:
         self.chat_disabled_label = ttk.Label(container, textvariable=self.chat_disabled_var, style="Hint.TLabel")
         # Only shown when LLM is disabled — populated by _sync_chat_controls
 
-        self.chat_text = tk.Text(container, height=18, wrap=tk.WORD)
-        self._style_text(self.chat_text)
-        self.chat_text.configure(state=tk.DISABLED)
-        self.chat_text.tag_configure("user", foreground=self.colors.get("accent", "#58a6ff"))
-        self.chat_text.tag_configure("assistant", foreground=self.colors.get("text", "#e6edf3"))
-        self.chat_text.tag_configure("system", foreground=self.colors.get("muted", "#8b949e"))
-        self.chat_text.pack(fill=tk.BOTH, expand=True)
-
+        # Pack input_frame FIRST so pack's expand on chat_text never pushes it out
         input_frame = ttk.Frame(container)
-        input_frame.pack(fill=tk.X, pady=(8, 0))
+        input_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(8, 0))
         self.chat_entry = ttk.Entry(input_frame, textvariable=self.chat_entry_var, width=80)
         self.chat_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.chat_send_button = ttk.Button(input_frame, text="Send", command=self._send_chat_message)
@@ -4922,6 +4915,14 @@ class PCAPSentryApp:
             input_frame, text="Clear", style="Secondary.TButton", command=self._clear_chat
         )
         self.chat_clear_button.pack(side=tk.LEFT)
+
+        self.chat_text = tk.Text(container, height=18, wrap=tk.WORD)
+        self._style_text(self.chat_text)
+        self.chat_text.configure(state=tk.DISABLED)
+        self.chat_text.tag_configure("user", foreground=self.colors.get("accent", "#58a6ff"))
+        self.chat_text.tag_configure("assistant", foreground=self.colors.get("text", "#e6edf3"))
+        self.chat_text.tag_configure("system", foreground=self.colors.get("muted", "#8b949e"))
+        self.chat_text.pack(fill=tk.BOTH, expand=True)
 
         self.chat_entry.bind("<Return>", lambda _e: self._send_chat_message())
         self._sync_chat_controls()

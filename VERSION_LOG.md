@@ -91,6 +91,10 @@
 
 
 
+
+## 2026.02.18-9 - 2026-02-18
+- **Fix:** Chat input/Send/Clear buttons always visible — pack input frame before text widget (side=BOTTOM)
+
 ## 2026.02.18-8 - 2026-02-18
 - **UX:** Rename Chat tab and assistant identity to **PARRY** (with updated tooltip/persona)
 - **UX:** Add minimum window sizes to main window (900×700) and update dialogs
