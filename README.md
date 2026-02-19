@@ -34,6 +34,9 @@
 - **C2 pattern detection** — Learn to spot command-and-control communication
 - **Wireshark integration** — Generate filters for deeper packet investigation
 - **Trainable knowledge base** — Build your own malware signature library as you learn
+- **Pre-trained ML model** — Ships with a RandomForest baseline trained on 13 realistic traffic profiles; improves automatically as you label your own captures
+- **ThreatFox & GreyNoise integration** — abuse.ch ThreatFox and GreyNoise community lookups work out-of-the-box without any API key
+- **Export results** — Save full analysis results (verdict, risk score, TI findings, flows) as JSON via File → Export Results as JSON
 
 ### 🛡️ Safe & Offline-Capable
 
@@ -104,7 +107,7 @@ python Python/pcap_sentry_gui.py
 - **Dependency scanning**: Safety and Bandit security tools scan for vulnerabilities in CI
 - **Release checksums** are generated locally by `build_release.bat` after all assets are uploaded and published as `SHA256SUMS.txt`; a manual-trigger GitHub Actions workflow (`.github/workflows/release-checksums.yml`) is available as a fallback
 - **Download verification**: The built-in updater automatically verifies downloaded EXE files against the published `SHA256SUMS.txt` hashes before execution, with a second verification at launch time (TOCTOU prevention)
-- **ML model integrity**: Trained models are signed with HMAC-SHA256 using a persisted random secret key and verified before loading to prevent deserialization attacks
+- **ML model integrity**: Trained models are signed with HMAC-SHA256 using a persisted random secret key and verified before loading to prevent deserialization attacks; the shipped baseline is integrity-checked against a SHA-256 file before being copied to the user's app data directory
 - **Credential storage**: LLM API keys are stored in the OS credential manager (Windows Credential Manager via `keyring`) when available, with automatic migration from plaintext settings
 - **LLM endpoint validation**: Only `http://` and `https://` schemes are accepted; plaintext HTTP to non-localhost hosts is blocked
 - **URL scheme validation**: Centralized `_safe_urlopen()` wrapper prevents file:// and other dangerous URL schemes (CWE-22 defense-in-depth)
@@ -125,12 +128,16 @@ USER_MANUAL.md                # End-user documentation
 Python/
 ├── pcap_sentry_gui.py        # Main application (GUI + analysis engine)
 ├── update_checker.py          # GitHub release checker + deferred update replacement logic
-├── threat_intelligence.py     # Concurrent threat intel (OTX, URLhaus, AbuseIPDB) with connection pooling
-└── enhanced_ml_trainer.py     # Optional local ML model training/inference (25-feature LogisticRegression)
+├── threat_intelligence.py     # Concurrent threat intel (OTX, URLhaus, AbuseIPDB, ThreatFox, GreyNoise) with persistent cache
+└── enhanced_ml_trainer.py     # Optional standalone ML trainer class
 assets/
 ├── pcap_sentry.ico            # Default application icon
 ├── custom.ico                 # Optional preferred icon if present
+├── pcap_sentry_baseline_model.pkl         # Pre-trained RandomForest baseline model (199 KB)
+├── pcap_sentry_baseline_model.pkl.sha256  # SHA-256 integrity hash for the baseline model
+├── pcap_sentry_seed_data.json             # 146 seed feature rows used in combined retraining
 ├── vcredist_x64.exe           # Optional bundled VC++ redistributable (if downloaded)
+generate_seed_data.py          # Dev-time script: regenerates seed data + baseline model from synthetic profiles
 installer/
 ├── PCAP_Sentry.iss            # Inno Setup installer (uninstall prompts, KB cleanup)
 dist/

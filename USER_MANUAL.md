@@ -59,6 +59,7 @@
 - **C2 pattern detection** — Learn to spot command-and-control communication
 - **Wireshark integration** — Generate filters for deeper packet investigation
 - **Trainable knowledge base** — Build your own malware signature library as you learn
+- **Pre-trained ML model** — Ships with a RandomForest baseline trained on 13 traffic profiles; accuracy improves as you label your own captures
 
 **🛡️ Safe & Practical**
 - **Works offline** — Practice with local models and threat databases
@@ -109,7 +110,7 @@ If using a local LLM, additional resources are needed on top of the base require
 | **GPU** | Optional | Ollama uses GPU if available for faster inference; not required |
 | **Disk** | +4–10 GB per model | Each model is downloaded and stored locally |
 
-> **Note:** GPU is **not** needed for PCAP analysis itself — the LogisticRegression classifier is CPU-only and matplotlib renders to bitmap. SSD vs. HDD also makes little difference since parsing is CPU-bound, not I/O-bound.
+> **Note:** GPU is **not** needed for PCAP analysis itself — the RandomForest classifier is CPU-only and matplotlib renders to bitmap. SSD vs. HDD also makes little difference since parsing is CPU-bound, not I/O-bound.
 
 ### For Running from Source (Developers)
 
@@ -258,8 +259,8 @@ The header bar displays:
    - **Feature extraction** — Computes 25 network behavior metrics
    - **Behavioral heuristics** — Detects beaconing, DNS tunneling, port scanning, data exfiltration, and SYN floods
    - **Scoring** — Compares against the knowledge base using heuristics
-   - **Threat intelligence** — Concurrent queries against online feeds (if enabled)
-   - **ML classification** — Runs the local model (if enabled)
+   - **Threat intelligence** — Concurrent queries against ThreatFox, GreyNoise (no API key needed), URLhaus, AbuseIPDB, OTX, and VirusTotal (API keys optional for higher limits)
+   - **ML classification** — Runs the local RandomForest model (ships pre-trained; improves as you label captures)
 
 5. **Review results** across the five sub-tabs (see [Understanding Results](#7-understanding-results)).
 
@@ -267,11 +268,13 @@ The header bar displays:
 
 After analysis completes, you can:
 
-- **Mark as Safe** — Add this PCAP's features to the knowledge base as a safe sample
-- **Mark as Malicious** — Add this PCAP's features to the knowledge base as a malware sample
+- **Mark as Safe / Mark as Malicious** — Quick-label buttons on the **Analyze** tab add this PCAP's features to the knowledge base immediately
 - **Undo Last** — Revert the most recent KB addition if you labelled by mistake
 - **Open Charts** — Launch the visual charts window with 7 chart types
 - **Copy Wireshark Filters** — Copy auto-generated Wireshark display filters to the clipboard (found in the **Why** sub-tab)
+- **File → Export Results as JSON** — Save the full analysis output (verdict, risk score, threat intel findings, suspicious flows, Wireshark filters) as a JSON file for archiving or external processing
+
+> **Tip:** Right-click anywhere in the Results, Why, or Education text panels to access **Copy** and **Select All** context menu options.
 
 ---
 
@@ -305,6 +308,7 @@ Provides the analytical reasoning behind the verdict:
 - **Evidence breakdown** — Lists specific indicators that contributed to the score
 - **Heuristic signals** — Details each detection trigger and its weight
 - **Behavioral anomalies** — Summarizes detected patterns (beaconing, DNS tunneling, port scanning, data exfiltration, SYN floods, malware port usage)
+- **Threat intelligence details** — Shows ThreatFox, GreyNoise, AbuseIPDB, OTX, and URLhaus findings inline where available
 - **Wireshark filter generation** — Auto-generates display filters you can paste directly into Wireshark
 - **Copy Wireshark Filters** button — Copies all generated filters to the clipboard
 
@@ -313,8 +317,14 @@ Provides the analytical reasoning behind the verdict:
 Designed for beginners and learning purposes:
 
 - **Plain-English explanations** of what was found and why it matters
+- **MITRE ATT&CK technique IDs** — Each attack pattern links to the relevant ATT&CK technique (e.g., T1071.001 for Application Layer Protocol)
+- **Technical deep-dives** — How each attack pattern works at the protocol level
+- **Common malware families** — Real-world malware known to use each technique
+- **Host investigation steps** — What to look for on the affected machine
+- **Remediation guidance** — How to contain and recover from the identified threat
+- **External learning links** — MITRE ATT&CK, SANS, CISA, and vendor research pages
+- **Threat intelligence details** — ThreatFox and other TI findings are embedded inline with the relevant pattern explanation
 - **Attack pattern glossary** — Common network attack patterns explained
-- **Learning resources** — Links and references for further study
 
 ### 7.4 Packets Tab
 
@@ -384,9 +394,22 @@ The host table has columns: **IP Address**, **MAC Address(es)**, and **Computer 
 
 <h2><img src="https://img.shields.io/badge/8-Training_the_Knowledge_Base-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
-The **Train** tab allows you to teach PCAP Sentry what safe and malicious traffic looks like, improving its detection accuracy over time.
+The **Train** tab allows you to teach PCAP Sentry what safe and malicious traffic looks like, improving its detection accuracy over time. PCAP Sentry ships with a pre-trained RandomForest baseline model (trained on 13 synthetic traffic profiles) so the local ML model works from day one — no labeling required to get started. Every capture you label is merged with that baseline on the next retrain, so accuracy improves with use.
 
-### Adding Safe Samples
+### Quick-Labeling the Current Analysis
+
+The fastest way to add a capture to the knowledge base is directly from the **Train** tab after running an analysis:
+
+1. Run an analysis on the **Analyze** tab.
+2. Navigate to the **Train** tab.
+3. The **Label Current Analysis** panel at the top shows the loaded file name, verdict, and risk score.
+4. Click one of the three buttons:
+   - **✓ Label as Safe** — Immediately adds the already-parsed features as a safe sample
+   - **? Label as Unsure** — Flags for later review without training the model
+   - **✗ Label as Malicious** — Immediately adds the features as a malicious sample
+5. No re-parsing occurs — the features extracted during analysis are reused directly.
+
+### Adding Safe Samples (PCAP file)
 
 1. Navigate to the **Train** tab.
 2. In the **Known Safe PCAP** section, click **Browse** or drag-and-drop a PCAP file.
@@ -394,7 +417,7 @@ The **Train** tab allows you to teach PCAP Sentry what safe and malicious traffi
 4. The application parses the file, extracts its network features, and stores them in the knowledge base as a safe reference.
 5. If you made a mistake, click **↩ Undo** to remove the last addition.
 
-### Adding Malware Samples
+### Adding Malware Samples (PCAP file)
 
 1. Navigate to the **Train** tab.
 2. In the **Known Malware PCAP** section, click **Browse** or drag-and-drop a PCAP file.
@@ -402,9 +425,29 @@ The **Train** tab allows you to teach PCAP Sentry what safe and malicious traffi
 4. Features are extracted and stored as a malicious reference.
 5. Use **↩ Undo** to revert if needed.
 
+### Local Model Panel
+
+The **Local Model** section (below the PCAP file frames) shows:
+
+- **KB entry counts** — How many safe, malicious, and unsure samples are in the knowledge base
+- **Last trained** — When the model file was last updated
+- **Retrain Now** — Rebuilds the model from all seed rows + KB entries in the background (requires at least 1 safe + 1 malicious KB entry, or relies on seed data alone)
+- **Enable local ML model** checkbox — Toggles whether the local model contributes a prediction during analysis
+
+> **How retraining works:** The model is always trained on the 146 seed feature rows (from the shipped baseline) **plus** your KB entries weighted 3×. This means the shipped general knowledge is never lost; your labeled captures simply personalise the model on top of it.
+
+### Knowledge Base Entries Browser
+
+The **Knowledge Base Entries** panel at the bottom of the Train tab shows every labeled sample:
+
+- Entries are listed with label, date, packet count, and a summary
+- **Select an entry** and click **Delete Selected** to remove it (with confirmation); the model retrains automatically if the local model is enabled
+- **Refresh** reloads the list from disk
+
 ### Tips for Effective Training
 
 - **Start with known samples** — Use PCAPs from malware sandboxes (e.g., Malware Traffic Analysis, ANY.RUN) for malware and your own clean network captures for safe samples.
+- **Use Quick-Label** for captures you've already analyzed — it's faster than re-parsing the file.
 - **Label accurately** — Incorrectly labeled samples degrade detection quality.
 - **Build a balanced KB** — Try to add roughly equal numbers of safe and malicious samples.
 - **Retrain periodically** — Add new samples as you encounter new traffic patterns.
@@ -495,11 +538,14 @@ PCAP Sentry integrates with free, public threat intelligence sources to enhance 
 
 ### Supported Feeds
 
-| Feed | Data Type | API Key |
-|------|-----------|---|
-| 👽 **AlienVault OTX** | IP/domain reputation, threat pulses | Not required |
-| 🔗 **URLhaus** | Malicious URL database | Not required |
-| 🛡️ **AbuseIPDB** | IP abuse/reputation reports | Optional (free tier) |
+| Feed | Data Type | API Key Required |
+|------|-----------|------------------|
+| 👽 **AlienVault OTX** | IP/domain reputation, threat pulses | No |
+| 🔗 **URLhaus** | Malicious URL database | No |
+| 😱 **abuse.ch ThreatFox** | IOC database (malware C2, hash lookups) | No |
+| 🌫️ **GreyNoise** | Internet scanner / noise classification | No (community tier) |
+| 🛡️ **AbuseIPDB** | IP abuse/reputation reports | Optional (free tier, higher limits) |
+| 🧬 **VirusTotal** | File/URL reputation | Optional (free tier) |
 
 ### How It Works
 
@@ -525,10 +571,13 @@ Flagged IPs (from public threat feeds):
   - 192.0.2.55: risk score 85/100
     (AlienVault OTX: 12 pulses)
     (AbuseIPDB: 94% confidence, 237 reports)
+    (GreyNoise: malicious scanner — tag: Mirai)
+    (ThreatFox: malware C2 — Cobalt Strike)
 
 Flagged Domains (from public threat feeds):
   - malicious.example.com: risk score 92/100
     (URLhaus: 15 malicious URLs)
+    (ThreatFox: known IOC)
 ```
 
 ### Performance Notes
@@ -537,7 +586,8 @@ Flagged Domains (from public threat feeds):
 - Within each lookup, sub-queries (e.g., OTX + AbuseIPDB) also run in parallel
 - Private/bogon IPs are filtered before any network call, avoiding wasted requests
 - HTTP connection pooling with keep-alive reduces TCP/TLS overhead
-- Results are cached for 1 hour to reduce API calls
+- Results are cached for 1 hour to reduce API calls (persisted across sessions in `ti_cache.json`)
+- Daily API usage is tracked for AbuseIPDB and VirusTotal (visible in **Preferences → API Keys** tab)
 - Timeouts: 2-second connect, 3-second read (fast failure on degraded APIs)
 - Up to 20 IPs and 20 domains are queried per analysis
 - Internet connectivity is required (disable via Offline Mode if unavailable)
@@ -556,21 +606,23 @@ Threat intelligence lookups will be skipped, and analysis will rely solely on lo
 
 <h2><img src="https://img.shields.io/badge/11-Machine_Learning_Model-58a6ff?style=flat-square&labelColor=0d1117" height="28" /></h2>
 
-PCAP Sentry includes an optional local machine learning model for supplemental malware detection.
+PCAP Sentry includes a local machine learning model for supplemental malware detection. It works **out-of-the-box without any labeling** thanks to a pre-trained RandomForest baseline shipped with the application.
 
 ### Enabling the ML Model
 
-1. Open **⚙ Preferences**
-2. Check **Enable local ML model**
-3. Click **Save**
+1. Open the **Train** tab.
+2. In the **Local Model** panel, check **Enable local ML model**.
+3. The model will contribute a prediction on every subsequent analysis.
+
+> **Alternatively:** open **⚙ Preferences** and check **Enable local ML model** there.
 
 ### How It Works
 
-- **Algorithm:** Logistic Regression with balanced class weights
-- **Training data:** Features extracted from your knowledge base samples
-- **Requirements:** At least one safe and one malicious sample in the KB
-- **Auto-retraining:** The model automatically retrains whenever you add a new sample via the Train tab
-- **Model storage:** Saved as `pcap_local_model.joblib` in the app data directory
+- **Algorithm:** Random Forest (120 trees, `max_depth=14`, balanced class weights)
+- **Pre-trained baseline:** Ships with `assets/pcap_sentry_baseline_model.pkl` — trained on 146 synthetic feature rows covering 13 realistic traffic profiles. Copied to your app data folder on first launch automatically.
+- **Combined retraining:** When you retrain (via **Retrain Now** in the Train tab or automatically after labeling), the model is rebuilt from the 146 seed rows **plus** your KB entries (weighted 3×). This means the shipped general knowledge is preserved and personalised — the more you label, the more the model adapts to your network.
+- **Requirements for retraining:** At least one safe and one malicious KB entry (seed rows satisfy this for the baseline).
+- **Model storage:** Saved as `pcap_local_model.joblib` in the app data directory, with HMAC-SHA256 integrity verification.
 
 ### Feature Set
 
@@ -597,18 +649,16 @@ Malicious confidence: 85.30%
 Backend: CPU
 ```
 
-### Feature Importance
+### Accuracy & Growth
 
-After training, the model reports which features are most predictive:
+The pre-trained baseline has been validated on the 13 traffic profile classes in the seed data. Real-world accuracy depends on how representative the seed profiles are of the traffic you encounter:
 
-```
-Top 10 most important features:
-  - avg_domain_risk_score: 2.4531
-  - flagged_domain_count: 1.8924
-  - avg_ip_risk_score: 1.7643
-  - http_request_count: 1.2321
-  ...
-```
+| Stage | Expected accuracy |
+|---|---|
+| Fresh install (seed only) | Good on common attack types (port scan, DDoS, C2, DNS tunnel) |
+| + 10 labeled captures | Begins personalising to your network |
+| + 50 balanced captures | Comparable or better than seed baseline |
+| + 200+ balanced captures | Strong local accuracy |
 
 > **Note:** The ML model is supplemental. The primary verdict comes from heuristic and knowledge-base scoring.
 
@@ -674,6 +724,26 @@ When a local LLM server is configured (Ollama, LM Studio, GPT4All, Jan, LocalAI,
 > 🤖 **LLM Note**
 >
 > LLM suggestions are optional and run locally when using Ollama or an OpenAI-compatible server. Your PCAP data is not uploaded; only summarized statistics are sent to the local LLM endpoint.
+
+### API Keys Tab
+
+The **API Keys** tab in Preferences lets you configure optional threat intelligence API keys for higher rate limits:
+
+| Service | Free Without Key | With Key |
+|---------|:---:|---|
+| **abuse.ch ThreatFox** | ✅ Full access | No key needed |
+| **GreyNoise** | ✅ Community tier | Higher limits with key |
+| **AbuseIPDB** | ❌ Limited | 1,000 checks/day (free account) |
+| **VirusTotal** | ❌ Limited | 4 lookups/min (free account) |
+
+To add a key:
+
+1. Open **⚙ Preferences** and click the **API Keys** tab.
+2. Paste your key into the relevant field.
+3. Click **Verify** to confirm the key is valid.
+4. Click **Save**.
+
+The tab also shows **"Used today: X / Y"** counters for AbuseIPDB and VirusTotal so you can monitor your daily quota usage.
 
 ### LLM Auto-Detection
 

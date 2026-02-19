@@ -119,6 +119,12 @@ for icon_name in ("pcap_sentry.ico", "pcap_sentry_512.png", "pcap_sentry_256.png
     if os.path.exists(icon_path):
         datas.append((icon_path, "assets"))
 
+# Bundle pre-trained baseline model and seed data
+for seed_asset in ("pcap_sentry_baseline_model.pkl", "pcap_sentry_baseline_model.pkl.sha256", "pcap_sentry_seed_data.json"):
+    seed_path = os.path.join("assets", seed_asset)
+    if os.path.exists(seed_path):
+        datas.append((seed_path, "assets"))
+
 # Explicitly include the active Python DLL to avoid runtime load errors.
 # Python 3.14+ requires extra care with onefile mode.
 py_dll_name = f"python{sys.version_info.major}{sys.version_info.minor}.dll"
