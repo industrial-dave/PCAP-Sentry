@@ -4066,6 +4066,13 @@ class PCAPSentryApp:
         except Exception:
             pass  # Don't crash if Scapy preload can't be scheduled
 
+        # Pre-generate logo spin frames in background so the animation is
+        # smooth from the very first analysis (avoids main-thread stutter)
+        try:
+            self.root.after(1000, self._pregenerate_spin_frames_async)
+        except Exception:
+            pass  # Don't crash if spin frame pre-generation can't be scheduled
+
     def _on_close(self) -> None:
         """Handle window close – cancel timers, backup KB, persist all state, then destroy."""
         self._shutting_down = True
@@ -4315,7 +4322,12 @@ class PCAPSentryApp:
         if self._logo_spinning or not self._spin_src_img:
             return
         self._logo_spinning = True
-        self.root.after(50, self._animate_logo_spin)
+        # If frames aren't ready yet, trigger async generation and wait for them
+        if not self._spin_frames_generated:
+            self._pregenerate_spin_frames_async()
+            self.root.after(50, self._animate_logo_spin)
+        else:
+            self.root.after(50, self._animate_logo_spin)
 
     def _stop_logo_spin(self) -> None:
         """Stop spinning and reset the logo to its static frame."""
@@ -4333,9 +4345,11 @@ class PCAPSentryApp:
         if self._shutting_down or not self._logo_spinning or not self._brand_label:
             return
 
-        # Generate animation frames on first use to avoid startup delay
-        if not self._spin_frames_generated and self._spin_src_img:
-            self._generate_spin_frames()
+        # If frames aren't ready yet (async generation still running), reschedule
+        # without blocking the main thread
+        if not self._spin_frames_generated:
+            self.root.after(50, self._animate_logo_spin)
+            return
 
         if not self._spin_frames:
             return
@@ -4364,8 +4378,60 @@ class PCAPSentryApp:
             self._init_counter_id = None
         self._initializing = False
 
+    def _pregenerate_spin_frames_async(self) -> None:
+        """Kick off background PIL frame generation so frames are ready before spin starts."""
+        if self._spin_frames_generated or not self._spin_src_img:
+            return
+        threading.Thread(
+            target=self._generate_spin_frames_bg,
+            daemon=True,
+            name="LogoFrameGen",
+        ).start()
+
+    def _generate_spin_frames_bg(self) -> None:
+        """Heavy PIL work in a background thread; finalizes PhotoImages on the main thread."""
+        if self._spin_frames_generated or not self._spin_src_img:
+            return
+        try:
+            from PIL import Image
+            import math as _math
+
+            src = self._spin_src_img
+            num_frames = 36
+            pil_frames = []
+
+            for i in range(num_frames):
+                angle: float = 2 * _math.pi * i / num_frames
+                scale_x: float = abs(_math.cos(angle))
+                w: int = max(int(self._brand_icon_size * scale_x), 1)
+                h: int = self._brand_icon_size
+                squeezed = src.resize((w, h), Image.LANCZOS)
+                if _math.cos(angle) < 0:
+                    squeezed = squeezed.transpose(Image.FLIP_LEFT_RIGHT)
+                canvas = Image.new("RGBA", (self._brand_icon_size, self._brand_icon_size), (0, 0, 0, 0))
+                canvas.paste(squeezed, ((self._brand_icon_size - w) // 2, 0))
+                pil_frames.append(canvas)
+
+            # PhotoImage objects must be created on the main thread
+            if not self._shutting_down:
+                self.root.after(0, lambda frames=pil_frames: self._finalize_spin_frames(frames))
+        except Exception:
+            pass
+
+    def _finalize_spin_frames(self, pil_frames: list) -> None:
+        """Convert pre-rendered PIL images to PhotoImage objects on the main thread."""
+        if self._spin_frames_generated or self._shutting_down:
+            return
+        try:
+            from PIL import ImageTk
+
+            self._spin_frames = [ImageTk.PhotoImage(f) for f in pil_frames]
+            self._spin_frames_generated = True
+        except Exception:
+            pass
+
     def _generate_spin_frames(self) -> None:
-        """Generate logo spin animation frames on demand to avoid startup delay."""
+        """Synchronous fallback – only used if async pre-generation hasn't completed."""
         if self._spin_frames_generated or not self._spin_src_img:
             return
 
