@@ -261,84 +261,474 @@ PATTERN_EDUCATION: dict[str, tuple[str, str]] = {
         "      data being stolen (exfiltrated) from your network.\n"
         "      Key question: Is the data leaving your network\n"
         "      (outbound) or entering it (inbound)?  Outbound bulk\n"
-        "      transfers to unknown hosts are especially concerning.",
+        "      transfers to unknown hosts are especially concerning.\n"
+        "      \u2192 MITRE ATT&CK: T1041 \u00b7 T1048\n"
+        "\n"
+        "      Technical detail:\n"
+        "        If outbound bytes > inbound bytes the host is likely\n"
+        "        sending data to an attacker server.  Look at whether\n"
+        "        the destination is a known cloud service or an\n"
+        "        unrecognised IP on a non-standard port.  File\n"
+        "        transfers typically saturate near 1,500-byte packets.\n"
+        "\n"
+        "      Common malware:\n"
+        "        Cobalt Strike, PowerShell Empire, RedLine Stealer,\n"
+        "        LockBit and REvil (data staged before ransomware drops)\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 netstat -b  \u2014 links each open port to a process\n"
+        "        \u2022 Task Manager \u2192 Details \u2192 sort by I/O Write\n"
+        "        \u2022 %Temp% and %AppData% for staged archive files\n"
+        "          (.zip, .7z, .rar created in the last 24 h)\n"
+        "        \u2022 Recently modified large files in Documents/Desktop\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Block the destination IP/domain at the firewall\n"
+        "        \u2022 Isolate the host from the network immediately\n"
+        "        \u2022 Preserve a forensic disk image before cleaning\n"
+        "        \u2022 Notify legal/DPO if sensitive data may be involved\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1041/\n"
+        "        https://www.cisa.gov/stopransomware",
     ),
     "long_duration": (
         "LONG-LIVED CONNECTION",
         "This connection stayed open for a very long time.\n"
         "      Persistent connections can indicate a backdoor or\n"
         "      Remote Access Tool (RAT) keeping a channel open so\n"
-        "      an attacker can send commands whenever they want.",
+        "      an attacker can send commands whenever they want.\n"
+        "      \u2192 MITRE ATT&CK: T1071 \u00b7 T1219\n"
+        "\n"
+        "      Technical detail:\n"
+        "        Most legitimate sessions close within seconds or\n"
+        "        minutes after a transaction completes (HTTP, DNS).\n"
+        "        A connection open for hours means the endpoint is\n"
+        "        being actively kept alive \u2014 classic RAT behaviour.\n"
+        "        Look for low-frequency keep-alive packets at regular\n"
+        "        intervals within the long session.\n"
+        "\n"
+        "      Common malware:\n"
+        "        njRAT, DarkComet, Quasar RAT, AsyncRAT,\n"
+        "        Cobalt Strike (interactive beacon sessions)\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 netstat -ano  \u2014 look for ESTABLISHED connections\n"
+        "          open for hours; note the PID\n"
+        '        \u2022 tasklist /fi "PID eq <PID>"  \u2014 name the process\n'
+        "        \u2022 Check startup locations for persistence:\n"
+        "          HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\n"
+        "          %AppData%\\Microsoft\\Windows\\Start Menu\\Startup\n"
+        "        \u2022 Look for scheduled tasks that restart the session\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Terminate the process (taskkill /PID <n> /F)\n"
+        "        \u2022 Delete the startup registry key or scheduled task\n"
+        "        \u2022 Block the C2 IP/domain at the perimeter firewall\n"
+        "        \u2022 Rotate credentials \u2014 RATs typically log keystrokes\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1219/\n"
+        "        https://any.run  (sandbox to identify the RAT family)",
     ),
     "many_packets": (
         "HIGH PACKET COUNT",
         "An unusually large number of messages were exchanged.\n"
         "      Could be normal (e.g., a video call) or could be\n"
-        "      Command-and-Control (C2) chatter — an attacker\n"
-        "      issuing many commands to compromised machines.",
+        "      Command-and-Control (C2) chatter \u2014 an attacker\n"
+        "      issuing many commands to compromised machines.\n"
+        "      \u2192 MITRE ATT&CK: T1071\n"
+        "\n"
+        "      Technical detail:\n"
+        "        Compare packet count to total bytes.  A high packet\n"
+        "        count with low bytes/packet = chatty C2 control\n"
+        "        channel.  High bytes/packet = bulk data transfer.\n"
+        "        In Wireshark, Statistics \u2192 Conversations to see\n"
+        "        per-flow packet and byte counts side-by-side.\n"
+        "\n"
+        "      Common malware:\n"
+        "        Emotet, TrickBot, IcedID (heavy C2 polling),\n"
+        "        Mirai botnet (flood-mode against targets)\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 netstat -b  \u2014 find the process behind the traffic\n"
+        "        \u2022 Check browser extensions (some proxy all traffic)\n"
+        "        \u2022 Query WMI persistence subscriptions:\n"
+        "          Get-WMIObject -Namespace root/subscription\n"
+        "            -Class __EventConsumer\n"
+        "        \u2022 Check Task Scheduler for high-frequency tasks\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Kill the offending process\n"
+        "        \u2022 Remove WMI subscriptions if found\n"
+        "        \u2022 Scan with Malwarebytes or similar\n"
+        "        \u2022 Block the destination at the firewall\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1071/\n"
+        "        https://www.malware-traffic-analysis.net",
     ),
     "small_packets": (
         "SMALL PACKET PATTERN (BEACONING)",
         "Lots of tiny packets were sent back and forth.\n"
-        "      This is the hallmark of 'beaconing' — malware\n"
+        "      This is the hallmark of 'beaconing' \u2014 malware\n"
         "      sending periodic 'I'm alive' check-ins to its\n"
         "      controller.  Look for regular timing intervals\n"
-        "      between these packets in Wireshark.",
+        "      between these packets in Wireshark.\n"
+        "      \u2192 MITRE ATT&CK: T1071.001 \u00b7 T1132\n"
+        "\n"
+        "      Technical detail:\n"
+        "        Common beacon intervals: 30 s, 60 s, 300 s, 3600 s.\n"
+        "        Sophisticated implants add jitter (small random\n"
+        "        variation) to avoid detection.  In Wireshark:\n"
+        "        Statistics \u2192 Conversations \u2192 sort by Start Time \u2014\n"
+        "        regular gaps between entries = beaconing.\n"
+        "\n"
+        "      Common malware:\n"
+        "        Cobalt Strike (60 s default), Metasploit Meterpreter,\n"
+        "        Sliver C2, Havoc C2, njRAT, AsyncRAT, many RAT families\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 Run netstat -ano repeatedly \u2014 watch which\n"
+        "          connections reappear at fixed intervals\n"
+        "        \u2022 Check startup registry keys for persistence:\n"
+        "          HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\n"
+        "          HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\n"
+        "        \u2022 Inspect file at the path shown by that registry key\n"
+        "        \u2022 Submit hash to VirusTotal.com to confirm family\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Kill the process; delete the registry Run key\n"
+        "        \u2022 Block the C2 IP/domain at the firewall\n"
+        "        \u2022 Rotate ALL credentials \u2014 beacons typically exfil\n"
+        "          passwords and session tokens\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1071/001/\n"
+        "        https://www.sans.org/blog/detecting-cobalt-strike/",
     ),
     "large_packets": (
         "LARGE PACKET PATTERN",
         "Unusually large packets suggest bulk data movement.\n"
         "      Is data leaving (outbound) or entering (inbound)?\n"
-        "      Outbound is more concerning — it could be stolen\n"
-        "      files, database dumps, or credentials.",
+        "      Outbound is more concerning \u2014 it could be stolen\n"
+        "      files, database dumps, or credentials.\n"
+        "      \u2192 MITRE ATT&CK: T1048 \u00b7 T1041\n"
+        "\n"
+        "      Technical detail:\n"
+        "        Standard Ethernet MTU is 1,500 bytes.  Consistently\n"
+        "        large frames (1,400\u20131,500 B) mean the sender is\n"
+        "        filling packets to capacity \u2014 classic bulk transfer.\n"
+        "        In Wireshark: frame.len > 1400 shows only big frames;\n"
+        "        check the destination IP column for the recipient.\n"
+        "\n"
+        "      Common malware:\n"
+        "        RedLine Stealer, Raccoon Stealer, Vidar (credential\n"
+        "        database uploads); LockBit, BlackCat/ALPHV\n"
+        "        (pre-encryption exfil); APT lateral movement tools\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 %Temp% for .zip / .7z / .rar archives created\n"
+        "          in the last 24\u201348 hours\n"
+        "        \u2022 PowerShell history:\n"
+        "          %AppData%\\Microsoft\\Windows\\PowerShell\\\n"
+        "            PSReadLine\\ConsoleHost_history.txt\n"
+        "        \u2022 Volume Shadow Copies for deleted staged files\n"
+        "        \u2022 Recently modified files in Documents, Desktop\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Isolate the host from the network immediately\n"
+        "        \u2022 Preserve a forensic disk image before cleaning\n"
+        "        \u2022 Notify legal/DPO if regulated data may be involved\n"
+        "        \u2022 Change all passwords and revoke active sessions\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1048/\n"
+        "        https://www.cisa.gov/stopransomware",
     ),
     "unusual_port": (
         "NON-STANDARD PORT",
         "This conversation used a port not associated with any\n"
         "      common service.  Malware often picks random high\n"
-        "      ports to evade basic firewall rules.",
+        "      ports to evade basic firewall rules.\n"
+        "      \u2192 MITRE ATT&CK: T1571\n"
+        "\n"
+        "      Technical detail:\n"
+        "        Ports 1\u20131023 are reserved for well-known services\n"
+        "        (80 = HTTP, 443 = HTTPS, 22 = SSH).  Ports above\n"
+        "        1024 are dynamic.  Malware frequently uses 4444,\n"
+        "        8888, 31337, or randomly generated high ports.\n"
+        "        Some malware mimics legitimate ports on wrong hosts\n"
+        "        (e.g. sending non-HTTP data on port 80).\n"
+        "\n"
+        "      Common malware:\n"
+        "        Metasploit (default listener: 4444),\n"
+        "        Back Orifice (31337), modern RATs (random high ports),\n"
+        "        custom implants configured to avoid detection\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 netstat -ano | findstr :<port>\n"
+        "          to find the PID owning that port\n"
+        '        \u2022 tasklist /fi "PID eq <PID>"  \u2014 identify the process\n'
+        "        \u2022 Check the file's digital signature (Properties \u2192\n"
+        "          Digital Signatures \u2014 unsigned is suspicious)\n"
+        "        \u2022 Submit the file hash to VirusTotal.com\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Block the specific port at the perimeter firewall\n"
+        "        \u2022 Terminate the process and investigate the file\n"
+        "        \u2022 Add a Windows Firewall outbound block rule for\n"
+        "          the port while investigating\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1571/\n"
+        "        https://www.iana.org/assignments/service-names-port-numbers",
     ),
     "beaconing": (
         "BEACONING DETECTED",
-        "Messages were sent at regular intervals — like a clock.\n"
+        "Messages were sent at regular intervals \u2014 like a clock.\n"
         "      This is one of the strongest malware indicators.\n"
         "      Legitimate software rarely sends data with such\n"
-        "      precise, periodic timing.",
+        "      precise, periodic timing.\n"
+        "      \u2192 MITRE ATT&CK: T1071.001 \u00b7 T1132\n"
+        "\n"
+        "      Technical detail:\n"
+        "        A beacon sleep interval is hard-coded in the malware\n"
+        "        config.  Cobalt Strike defaults to 60 seconds with\n"
+        "        0% jitter.  Advanced operators increase jitter to\n"
+        "        20\u201350% to add randomness but the pattern is still\n"
+        "        detectable over many samples.  Wireshark tip:\n"
+        "        Statistics \u2192 I/O Graph to visualise burst timing.\n"
+        "\n"
+        "      Common malware:\n"
+        "        Cobalt Strike (60 s default), Metasploit Meterpreter,\n"
+        "        Sliver C2, Havoc C2, Brute Ratel C4, njRAT, AsyncRAT\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 Task Manager \u2192 Processes \u2192 right-click suspicious\n"
+        "          process \u2192 'Open file location'\n"
+        "        \u2022 Check the file's digital signature\n"
+        "        \u2022 Submit its hash to VirusTotal.com\n"
+        "        \u2022 Registry Run keys for persistence:\n"
+        "          HKLM & HKCU \\...\\CurrentVersion\\Run\n"
+        "        \u2022 Scheduled Tasks (taskschd.msc)\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Kill the process; remove persistence entries\n"
+        "        \u2022 Block the C2 IP and domain at the firewall\n"
+        "        \u2022 Rotate ALL credentials (keystroke logging is\n"
+        "          a standard beacon module feature)\n"
+        "        \u2022 Consider full OS rebuild if a C2 framework is\n"
+        "          confirmed \u2014 assume full compromise\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1071/001/\n"
+        "        https://www.sans.org/blog/detecting-cobalt-strike/",
     ),
     "dns_tunnel": (
         "POSSIBLE DNS TUNNELING",
         "Data may be hidden inside DNS queries.  Attackers use\n"
         "      this clever technique to sneak data out of networks\n"
         "      that block most traffic but allow DNS (since every\n"
-        "      network needs DNS to function).",
+        "      network needs DNS to function).\n"
+        "      \u2192 MITRE ATT&CK: T1071.004 \u00b7 T1048.003\n"
+        "\n"
+        "      Technical detail:\n"
+        "        Normal DNS TXT records are short.  Tunnels encode\n"
+        "        data in Base64/hex in subdomains or TXT records:\n"
+        "        e.g. a8f3dc2b19.attacker.com  Data is fragmented\n"
+        "        across many queries.  Tools: dnscat2, iodine,\n"
+        "        DNSExfiltrator.  Wireshark filter to spot it:\n"
+        "        dns.qry.name.len > 40\n"
+        "\n"
+        "      Common malware:\n"
+        "        dnscat2, iodine, PoshC2 DNS channel,\n"
+        "        DNSExfiltrator; APT groups use custom DNS tunnels\n"
+        "        for data theft through restrictive firewalls\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 netstat -b | findstr :53  \u2014 find the process\n"
+        "          generating DNS queries\n"
+        "        \u2022 PowerShell scripts in startup locations with\n"
+        "          Base64-encoded commands (look for -EncodedCommand)\n"
+        "        \u2022 DNS cache: ipconfig /displaydns  \u2014 look for\n"
+        "          high-entropy or very long subdomain names\n"
+        "        \u2022 Check scheduled tasks running PowerShell\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Block the destination domain at DNS or firewall\n"
+        "        \u2022 Flush DNS cache: ipconfig /flushdns\n"
+        "        \u2022 Enable PowerShell script block logging\n"
+        "          (Group Policy \u2192 Modules / Script Block Logging)\n"
+        "        \u2022 Deploy a DNS security solution (e.g. Cisco Umbrella)\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1071/004/\n"
+        "        https://unit42.paloaltonetworks.com/dns-tunneling-how-dns-can-be-abused-by-malicious-actors/",
     ),
     "c2": (
         "COMMAND & CONTROL (C2)",
         "This looks like communication between malware and its\n"
         "      controller.  C2 traffic is how attackers remotely\n"
-        "      operate compromised machines — issuing commands to\n"
-        "      steal data, spread laterally, or launch attacks.",
+        "      operate compromised machines \u2014 issuing commands to\n"
+        "      steal data, spread laterally, or launch attacks.\n"
+        "      \u2192 MITRE ATT&CK: T1071 \u00b7 T1573\n"
+        "\n"
+        "      Technical detail:\n"
+        "        Modern C2 frameworks tunnel commands inside HTTPS\n"
+        "        to blend with web traffic.  The implant polls the\n"
+        "        C2 server periodically, receives tasks, executes\n"
+        "        them, and sends results back \u2014 all over encrypted\n"
+        "        channels.  SUNBURST (SolarWinds) used HTTP with\n"
+        "        encoded commands disguised as normal API calls.\n"
+        "\n"
+        "      Common malware:\n"
+        "        Cobalt Strike, Metasploit, Sliver, Havoc,\n"
+        "        Brute Ratel C4, Poison Ivy, DarkComet,\n"
+        "        SUNBURST (nation-state), Mythic C2\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 Process Explorer (Sysinternals) \u2192 verify each\n"
+        "          process hash online against VirusTotal\n"
+        "        \u2022 Look for injected processes: a process whose\n"
+        "          parent is unexpected (e.g. Excel spawning cmd.exe)\n"
+        "        \u2022 C:\\Windows\\System32\\Tasks  \u2014 inspect all tasks\n"
+        "        \u2022 %AppData%\\Microsoft\\Windows\\Start Menu\\\n"
+        "            Programs\\Startup\n"
+        "        \u2022 Run Autoruns (Sysinternals) to see all persistence\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Isolate from the network IMMEDIATELY\n"
+        "        \u2022 Capture a memory image with WinPmem before\n"
+        "          killing processes (preserves evidence)\n"
+        "        \u2022 Assume FULL compromise \u2014 rebuild the OS\n"
+        "        \u2022 Engage incident response if a corporate system\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1071/\n"
+        "        https://www.mandiant.com/resources/insights/apt-groups",
     ),
     "exfiltration": (
         "DATA EXFILTRATION",
         "This pattern suggests data is being copied out of the\n"
-        "      network.  This is often the attacker's end goal —\n"
+        "      network.  This is often the attacker's end goal \u2014\n"
         "      stealing intellectual property, customer records,\n"
-        "      financial data, or credentials.",
+        "      financial data, or credentials.\n"
+        "      \u2192 MITRE ATT&CK: T1041 \u00b7 T1048\n"
+        "\n"
+        "      Technical detail:\n"
+        "        Exfiltration typically follows: access \u2192 lateral\n"
+        "        movement \u2192 data staging (compress/encrypt files)\n"
+        "        \u2192 transfer out.  Attackers favour HTTPS to cloud\n"
+        "        services (Dropbox, OneDrive, Mega) as the traffic\n"
+        "        blends with normal business use.  Look for sustained\n"
+        "        outbound HTTPS to unusual or new destinations.\n"
+        "\n"
+        "      Common malware:\n"
+        "        RedLine Stealer, Raccoon Stealer, Vidar (credentials\n"
+        "        and cookies); LockBit, BlackCat/ALPHV (pre-ransomware);\n"
+        "        Lazarus Group tools (intellectual property theft)\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 %Temp% for unexpected archives (.zip/.7z/.rar)\n"
+        "          created in the last 24\u201348 hours\n"
+        "        \u2022 PowerShell history file:\n"
+        "          %AppData%\\Microsoft\\Windows\\PowerShell\\\n"
+        "            PSReadLine\\ConsoleHost_history.txt\n"
+        "        \u2022 Volume Shadow Copies for deleted staging files\n"
+        "        \u2022 Browser saved passwords (may have been harvested)\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Isolate host; preserve forensic image\n"
+        "        \u2022 Notify Data Protection Officer / legal team\n"
+        "        \u2022 Notify affected individuals if required by law\n"
+        "        \u2022 Change ALL passwords and revoke all active tokens\n"
+        "        \u2022 Review audit logs to determine scope of data stolen\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1041/\n"
+        "        https://www.cisa.gov/stopransomware",
     ),
     "scan": (
         "NETWORK SCANNING",
         "This looks like port scanning or network reconnaissance.\n"
         "      Attackers scan networks to find vulnerable services\n"
         "      before launching a targeted attack.  Think of it as\n"
-        "      someone rattling every door handle in a building.",
+        "      someone rattling every door handle in a building.\n"
+        "      \u2192 MITRE ATT&CK: T1046\n"
+        "\n"
+        "      Technical detail:\n"
+        "        SYN scans (most common) send a TCP SYN to each port\n"
+        "        but never complete the handshake, making them fast\n"
+        "        and stealthy.  Wireshark filter to spot them:\n"
+        "          tcp.flags.syn==1 && tcp.flags.ack==0\n"
+        "        A worm will scan for a single port (e.g. SMB 445)\n"
+        "        across thousands of IPs.  A targeted attacker scans\n"
+        "        many ports on fewer IPs.\n"
+        "\n"
+        "      Common malware:\n"
+        "        WannaCry (scanned for SMB port 445 across the\n"
+        "        internet), Mirai botnet (scanned Telnet port 23),\n"
+        "        Nmap/Masscan used by human attackers post-access\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 If your machine is the SOURCE of the scan:\n"
+        "          netstat -b to find the scanning process\n"
+        "          Check for worm infections or post-exploit tools\n"
+        "        \u2022 If your machine is the TARGET:\n"
+        "          Review firewall/IDS logs for blocked port attempts\n"
+        "          Run a vulnerability scan to see what was exposed\n"
+        "        \u2022 Check for new user accounts added after the scan\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 If source: remove infection; audit user accounts\n"
+        "        \u2022 If target: block the scanning IP at the firewall\n"
+        "        \u2022 Ensure unused ports are blocked at the perimeter\n"
+        "        \u2022 Enable IDS/IPS rules for port scan detection\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://attack.mitre.org/techniques/T1046/\n"
+        "        https://nmap.org/book/man-port-scanning-techniques.html",
     ),
     "ioc": (
         "KNOWN MALICIOUS ADDRESS (IoC MATCH)",
         "One of the IPs in this flow appears on a threat\n"
         "      intelligence blocklist.  This means security\n"
         "      researchers have already linked this address to\n"
-        "      malware, phishing, botnets, or other attacks.",
+        "      malware, phishing, botnets, or other attacks.\n"
+        "      \u2192 MITRE ATT&CK: T1071 \u00b7 T1583\n"
+        "\n"
+        "      Technical detail:\n"
+        "        IoC blocklists are maintained by AlienVault OTX,\n"
+        "        Abuse.ch, Emerging Threats, and others.  A match\n"
+        "        means this address appeared in a confirmed malware\n"
+        "        campaign.  It does not mean you are infected \u2014 but\n"
+        "        it means you contacted something known-bad and the\n"
+        "        traffic warrants immediate investigation.\n"
+        "\n"
+        "      Common malware:\n"
+        "        Varies by match \u2014 check the ThreatFox and OTX\n"
+        "        results above; they often name the malware family\n"
+        "        directly (e.g. 'Cobalt Strike', 'Emotet', 'RedLine')\n"
+        "\n"
+        "      On the machine, check:\n"
+        "        \u2022 Look up the matched IP/domain on VirusTotal.com\n"
+        "          to identify the malware family\n"
+        "        \u2022 Search AV logs for alerts near the same timestamp\n"
+        "        \u2022 Check browser history for the matched domain\n"
+        "        \u2022 Review email attachments received around that time\n"
+        "        \u2022 netstat -b to see if the connection is still open\n"
+        "\n"
+        "      Remediate:\n"
+        "        \u2022 Block the IP/domain at your firewall and DNS\n"
+        "        \u2022 Run a full AV and Malwarebytes scan immediately\n"
+        "        \u2022 If multiple IoC matches: escalate to incident\n"
+        "          response \u2014 assume breach until proven otherwise\n"
+        "\n"
+        "      Learn more:\n"
+        "        https://otx.alienvault.com\n"
+        "        https://abuse.ch\n"
+        "        https://www.virustotal.com",
     ),
 }
 
@@ -355,7 +745,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.18-9"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.19-5"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version() -> str:
@@ -654,6 +1044,80 @@ KNOWLEDGE_BASE_FILE: str = os.path.join(_get_app_data_dir(), "pcap_knowledge_bas
 SETTINGS_FILE: str = os.path.join(_get_app_data_dir(), "settings.json")
 MODEL_FILE: str = os.path.join(_get_app_data_dir(), "pcap_local_model.joblib")
 
+_BASELINE_MODEL_ASSET = "pcap_sentry_baseline_model.pkl"
+_SEED_DATA_ASSET = "pcap_sentry_seed_data.json"
+
+
+def _get_seed_asset_path(filename: str) -> str | None:
+    """Return the absolute path to a bundled seed asset, or None if not found."""
+    base = _get_app_base_dir()
+    candidates = [
+        os.path.join(base, "assets", filename),
+        os.path.abspath(os.path.join(base, "..", "assets", filename)),
+    ]
+    if getattr(sys, "frozen", False):
+        candidates.insert(0, os.path.join(os.path.dirname(sys.executable), "assets", filename))
+    for p in candidates:
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+def _bootstrap_baseline_model() -> None:
+    """
+    If the user has no local model yet, copy the pre-trained baseline model
+    from the bundled assets into APP_DATA_DIR so analysis works on first run.
+    The HMAC is NOT copied — _save_local_model() writes a fresh machine-specific
+    HMAC the first time the user retrains; the baseline is integrity-checked via
+    the SHA-256 file instead at copy time.
+    """
+    if os.path.exists(MODEL_FILE):
+        return  # User already has a model
+    baseline_src = _get_seed_asset_path(_BASELINE_MODEL_ASSET)
+    if not baseline_src:
+        return  # Not yet generated (dev environment before running generator)
+    sha256_src = baseline_src + ".sha256"
+    # Verify SHA-256 before copying (defence-in-depth)
+    if os.path.isfile(sha256_src):
+        try:
+            with open(sha256_src, encoding="utf-8") as f:
+                expected_hex = f.read().strip()
+            h = hashlib.sha256()
+            with open(baseline_src, "rb") as f:
+                for chunk in iter(lambda: f.read(65536), b""):
+                    h.update(chunk)
+            if not hmac.compare_digest(h.hexdigest().lower(), expected_hex.lower()):
+                print("[WARN] Baseline model SHA-256 mismatch — not bootstrapping.")
+                return
+        except Exception as exc:
+            print(f"[WARN] Baseline model SHA-256 check failed: {exc}")
+            return
+    try:
+        import shutil
+
+        shutil.copy2(baseline_src, MODEL_FILE)
+        # Write a fresh HMAC for this machine
+        _write_model_hmac()
+        print("[INFO] Bootstrapped pre-trained baseline model from assets.")
+    except Exception as exc:
+        print(f"[WARN] Could not bootstrap baseline model: {exc}")
+
+
+def _load_seed_rows() -> tuple[list[dict], list[str]]:
+    """Load the bundled seed feature rows and labels. Returns (rows, labels)."""
+    seed_path = _get_seed_asset_path(_SEED_DATA_ASSET)
+    if not seed_path:
+        return [], []
+    try:
+        with open(seed_path, encoding="utf-8") as f:
+            data = json.load(f)
+        rows = [item["features"] for item in data]
+        labels = [item["label"] for item in data]
+        return rows, labels
+    except Exception as exc:
+        print(f"[WARN] Could not load seed data: {exc}")
+        return [], []
+
 
 # ── Secure credential helpers ────────────────────────────────────────────────
 _KEYRING_SERVICE = "PCAP_Sentry"
@@ -661,6 +1125,9 @@ _KEYRING_USERNAME_LLM = "llm_api_key"
 _KEYRING_USERNAME_OTX = "otx_api_key"
 _KEYRING_USERNAME_CHAT_KEY = "chat_encryption_key"
 _KEYRING_USERNAME_KB_KEY = "kb_encryption_key"
+_KEYRING_USERNAME_ABUSEIPDB = "abuseipdb_api_key"
+_KEYRING_USERNAME_GREYNOISE = "greynoise_api_key"
+_KEYRING_USERNAME_VIRUSTOTAL = "virustotal_api_key"
 
 
 def _keyring_available() -> bool:
@@ -674,10 +1141,14 @@ def _keyring_available() -> bool:
 
 
 def _store_api_key(key: str) -> None:
-    """Store the LLM API key in the OS credential store, falling back to no-op."""
+    """Store the LLM API key in the OS credential store, falling back to no-op.
+
+    Empty string is a no-op — call _delete_api_key() explicitly to remove.
+    This prevents auto-save paths from wiping a valid key when the in-memory
+    value is empty due to a keyring backend failure at load time.
+    """
     if not key:
-        _delete_api_key()
-        return
+        return  # Never auto-delete; use _delete_api_key() for intentional removal
     try:
         import keyring
 
@@ -687,10 +1158,14 @@ def _store_api_key(key: str) -> None:
 
 
 def _store_otx_api_key(key: str) -> None:
-    """Store the OTX API key in the OS credential store, falling back to no-op."""
+    """Store the OTX API key in the OS credential store, falling back to no-op.
+
+    Empty string is a no-op — call _delete_otx_api_key() explicitly to remove.
+    This prevents auto-save paths from wiping a valid key when the in-memory
+    value is empty due to a keyring backend failure at load time.
+    """
     if not key:
-        _delete_otx_api_key()
-        return
+        return  # Never auto-delete; use _delete_otx_api_key() for intentional removal
     try:
         import keyring
 
@@ -737,6 +1212,105 @@ def _delete_otx_api_key() -> None:
         import keyring
 
         keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_OTX)
+    except Exception:
+        pass
+
+
+def _store_abuseipdb_api_key(key: str) -> None:
+    """Store the AbuseIPDB API key in the OS credential store (no-op if empty)."""
+    if not key:
+        return
+    try:
+        import keyring
+
+        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME_ABUSEIPDB, key)
+    except Exception:
+        pass
+
+
+def _load_abuseipdb_api_key() -> str:
+    """Load the AbuseIPDB API key from the OS credential store."""
+    try:
+        import keyring
+
+        val: str | None = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME_ABUSEIPDB)
+        return val or ""
+    except Exception:
+        return ""
+
+
+def _delete_abuseipdb_api_key() -> None:
+    """Remove the AbuseIPDB API key from the OS credential store."""
+    try:
+        import keyring
+
+        keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_ABUSEIPDB)
+    except Exception:
+        pass
+
+
+def _store_greynoise_api_key(key: str) -> None:
+    """Store the GreyNoise API key in the OS credential store (no-op if empty)."""
+    if not key:
+        return
+    try:
+        import keyring
+
+        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME_GREYNOISE, key)
+    except Exception:
+        pass
+
+
+def _load_greynoise_api_key() -> str:
+    """Load the GreyNoise API key from the OS credential store."""
+    try:
+        import keyring
+
+        val: str | None = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME_GREYNOISE)
+        return val or ""
+    except Exception:
+        return ""
+
+
+def _delete_greynoise_api_key() -> None:
+    """Remove the GreyNoise API key from the OS credential store."""
+    try:
+        import keyring
+
+        keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_GREYNOISE)
+    except Exception:
+        pass
+
+
+def _store_virustotal_api_key(key: str) -> None:
+    """Store the VirusTotal API key in the OS credential store (no-op if empty)."""
+    if not key:
+        return
+    try:
+        import keyring
+
+        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME_VIRUSTOTAL, key)
+    except Exception:
+        pass
+
+
+def _load_virustotal_api_key() -> str:
+    """Load the VirusTotal API key from the OS credential store."""
+    try:
+        import keyring
+
+        val: str | None = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME_VIRUSTOTAL)
+        return val or ""
+    except Exception:
+        return ""
+
+
+def _delete_virustotal_api_key() -> None:
+    """Remove the VirusTotal API key from the OS credential store."""
+    try:
+        import keyring
+
+        keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_VIRUSTOTAL)
     except Exception:
         pass
 
@@ -819,6 +1393,9 @@ def _default_settings():
         "theme": "system",
         "offline_mode": False,
         "otx_api_key": "",
+        "abuseipdb_api_key": "",
+        "greynoise_api_key": "",
+        "virustotal_api_key": "",
         "app_data_notice_shown": False,
     }
 
@@ -849,6 +1426,27 @@ def load_settings():
                         # Migrate plaintext OTX key to keyring on first load
                         _store_otx_api_key(data["otx_api_key"])
                         defaults["otx_api_key"] = data["otx_api_key"]
+                    # AbuseIPDB key
+                    stored_abuseipdb: str = _load_abuseipdb_api_key()
+                    if stored_abuseipdb:
+                        defaults["abuseipdb_api_key"] = stored_abuseipdb
+                    elif data.get("abuseipdb_api_key"):
+                        _store_abuseipdb_api_key(data["abuseipdb_api_key"])
+                        defaults["abuseipdb_api_key"] = data["abuseipdb_api_key"]
+                    # GreyNoise key
+                    stored_greynoise: str = _load_greynoise_api_key()
+                    if stored_greynoise:
+                        defaults["greynoise_api_key"] = stored_greynoise
+                    elif data.get("greynoise_api_key"):
+                        _store_greynoise_api_key(data["greynoise_api_key"])
+                        defaults["greynoise_api_key"] = data["greynoise_api_key"]
+                    # VirusTotal key
+                    stored_virustotal: str = _load_virustotal_api_key()
+                    if stored_virustotal:
+                        defaults["virustotal_api_key"] = stored_virustotal
+                    elif data.get("virustotal_api_key"):
+                        _store_virustotal_api_key(data["virustotal_api_key"])
+                        defaults["virustotal_api_key"] = data["virustotal_api_key"]
 
                     # Decrypt chat_history if encrypted
                     encrypted_chat = data.get("chat_history_encrypted")
@@ -873,10 +1471,16 @@ def save_settings(settings) -> None:
         if _keyring_available():
             _store_api_key(llm_api_key)
             _store_otx_api_key(otx_api_key)
+            _store_abuseipdb_api_key(settings.get("abuseipdb_api_key", ""))
+            _store_greynoise_api_key(settings.get("greynoise_api_key", ""))
+            _store_virustotal_api_key(settings.get("virustotal_api_key", ""))
             # Remove plaintext keys from settings file
             settings = dict(settings)
             settings.pop("llm_api_key", None)
             settings.pop("otx_api_key", None)
+            settings.pop("abuseipdb_api_key", None)
+            settings.pop("greynoise_api_key", None)
+            settings.pop("virustotal_api_key", None)
 
             # Encrypt chat_history
             chat_history = settings.get("chat_history", [])
@@ -1547,31 +2151,47 @@ def _train_local_model(kb):
     if not _check_sklearn():
         return None, "scikit-learn is not installed."
 
-    _joblib_dump, _joblib_load, DictVectorizer, LogisticRegression = _get_sklearn()
+    from sklearn.ensemble import RandomForestClassifier
 
-    rows = []
-    labels = []
+    _joblib_dump, _joblib_load, DictVectorizer, _LogisticRegression = _get_sklearn()
+
+    # ── Seed rows (pre-computed from diverse traffic profiles) ──────────────
+    seed_rows, seed_labels = _load_seed_rows()
+
+    # ── KB rows labeled by the user ─────────────────────────────────────────
+    kb_rows: list[dict] = []
+    kb_labels: list[str] = []
     for label in ("safe", "malicious"):
         for entry in kb.get(label, []):
-            rows.append(_vectorize_features(entry.get("features", {})))
-            labels.append(label)
+            kb_rows.append(_vectorize_features(entry.get("features", {})))
+            kb_labels.append(label)
 
-    if len(set(labels)) < 2 or len(labels) < 2:
+    # Merge: user KB is appended after seed rows so it gets at least equal weight.
+    # Duplicate the KB rows to give them a 3× weight boost relative to seed.
+    rows = seed_rows + kb_rows * 3
+    labels = seed_labels + kb_labels * 3
+
+    # Need both classes to train
+    if len(set(labels)) < 2:
         return None, "Need at least one safe and one malware sample to train."
 
     vectorizer = DictVectorizer(sparse=True)
     X = vectorizer.fit_transform(rows)
 
-    model = LogisticRegression(
-        max_iter=1000,
+    model = RandomForestClassifier(
+        n_estimators=120,
+        max_depth=14,
         class_weight="balanced",
         random_state=42,
+        n_jobs=-1,
     )
     model.fit(X, labels)
     return {
         "backend": "cpu",
         "model": model,
         "vectorizer": vectorizer,
+        "seed_count": len(seed_rows),
+        "kb_count": len(kb_rows),
     }, None
 
 
@@ -1659,6 +2279,9 @@ def _save_local_model(model_bundle) -> None:
 
 
 def _load_local_model():
+    # Provision the baseline model on first run if the user has no model yet
+    _bootstrap_baseline_model()
+
     if not _check_sklearn() or not os.path.exists(MODEL_FILE):
         return None
 
@@ -3300,6 +3923,9 @@ class PCAPSentryApp:
         self.llm_endpoint_var = tk.StringVar(value=self.settings.get("llm_endpoint", ""))
         self.llm_api_key_var = tk.StringVar(value=self.settings.get("llm_api_key", ""))
         self.otx_api_key_var = tk.StringVar(value=self.settings.get("otx_api_key", ""))
+        self.abuseipdb_api_key_var = tk.StringVar(value=self.settings.get("abuseipdb_api_key", ""))
+        self.greynoise_api_key_var = tk.StringVar(value=self.settings.get("greynoise_api_key", ""))
+        self.virustotal_api_key_var = tk.StringVar(value=self.settings.get("virustotal_api_key", ""))
         self.llm_test_status_var = tk.StringVar(value="Not tested")
         self.llm_test_status_label = None
         self.llm_header_indicator = None
@@ -3334,6 +3960,7 @@ class PCAPSentryApp:
         self.current_sample_info = None
         self.current_verdict = None
         self.current_risk_score = None
+        self._last_export_data = None
         # self.last_analysis_stats removed (refine/contextual questions feature removed)
         self.packet_base_time = None
         self.busy_count = 0
@@ -3406,10 +4033,8 @@ class PCAPSentryApp:
         self._build_tabs()
         self._build_status()
 
-        # Restore chat history from last session
-        self.chat_history = self.settings.get("chat_history", [])
-        if self.chat_history and hasattr(self, "chat_text") and self.chat_text:
-            self.root.after(500, self._restore_chat_history)
+        # Chat history is intentionally not restored between sessions
+        self.chat_history = []
 
         if APP_DATA_FALLBACK_NOTICE and not self.settings.get("app_data_notice_shown"):
             self.root.after(200, self._show_app_data_notice)
@@ -3476,9 +4101,6 @@ class PCAPSentryApp:
             except Exception:
                 pass
 
-            # Capture chat history (limit to last 100 messages to avoid file bloat)
-            chat_history_snapshot = self.chat_history[-100:] if len(self.chat_history) > 100 else self.chat_history
-
             # Capture last used file paths
             last_safe_path: str = self.safe_path_var.get().strip() if self.safe_path_var else ""
             last_mal_path: str = self.mal_path_var.get().strip() if self.mal_path_var else ""
@@ -3498,12 +4120,14 @@ class PCAPSentryApp:
                 "llm_endpoint": self.llm_endpoint_var.get().strip(),
                 "llm_api_key": self.llm_api_key_var.get().strip(),
                 "otx_api_key": self.otx_api_key_var.get().strip(),
+                "abuseipdb_api_key": self.abuseipdb_api_key_var.get().strip(),
+                "greynoise_api_key": self.greynoise_api_key_var.get().strip(),
+                "virustotal_api_key": self.virustotal_api_key_var.get().strip(),
                 "llm_auto_detect": self.settings.get("llm_auto_detect", True),
                 "theme": self.theme_var.get().strip().lower() or "system",
                 "app_data_notice_shown": bool(self.settings.get("app_data_notice_shown")),
                 "window_geometry": window_geometry,
                 "selected_tab": selected_tab_index,
-                "chat_history": chat_history_snapshot,
                 "last_safe_path": last_safe_path,
                 "last_mal_path": last_mal_path,
                 "last_target_path": last_target_path,
@@ -3804,6 +4428,7 @@ class PCAPSentryApp:
         )
         file_menu.add_separator()
         file_menu.add_command(label="Import IoC Feed...", command=self._browse_ioc)
+        file_menu.add_command(label="Export Results as JSON...", command=self._export_results_json)
         file_menu.add_separator()
         file_menu.add_command(label="Preferences...", command=self._open_preferences, accelerator="Ctrl+,")
         file_menu.add_command(label="LLM Settings...", command=self._open_llm_settings)
@@ -4072,229 +4697,266 @@ class PCAPSentryApp:
         window = tk.Toplevel(self.root)
         window.title("Preferences")
         window.resizable(True, True)
-        window.geometry("750x650")
-        window.minsize(700, 600)
+        window.geometry("780x620")
+        window.minsize(700, 560)
         window.configure(bg=self.colors["bg"])
         self._set_dark_titlebar(window)
 
-        # Scrollable container
-        canvas = tk.Canvas(window, bg=self.colors["bg"], highlightthickness=0)
-        scrollbar = ttk.Scrollbar(window, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        nb = ttk.Notebook(window)
+        nb.pack(fill=tk.BOTH, expand=True)
 
-        scrollable_frame.bind("<Configure>", lambda _: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # ── General tab ──────────────────────────────────────────────────────
+        gen_frame = ttk.Frame(nb, padding=16)
+        nb.add(gen_frame, text="  General  ")
 
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Enable mouse wheel scrolling (widget-scoped, not global)
-        def _on_mousewheel(event) -> None:
-            try:
-                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-            except tk.TclError:
-                pass  # Widget destroyed, ignore scroll event
-
-        def _bind_mousewheel(_event) -> None:
-            canvas.bind("<MouseWheel>", _on_mousewheel)
-
-        def _unbind_mousewheel(_event) -> None:
-            canvas.unbind("<MouseWheel>")
-
-        canvas.bind("<Enter>", _bind_mousewheel)
-        canvas.bind("<Leave>", _unbind_mousewheel)
-
-        frame = ttk.Frame(scrollable_frame, padding=16)
-        frame.pack(fill=tk.BOTH, expand=True)
-
-        ttk.Label(frame, text="Preferences", style="Heading.TLabel").grid(
-            row=0, column=0, sticky="w", columnspan=3, pady=(0, 8)
+        gr = 0
+        ttk.Label(gen_frame, text="General", style="Heading.TLabel").grid(
+            row=gr, column=0, sticky="w", columnspan=3, pady=(0, 8)
         )
-
-        ttk.Label(frame, text="Theme:").grid(row=1, column=0, sticky="w", pady=4)
-        theme_combo = ttk.Combobox(frame, textvariable=self.theme_var, values=["system", "dark", "light"], width=10)
+        gr += 1
+        ttk.Label(gen_frame, text="Theme:").grid(row=gr, column=0, sticky="w", pady=4)
+        theme_combo = ttk.Combobox(gen_frame, textvariable=self.theme_var, values=["system", "dark", "light"], width=10)
         theme_combo.state(["readonly"])
-        theme_combo.grid(row=1, column=1, sticky="w", pady=4)
-        ttk.Label(frame, text="(applies after restart)", style="Hint.TLabel").grid(row=1, column=2, sticky="w", pady=4)
-
-        ttk.Label(frame, text="Max packets for visuals:").grid(row=2, column=0, sticky="w", pady=4)
-        max_rows_spin = ttk.Spinbox(
-            frame,
-            from_=10000,
-            to=500000,
-            increment=10000,
-            textvariable=self.max_rows_var,
-            width=10,
+        theme_combo.grid(row=gr, column=1, sticky="w", pady=4)
+        ttk.Label(gen_frame, text="(applies after restart)", style="Hint.TLabel").grid(
+            row=gr, column=2, sticky="w", pady=4
         )
-        max_rows_spin.grid(row=2, column=1, sticky="w", pady=4)
+        gr += 1
+        ttk.Label(gen_frame, text="Max packets for visuals:").grid(row=gr, column=0, sticky="w", pady=4)
+        max_rows_spin = ttk.Spinbox(
+            gen_frame, from_=10000, to=500000, increment=10000, textvariable=self.max_rows_var, width=10
+        )
+        max_rows_spin.grid(row=gr, column=1, sticky="w", pady=4)
         self._help_icon_grid(
-            frame,
+            gen_frame,
             "Controls how many packets are loaded for charts and the packet table. "
             "Higher values give a more complete picture but use more RAM. "
             "This does NOT affect the analysis verdict.",
-            row=2,
+            row=gr,
             column=2,
             sticky="w",
         )
-
+        gr += 1
         ttk.Checkbutton(
-            frame, text="Parse HTTP payloads", variable=self.parse_http_var, style="Quiet.TCheckbutton"
-        ).grid(row=3, column=0, sticky="w", pady=4, columnspan=2)
+            gen_frame, text="Parse HTTP payloads", variable=self.parse_http_var, style="Quiet.TCheckbutton"
+        ).grid(row=gr, column=0, sticky="w", pady=4, columnspan=2)
         self._help_icon_grid(
-            frame,
-            "Extracts HTTP request details (method, host, URL path) from unencrypted "
-            "web traffic. Useful for seeing exactly what URLs were visited. "
-            "May slightly slow parsing on very large captures.",
-            row=3,
+            gen_frame,
+            "Extracts HTTP request details (method, host, URL path) from unencrypted web traffic. Useful for seeing exactly what URLs were visited. May slightly slow parsing on very large captures.",
+            row=gr,
             column=2,
             sticky="w",
         )
-
+        gr += 1
         ttk.Checkbutton(
-            frame,
+            gen_frame,
             text="High memory mode (load PCAP into RAM)",
             variable=self.use_high_memory_var,
             style="Quiet.TCheckbutton",
-        ).grid(row=4, column=0, sticky="w", pady=4, columnspan=2)
+        ).grid(row=gr, column=0, sticky="w", pady=4, columnspan=2)
         self._help_icon_grid(
-            frame,
-            "Loads the entire PCAP file into RAM before parsing. "
-            "This is faster for smaller files (under ~500 MB) but uses more memory. "
-            "For very large captures, leave this off to use streaming mode instead.",
-            row=4,
+            gen_frame,
+            "Loads the entire PCAP file into RAM before parsing. This is faster for smaller files (under ~500 MB) but uses more memory. For very large captures, leave this off to use streaming mode instead.",
+            row=gr,
             column=2,
             sticky="w",
         )
-
+        gr += 1
         ttk.Checkbutton(
-            frame,
+            gen_frame,
             text="Turbo parse (fast raw parsing for large files)",
             variable=self.turbo_parse_var,
             style="Quiet.TCheckbutton",
-        ).grid(row=5, column=0, sticky="w", pady=4, columnspan=2)
+        ).grid(row=gr, column=0, sticky="w", pady=4, columnspan=2)
         self._help_icon_grid(
-            frame,
-            "Parses IP/TCP/UDP headers directly from raw bytes instead of full "
-            "Scapy dissection. Typically 5-15\u00d7 faster for large captures (>50 MB). "
-            "Only uses Scapy for DNS and TLS ClientHello packets that need deep inspection. "
-            "Disable if you see missing data in results.",
-            row=5,
+            gen_frame,
+            "Parses IP/TCP/UDP headers directly from raw bytes instead of full Scapy dissection. Typically 5-15\u00d7 faster for large captures (>50 MB). Only uses Scapy for DNS and TLS ClientHello packets that need deep inspection. Disable if you see missing data in results.",
+            row=gr,
             column=2,
             sticky="w",
         )
-
+        gr += 1
         ttk.Checkbutton(
-            frame, text="Enable local ML model", variable=self.use_local_model_var, style="Quiet.TCheckbutton"
-        ).grid(row=6, column=0, sticky="w", pady=4, columnspan=2)
+            gen_frame, text="Enable local ML model", variable=self.use_local_model_var, style="Quiet.TCheckbutton"
+        ).grid(row=gr, column=0, sticky="w", pady=4, columnspan=2)
         self._help_icon_grid(
-            frame,
-            "Uses a locally trained machine learning model (scikit-learn) for an additional "
-            "verdict alongside the heuristic/knowledge-base scoring. Requires scikit-learn to be "
-            "installed and at least some labeled training data in the knowledge base.",
-            row=6,
+            gen_frame,
+            "Uses a locally trained machine learning model (scikit-learn) for an additional verdict alongside the heuristic/knowledge-base scoring. Requires scikit-learn to be installed and at least some labeled training data in the knowledge base.",
+            row=gr,
             column=2,
             sticky="w",
         )
-
-        # OTX API Key
-        ttk.Label(frame, text="AlienVault OTX API Key:").grid(row=7, column=0, sticky="w", pady=4)
-
-        # Entry and button on same row
-        otx_key_row = ttk.Frame(frame)
-        otx_key_row.grid(row=7, column=1, sticky="w", pady=4)
-        otx_key_entry = ttk.Entry(otx_key_row, textvariable=self.otx_api_key_var, width=40, show="\u2022")
-        otx_key_entry.pack(side=tk.LEFT, padx=(0, 4))
-        self._add_clear_x(otx_key_entry, self.otx_api_key_var)
-        verify_btn = ttk.Button(otx_key_row, text="Verify", style="Secondary.TButton", command=self._verify_otx_key)
-        verify_btn.pack(side=tk.LEFT, padx=(0, 4))
-
-        # Status label on row below
-        self._otx_verify_label = tk.Label(
-            frame,
-            text=" ",
-            font=("Segoe UI", 9),
-            anchor="w",
-            width=30,
-            bg=self.colors.get("bg", "#0d1117"),
-            fg=self.colors.get("muted", "#8b949e"),
-        )
-        self._otx_verify_label.grid(row=8, column=1, sticky="w", pady=(0, 4))
-
-        self._help_icon_grid(
-            frame,
-            "Optional API key for AlienVault OTX threat intelligence. "
-            "Provides higher rate limits and more detailed threat data. "
-            "Get your free key at otx.alienvault.com. Leave blank to use public endpoints.",
-            row=7,
-            column=2,
-            sticky="w",
-        )
-
+        gr += 1
         offline_check = ttk.Checkbutton(
-            frame,
+            gen_frame,
             text="Offline mode (disable threat intelligence & cloud LLMs)",
             variable=self.offline_mode_var,
             style="Quiet.TCheckbutton",
             command=self._on_offline_mode_changed,
         )
-        offline_check.grid(row=9, column=0, sticky="w", pady=4, columnspan=2)
+        offline_check.grid(row=gr, column=0, sticky="w", pady=4, columnspan=2)
         self._help_icon_grid(
-            frame,
-            "Disables online threat intelligence lookups (AlienVault OTX, AbuseIPDB, etc.) "
-            "and cloud LLM providers. "
-            "Analysis will be faster and work without an internet connection, but you lose the "
-            "ability to check IPs/domains against live public threat feeds "
-            "and cannot use cloud-based LLM providers. Configure LLM settings via File → LLM Settings. "
-            "Use the LLM button in the header to quickly toggle LLM on/off.",
-            row=9,
+            gen_frame,
+            "Disables online threat intelligence lookups (AlienVault OTX, AbuseIPDB, etc.) and cloud LLM providers. Analysis will be faster and work without an internet connection, but you lose the ability to check IPs/domains against live public threat feeds and cannot use cloud-based LLM providers. Configure LLM settings via File \u2192 LLM Settings. Use the LLM button in the header to quickly toggle LLM on/off.",
+            row=gr,
             column=2,
             sticky="w",
         )
-
+        gr += 1
         ttk.Checkbutton(
-            frame,
+            gen_frame,
             text="Multithreaded analysis (faster, uses more CPU)",
             variable=self.use_multithreading_var,
             style="Quiet.TCheckbutton",
-        ).grid(row=10, column=0, sticky="w", pady=4, columnspan=2)
+        ).grid(row=gr, column=0, sticky="w", pady=4, columnspan=2)
         self._help_icon_grid(
-            frame,
-            "Runs analysis tasks in parallel using multiple threads. "
-            "This can significantly speed up analysis on multi-core systems. "
-            "Disable if you experience stability issues or want to reduce CPU usage.",
-            row=10,
+            gen_frame,
+            "Runs analysis tasks in parallel using multiple threads. This can significantly speed up analysis on multi-core systems. Disable if you experience stability issues or want to reduce CPU usage.",
+            row=gr,
             column=2,
             sticky="w",
         )
-
-        # Backup directory row with improved spacing
-
-        ttk.Label(frame, text="Backup directory:").grid(row=11, column=0, sticky="w", pady=4)
-        backup_entry = ttk.Entry(frame, textvariable=self.backup_dir_var, width=60)
-        backup_entry.grid(row=11, column=1, sticky="ew", pady=4, columnspan=5)
+        gr += 1
+        ttk.Label(gen_frame, text="Backup directory:").grid(row=gr, column=0, sticky="w", pady=4)
+        backup_entry = ttk.Entry(gen_frame, textvariable=self.backup_dir_var, width=50)
+        backup_entry.grid(row=gr, column=1, sticky="ew", pady=4, columnspan=2)
         self._add_clear_x(backup_entry, self.backup_dir_var)
-        frame.grid_columnconfigure(1, weight=1)
+        gen_frame.grid_columnconfigure(1, weight=1)
+        gr += 1
+        ttk.Button(gen_frame, text="Browse\u2026", style="Secondary.TButton", command=self._browse_backup_dir).grid(
+            row=gr, column=1, sticky="w", pady=(0, 4)
+        )
 
-        # Button row under backup directory
-        button_frame = ttk.Frame(frame)
-        button_frame.grid(row=12, column=1, columnspan=5, sticky="w", pady=(4, 4))
-        ttk.Button(button_frame, text="Browse", style="Secondary.TButton", command=self._browse_backup_dir).pack(
+        # ── API Keys tab ──────────────────────────────────────────────────────
+        api_outer = ttk.Frame(nb)
+        nb.add(api_outer, text="  API Keys  ")
+
+        api_canvas = tk.Canvas(api_outer, bg=self.colors["bg"], highlightthickness=0)
+        api_scrollbar = ttk.Scrollbar(api_outer, orient="vertical", command=api_canvas.yview)
+        api_scrollable = ttk.Frame(api_canvas)
+        api_scrollable.bind("<Configure>", lambda _: api_canvas.configure(scrollregion=api_canvas.bbox("all")))
+        api_canvas.create_window((0, 0), window=api_scrollable, anchor="nw")
+        api_canvas.configure(yscrollcommand=api_scrollbar.set)
+        api_canvas.pack(side="left", fill="both", expand=True)
+        api_scrollbar.pack(side="right", fill="y")
+
+        def _bind_api_mw(_e):
+            api_canvas.bind("<MouseWheel>", lambda e: api_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+
+        def _unbind_api_mw(_e):
+            api_canvas.unbind("<MouseWheel>")
+
+        api_canvas.bind("<Enter>", _bind_api_mw)
+        api_canvas.bind("<Leave>", _unbind_api_mw)
+
+        api_frame = ttk.Frame(api_scrollable, padding=16)
+        api_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(api_frame, text="API Keys", style="Heading.TLabel").pack(anchor="w", pady=(0, 4))
+        ttk.Label(
+            api_frame,
+            text="Keys are stored in Windows Credential Manager \u2014 never in plain text files.",
+            style="Hint.TLabel",
+        ).pack(anchor="w", pady=(0, 12))
+
+        def _api_section(
+            title: str,
+            url_hint: str,
+            var: tk.StringVar,
+            status_attr: str,
+            verify_cmd,
+            usage_service: str = "",
+            daily_limit: int = 0,
+        ) -> None:
+            ttk.Separator(api_frame, orient="horizontal").pack(fill="x", pady=(0, 8))
+            ttk.Label(api_frame, text=title).pack(anchor="w")
+            row_f = ttk.Frame(api_frame)
+            row_f.pack(anchor="w", pady=(4, 2))
+            entry = ttk.Entry(row_f, textvariable=var, width=44, show="\u2022")
+            entry.pack(side=tk.LEFT, padx=(0, 4))
+            self._add_clear_x(entry, var)
+            ttk.Button(row_f, text="Verify", style="Secondary.TButton", command=verify_cmd).pack(side=tk.LEFT)
+            status_lbl = tk.Label(
+                api_frame,
+                text=" ",
+                font=("Segoe UI", 9),
+                anchor="w",
+                bg=self.colors.get("bg", "#0d1117"),
+                fg=self.colors.get("muted", "#8b949e"),
+            )
+            status_lbl.pack(anchor="w", pady=(0, 2))
+            hint_text = url_hint
+            if usage_service and daily_limit > 0:
+                try:
+                    from threat_intelligence import get_api_usage
+
+                    used = get_api_usage(usage_service)
+                    hint_text = f"{url_hint}\n      Used today: {used:,} / {daily_limit:,}"
+                except Exception:
+                    pass
+            ttk.Label(api_frame, text=hint_text, style="Hint.TLabel").pack(anchor="w", pady=(0, 8))
+            setattr(self, status_attr, status_lbl)
+
+        _api_section(
+            "AlienVault OTX",
+            "Free key at otx.alienvault.com \u00b7 enhanced pulse data & higher rate limits",
+            self.otx_api_key_var,
+            "_otx_verify_label",
+            self._verify_otx_key,
+        )
+        _api_section(
+            "AbuseIPDB",
+            "Free key at abuseipdb.com \u00b7 1,000 IP checks/day with full confidence scores",
+            self.abuseipdb_api_key_var,
+            "_abuseipdb_verify_label",
+            self._verify_abuseipdb_key,
+            usage_service="abuseipdb",
+            daily_limit=1000,
+        )
+        _api_section(
+            "GreyNoise Community",
+            "Free key at greynoise.io \u00b7 distinguishes targeted attacks from internet background noise",
+            self.greynoise_api_key_var,
+            "_greynoise_verify_label",
+            self._verify_greynoise_key,
+        )
+        _api_section(
+            "VirusTotal",
+            "Free key at virustotal.com \u00b7 500 req/day \u00b7 70+ AV engine consensus on IPs & domains",
+            self.virustotal_api_key_var,
+            "_virustotal_verify_label",
+            self._verify_virustotal_key,
+            usage_service="virustotal",
+            daily_limit=500,
+        )
+
+        # ── Bottom button row ──────────────────────────────────────────────────
+        ttk.Separator(window, orient="horizontal").pack(fill="x")
+        btn_row = ttk.Frame(window, padding=(16, 8, 16, 8))
+        btn_row.pack(fill="x")
+        ttk.Button(btn_row, text="Save", command=lambda: self._save_preferences(window)).pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(btn_row, text="Cancel", style="Secondary.TButton", command=window.destroy).pack(
             side=tk.LEFT, padx=(0, 4)
         )
-        ttk.Button(button_frame, text="Save", command=lambda: self._save_preferences(window)).pack(
-            side=tk.LEFT, padx=(0, 4)
-        )
-        ttk.Button(button_frame, text="Cancel", style="Secondary.TButton", command=window.destroy).pack(side=tk.LEFT)
-
-        # Reset to defaults button
-        ttk.Button(frame, text="Reset to Defaults", style="Danger.TButton", command=self._reset_preferences).grid(
-            row=13, column=1, columnspan=5, sticky="w", pady=(4, 0)
+        ttk.Button(btn_row, text="Reset to Defaults", style="Danger.TButton", command=self._reset_preferences).pack(
+            side=tk.LEFT
         )
 
         window.grab_set()
 
     def _save_preferences(self, window) -> None:
+        # Explicit user save: if a key field was intentionally cleared, remove from keyring
+        if _keyring_available():
+            if not self.otx_api_key_var.get().strip():
+                _delete_otx_api_key()
+            if not self.llm_api_key_var.get().strip():
+                _delete_api_key()
+            if not self.abuseipdb_api_key_var.get().strip():
+                _delete_abuseipdb_api_key()
+            if not self.greynoise_api_key_var.get().strip():
+                _delete_greynoise_api_key()
+            if not self.virustotal_api_key_var.get().strip():
+                _delete_virustotal_api_key()
         self._save_settings_from_vars()
         self.root_title: str = self._get_window_title()
         self.root.title(self.root_title)
@@ -4324,6 +4986,9 @@ class PCAPSentryApp:
             "llm_endpoint": self.llm_endpoint_var.get().strip(),
             "llm_api_key": self.llm_api_key_var.get().strip(),
             "otx_api_key": self.otx_api_key_var.get().strip(),
+            "abuseipdb_api_key": self.abuseipdb_api_key_var.get().strip(),
+            "greynoise_api_key": self.greynoise_api_key_var.get().strip(),
+            "virustotal_api_key": self.virustotal_api_key_var.get().strip(),
             "llm_auto_detect": self.settings.get("llm_auto_detect", True),
             "theme": self.theme_var.get().strip().lower() or "system",
             "app_data_notice_shown": bool(self.settings.get("app_data_notice_shown")),
@@ -4366,6 +5031,9 @@ class PCAPSentryApp:
         self.llm_endpoint_var.set(defaults.get("llm_endpoint", ""))
         self.llm_api_key_var.set(defaults.get("llm_api_key", ""))
         self.otx_api_key_var.set(defaults.get("otx_api_key", ""))
+        self.abuseipdb_api_key_var.set(defaults.get("abuseipdb_api_key", ""))
+        self.greynoise_api_key_var.set(defaults.get("greynoise_api_key", ""))
+        self.virustotal_api_key_var.set(defaults.get("virustotal_api_key", ""))
         self.theme_var.set(defaults["theme"])
         self._save_settings_from_vars()
 
@@ -5306,6 +5974,51 @@ class PCAPSentryApp:
         container = ttk.Frame(self.train_tab, padding=14)
         container.pack(fill=tk.BOTH, expand=True)
 
+        # ── Quick-label current analysis ───────────────────────────────────
+        quick_frame: ttk.Labelframe = ttk.LabelFrame(container, text="  \u26a1  Label Current Analysis  ", padding=12)
+        quick_frame.pack(fill=tk.X, pady=(0, 10))
+        self._help_icon(
+            quick_frame,
+            "After running an analysis on the Analyze tab, use these buttons to instantly\n"
+            "label that capture and add its features to the knowledge base — no re-parsing\n"
+            "needed.  The more examples you label, the better the model becomes.\n\n"
+            "  Safe       \u2014 normal, harmless traffic\n"
+            "  Unsure     \u2014 flag for later review\n"
+            "  Malicious  \u2014 confirmed malware or attack traffic",
+        )
+        self._quick_label_info_var = tk.StringVar(
+            value="No analysis loaded \u2014 run an analysis on the Analyze tab first."
+        )
+        ttk.Label(quick_frame, textvariable=self._quick_label_info_var, style="Hint.TLabel").pack(
+            anchor="w", pady=(0, 8)
+        )
+        ql_btn_row = ttk.Frame(quick_frame)
+        ql_btn_row.pack(anchor="w")
+        self.ql_safe_btn = ttk.Button(
+            ql_btn_row,
+            text="\u2713  Label as Safe",
+            command=lambda: self._label_current_as("safe"),
+            state=tk.DISABLED,
+        )
+        self.ql_safe_btn.pack(side=tk.LEFT, padx=(0, 6))
+        self.ql_unsure_btn = ttk.Button(
+            ql_btn_row,
+            text="?  Label as Unsure",
+            style="Secondary.TButton",
+            command=lambda: self._label_current_as("unsure"),
+            state=tk.DISABLED,
+        )
+        self.ql_unsure_btn.pack(side=tk.LEFT, padx=(0, 6))
+        self.ql_mal_btn = ttk.Button(
+            ql_btn_row,
+            text="\u2717  Label as Malicious",
+            style="Danger.TButton",
+            command=lambda: self._label_current_as("malicious"),
+            state=tk.DISABLED,
+        )
+        self.ql_mal_btn.pack(side=tk.LEFT)
+
+        # ── Known Safe PCAP (existing) ─────────────────────────────────────
         safe_frame: ttk.Labelframe = ttk.LabelFrame(container, text="  Known Safe PCAP  ", padding=12)
         safe_frame.pack(fill=tk.X, pady=10)
         self._help_icon(
@@ -5339,6 +6052,7 @@ class PCAPSentryApp:
             anchor=tk.W, padx=16, pady=(0, 4)
         )
 
+        # ── Known Malware PCAP (existing) ──────────────────────────────────
         mal_frame: ttk.Labelframe = ttk.LabelFrame(container, text="  Known Malware PCAP  ", padding=12)
         mal_frame.pack(fill=tk.X, pady=10)
         self._help_icon(
@@ -5373,6 +6087,88 @@ class PCAPSentryApp:
         ttk.Label(container, text="\u2913  You can also drag and drop a .pcap file here", style="Hint.TLabel").pack(
             anchor=tk.W, padx=16, pady=(0, 4)
         )
+
+        # ── Model status + retrain ─────────────────────────────────────────
+        model_frame: ttk.Labelframe = ttk.LabelFrame(container, text="  \U0001f9e0  Local Model  ", padding=12)
+        model_frame.pack(fill=tk.X, pady=(10, 0))
+        self._help_icon(
+            model_frame,
+            "The local ML model is trained on your labeled examples.\n\n"
+            "  \u2022 You need at least 1 safe + 1 malicious sample to train.\n"
+            "  \u2022 Enable the model here, then re-run analyses to use it.\n"
+            "  \u2022 'Retrain Now' rebuilds the model from all KB entries.\n"
+            "  \u2022 More balanced examples = better accuracy.",
+        )
+        self._model_status_var = tk.StringVar(value="")
+        ttk.Label(model_frame, textvariable=self._model_status_var, style="Hint.TLabel").pack(anchor="w", pady=(0, 8))
+        model_btn_row = ttk.Frame(model_frame)
+        model_btn_row.pack(anchor="w")
+        ttk.Button(
+            model_btn_row,
+            text="Retrain Now",
+            command=self._retrain_model_now,
+        ).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Checkbutton(
+            model_btn_row,
+            text="Enable local ML model (uses predictions in analysis)",
+            variable=self.use_local_model_var,
+            style="Quiet.TCheckbutton",
+        ).pack(side=tk.LEFT)
+
+        # ── KB Browser ────────────────────────────────────────────────────
+        browser_frame: ttk.Labelframe = ttk.LabelFrame(container, text="  Knowledge Base Entries  ", padding=12)
+        browser_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        self._help_icon(
+            browser_frame,
+            "All labeled captures in the knowledge base.\n\n"
+            "  \u2022 Select an entry and click 'Delete Selected' to remove it.\n"
+            "  \u2022 Deleting an entry will retrain the model automatically if\n"
+            "    the local model is enabled.\n"
+            "  \u2022 The model improves when you have a balanced mix of safe\n"
+            "    and malicious samples.",
+        )
+        browser_top = ttk.Frame(browser_frame)
+        browser_top.pack(fill=tk.X, pady=(0, 6))
+        self._kb_count_var = tk.StringVar(value="")
+        ttk.Label(browser_top, textvariable=self._kb_count_var, style="Hint.TLabel").pack(side=tk.LEFT)
+        ttk.Button(
+            browser_top,
+            text="Delete Selected",
+            style="DangerMuted.TButton",
+            command=self._delete_selected_kb_entry,
+        ).pack(side=tk.RIGHT)
+        ttk.Button(
+            browser_top,
+            text="Refresh",
+            style="Secondary.TButton",
+            command=self._refresh_kb_browser,
+        ).pack(side=tk.RIGHT, padx=(0, 6))
+
+        list_outer = ttk.Frame(browser_frame)
+        list_outer.pack(fill=tk.BOTH, expand=True)
+        kb_scroll = ttk.Scrollbar(list_outer, orient=tk.VERTICAL)
+        self.kb_browser_list = tk.Listbox(
+            list_outer,
+            yscrollcommand=kb_scroll.set,
+            selectmode=tk.SINGLE,
+            height=8,
+            font=("Courier New", 9),
+            bg=self.colors.get("bg_secondary", "#161b22"),
+            fg=self.colors.get("fg", "#c9d1d9"),
+            selectbackground=self.colors.get("accent", "#1f6feb"),
+            selectforeground="#ffffff",
+            activestyle="none",
+            borderwidth=0,
+            highlightthickness=1,
+            highlightcolor=self.colors.get("border", "#30363d"),
+        )
+        kb_scroll.config(command=self.kb_browser_list.yview)
+        kb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.kb_browser_list.pack(fill=tk.BOTH, expand=True)
+
+        # Initialise panels after everything is built
+        self._refresh_kb_browser()
+        self._refresh_model_status()
 
     def _build_analyze_tab(self) -> None:
         # Create a scrollable container using Canvas
@@ -5533,6 +6329,7 @@ class PCAPSentryApp:
         self.result_text = tk.Text(result_frame, height=12)
         self._style_text(self.result_text)
         self.result_text.pack(fill=tk.BOTH, expand=True)
+        self._bind_text_context_menu(self.result_text)
 
         flow_frame: ttk.Labelframe = ttk.LabelFrame(self.results_tab, text="  Flow Summary  ", padding=12)
         flow_frame.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
@@ -5578,6 +6375,7 @@ class PCAPSentryApp:
             "that contributed to the risk score.",
         )
         self.why_text.pack(fill=tk.BOTH, expand=True)
+        self._bind_text_context_menu(self.why_text)
 
         why_controls = ttk.Frame(self.why_tab)
         why_controls.pack(fill=tk.X, pady=(6, 0))
@@ -5610,6 +6408,7 @@ class PCAPSentryApp:
 
         self.education_text = tk.Text(edu_frame, height=12, wrap=tk.WORD)
         self._style_text(self.education_text)
+        self._bind_text_context_menu(self.education_text)
         self.education_text.insert(
             tk.END,
             "Run an analysis on a PCAP file to see a beginner-friendly\n"
@@ -6688,6 +7487,48 @@ class PCAPSentryApp:
         self.root.clipboard_clear()
         self.root.clipboard_append(text)
         messagebox.showinfo("Wireshark Filters", "Filters copied to clipboard.")
+
+    def _export_results_json(self) -> None:
+        """Export the last analysis results to a JSON file."""
+        if not self._last_export_data:
+            messagebox.showinfo("Export Results", "No analysis results to export.  Run an analysis first.")
+            return
+        path: str = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Export Results as JSON",
+        )
+        if not path:
+            return
+        import json as _json
+
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                _json.dump(self._last_export_data, fh, indent=2, default=str)
+            messagebox.showinfo("Export Results", f"Results saved to:\n{path}")
+        except OSError as exc:
+            messagebox.showerror("Export Failed", f"Could not write file:\n{exc}")
+
+    def _bind_text_context_menu(self, widget: tk.Text) -> None:
+        """Attach a right-click copy/select-all context menu to a tk.Text widget."""
+        menu = tk.Menu(widget, tearoff=0)
+        menu.add_command(label="Copy", command=lambda: widget.event_generate("<<Copy>>"))
+        menu.add_command(
+            label="Select All",
+            command=lambda: (
+                widget.tag_add(tk.SEL, "1.0", tk.END),
+                widget.mark_set(tk.INSERT, "1.0"),
+                widget.see(tk.INSERT),
+            ),
+        )
+
+        def _show(event):
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+
+        widget.bind("<Button-3>", _show)
 
     def _browse_file(self, var) -> None:
         path: str = filedialog.askopenfilename(filetypes=[("PCAP files", "*.pcap *.pcapng"), ("All files", "*.*")])
@@ -8155,7 +8996,7 @@ class PCAPSentryApp:
         """Return True only if LLM is enabled AND connection was verified."""
         if not self._llm_is_enabled():
             return False
-        return self.llm_test_status_var.get().strip() in ("OK", "Auto")
+        return self.llm_test_status_var.get().strip() in ("OK", "Auto", "Ready")
 
     def _generate_contextual_questions(self, stats):
         """
@@ -8340,7 +9181,7 @@ class PCAPSentryApp:
                 text = "\u2718 LLM"
                 fg: str = self.colors.get("danger", "#f85149")
                 border: str = self.colors.get("danger", "#f85149")
-            elif status == "Auto":
+            elif status in ("Auto", "Ready"):
                 text = "\u2714 LLM"
                 fg: str = self.colors.get("accent", "#58a6ff")
                 border: str = self.colors.get("accent", "#58a6ff")
@@ -8805,6 +9646,160 @@ class PCAPSentryApp:
                 label.configure(text=f"✓ Valid ({message})", fg=self.colors.get("success", "#3fb950"))
             else:
                 label.configure(text=f"✗ {message}", fg=self.colors.get("danger", "#f85149"))
+
+        def _run() -> None:
+            result = _test()
+            self.root.after(0, lambda: _apply(result))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _verify_abuseipdb_key(self) -> None:
+        """Verify the AbuseIPDB API key by making a test request."""
+        label: object = getattr(self, "_abuseipdb_verify_label", None)
+        if not label:
+            return
+
+        key: str = self.abuseipdb_api_key_var.get().strip()
+        if not key:
+            label.configure(text="No key provided", fg=self.colors.get("warning", "#d29922"))
+            return
+
+        label.configure(text="Verifying...", fg=self.colors.get("accent", "#58a6ff"))
+
+        def _test() -> tuple[bool, str]:
+            try:
+                try:
+                    import requests
+                except ImportError:
+                    return False, "requests library not available"
+
+                url = "https://api.abuseipdb.com/api/v2/check"
+                headers: dict[str, str] = {"Key": key, "Accept": "application/json"}
+                params = {"ipAddress": "8.8.8.8", "maxAgeInDays": "1"}
+                response = requests.get(url, headers=headers, params=params, timeout=5)
+
+                if response.status_code == 200:
+                    return True, "Key valid"
+                if response.status_code == 401:
+                    return False, "Invalid API key"
+                if response.status_code == 429:
+                    return True, "Key valid (rate limited)"
+                return False, f"HTTP {response.status_code}"
+            except requests.exceptions.Timeout:
+                return False, "Connection timeout"
+            except requests.exceptions.ConnectionError:
+                return False, "Connection failed"
+            except Exception as e:
+                return False, str(e).split("\n")[0][:40]
+
+        def _apply(result) -> None:
+            success, message = result
+            if success:
+                label.configure(text=f"\u2713 {message}", fg=self.colors.get("success", "#3fb950"))
+            else:
+                label.configure(text=f"\u2717 {message}", fg=self.colors.get("danger", "#f85149"))
+
+        def _run() -> None:
+            result = _test()
+            self.root.after(0, lambda: _apply(result))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _verify_greynoise_key(self) -> None:
+        """Verify the GreyNoise Community API key by making a test request."""
+        label: object = getattr(self, "_greynoise_verify_label", None)
+        if not label:
+            return
+
+        key: str = self.greynoise_api_key_var.get().strip()
+        if not key:
+            label.configure(text="No key provided", fg=self.colors.get("warning", "#d29922"))
+            return
+
+        label.configure(text="Verifying...", fg=self.colors.get("accent", "#58a6ff"))
+
+        def _test() -> tuple[bool, str]:
+            try:
+                try:
+                    import requests
+                except ImportError:
+                    return False, "requests library not available"
+
+                url = "https://api.greynoise.io/v3/community/8.8.8.8"
+                headers: dict[str, str] = {"key": key}
+                response = requests.get(url, headers=headers, timeout=5)
+
+                if response.status_code == 200:
+                    return True, "Key valid"
+                if response.status_code == 401:
+                    return False, "Invalid API key"
+                if response.status_code == 429:
+                    return True, "Key valid (rate limited)"
+                return False, f"HTTP {response.status_code}"
+            except requests.exceptions.Timeout:
+                return False, "Connection timeout"
+            except requests.exceptions.ConnectionError:
+                return False, "Connection failed"
+            except Exception as e:
+                return False, str(e).split("\n")[0][:40]
+
+        def _apply(result) -> None:
+            success, message = result
+            if success:
+                label.configure(text=f"\u2713 {message}", fg=self.colors.get("success", "#3fb950"))
+            else:
+                label.configure(text=f"\u2717 {message}", fg=self.colors.get("danger", "#f85149"))
+
+        def _run() -> None:
+            result = _test()
+            self.root.after(0, lambda: _apply(result))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _verify_virustotal_key(self) -> None:
+        """Verify the VirusTotal API key by making a test request."""
+        label: object = getattr(self, "_virustotal_verify_label", None)
+        if not label:
+            return
+
+        key: str = self.virustotal_api_key_var.get().strip()
+        if not key:
+            label.configure(text="No key provided", fg=self.colors.get("warning", "#d29922"))
+            return
+
+        label.configure(text="Verifying...", fg=self.colors.get("accent", "#58a6ff"))
+
+        def _test() -> tuple[bool, str]:
+            try:
+                try:
+                    import requests
+                except ImportError:
+                    return False, "requests library not available"
+
+                url = "https://www.virustotal.com/api/v3/ip_addresses/8.8.8.8"
+                headers: dict[str, str] = {"x-apikey": key}
+                response = requests.get(url, headers=headers, timeout=5)
+
+                if response.status_code == 200:
+                    return True, "Key valid"
+                if response.status_code == 401:
+                    return False, "Invalid API key"
+                if response.status_code == 429:
+                    return True, "Key valid (rate limited)"
+                return False, f"HTTP {response.status_code}"
+            except requests.exceptions.Timeout:
+                return False, "Connection timeout"
+            except requests.exceptions.ConnectionError:
+                return False, "Connection failed"
+            except Exception as e:
+                return False, str(e).split("\n")[0][:40]
+
+        def _apply(result) -> None:
+            success, message = result
+            if success:
+                label.configure(text=f"\u2713 {message}", fg=self.colors.get("success", "#3fb950"))
+            else:
+                label.configure(text=f"\u2717 {message}", fg=self.colors.get("danger", "#f85149"))
 
         def _run() -> None:
             result = _test()
@@ -10893,6 +11888,9 @@ class PCAPSentryApp:
 
     def _save_llm_settings(self, window) -> None:
         """Save LLM settings and close dialog."""
+        # Explicit user save: if the API key field was intentionally cleared, remove from keyring
+        if _keyring_available() and not self.llm_api_key_var.get().strip():
+            _delete_api_key()
         self._save_settings_from_vars()
         self._update_llm_header_indicator()
         window.destroy()
@@ -11637,6 +12635,15 @@ class PCAPSentryApp:
                             lines.append(
                                 f"         AbuseIPDB confidence: {sources['abuseipdb']['abuse_confidence_score']}%"
                             )
+                        gn = sources.get("greynoise", {})
+                        if gn.get("classification"):
+                            lines.append(f"         GreyNoise: {gn.get('name', gn['classification'])}")
+                        vt = sources.get("virustotal", {})
+                        if vt.get("malicious", 0) > 0:
+                            lines.append(f"         VirusTotal: {vt['malicious']} engines flagged")
+                        tf = sources.get("threatfox", {})
+                        if tf.get("found") and tf.get("malware"):
+                            lines.append(f"         ThreatFox: {', '.join(tf['malware'])}")
                         lines.append("")
 
                 # -- Wireshark filter to isolate this exact flow --
@@ -12035,19 +13042,40 @@ class PCAPSentryApp:
                 output_lines.append("Flagged IPs (from public threat feeds):")
                 for ip_info in intel_data["risky_ips"][:5]:
                     output_lines.append(f"  - {ip_info['ip']}: risk score {ip_info['risk_score']:.0f}/100")
-                    if ip_info.get("sources", {}).get("otx"):
-                        otx_info = ip_info["sources"]["otx"]
-                        if otx_info.get("pulse_count"):
-                            output_lines.append(f"    (AlienVault OTX: {otx_info['pulse_count']} pulses)")
+                    src = ip_info.get("sources", {})
+                    if src.get("otx", {}).get("pulse_count"):
+                        output_lines.append(f"    (AlienVault OTX: {src['otx']['pulse_count']} pulses)")
+                    if src.get("abuseipdb", {}).get("confidence", 0) > 0:
+                        output_lines.append(
+                            f"    (AbuseIPDB: {src['abuseipdb']['confidence']}% confidence, {src['abuseipdb'].get('total_reports', 0)} reports)"
+                        )
+                    gn = src.get("greynoise", {})
+                    if gn.get("classification"):
+                        output_lines.append(f"    (GreyNoise: {gn.get('name', gn['classification'])})")
+                    vt = src.get("virustotal", {})
+                    if vt.get("malicious", 0) > 0:
+                        output_lines.append(
+                            f"    (VirusTotal: {vt['malicious']} malicious, {vt.get('suspicious', 0)} suspicious)"
+                        )
+                    tf = src.get("threatfox", {})
+                    if tf.get("found") and tf.get("malware"):
+                        output_lines.append(f"    (ThreatFox: {', '.join(tf['malware'])})")
 
             if intel_data.get("risky_domains"):
                 output_lines.append("Flagged Domains (from public threat feeds):")
                 for domain_info in intel_data["risky_domains"][:5]:
                     output_lines.append(f"  - {domain_info['domain']}: risk score {domain_info['risk_score']:.0f}/100")
-                    if domain_info.get("sources", {}).get("urlhaus"):
-                        urlhaus = domain_info["sources"]["urlhaus"]
-                        if urlhaus.get("found"):
-                            output_lines.append(f"    (URLhaus: {urlhaus.get('url_count', 0)} malicious URLs)")
+                    src = domain_info.get("sources", {})
+                    if src.get("urlhaus", {}).get("found"):
+                        output_lines.append(f"    (URLhaus: {src['urlhaus'].get('url_count', 0)} malicious URLs)")
+                    vt = src.get("virustotal", {})
+                    if vt.get("malicious", 0) > 0:
+                        output_lines.append(
+                            f"    (VirusTotal: {vt['malicious']} malicious, {vt.get('suspicious', 0)} suspicious)"
+                        )
+                    tf = src.get("threatfox", {})
+                    if tf.get("found") and tf.get("malware"):
+                        output_lines.append(f"    (ThreatFox: {', '.join(tf['malware'])})")
 
         output_lines.append("")
         output_lines.append("Suspicious Flows (heuristic)")
@@ -12249,10 +13277,33 @@ class PCAPSentryApp:
                     for ip_info in intel_data["risky_ips"][:3]:
                         risk = ip_info["risk_score"]
                         why_lines.append(f"    IP: {ip_info['ip']} — {risk:.0f}/100")
+                        src = ip_info.get("sources", {})
+                        if src.get("otx", {}).get("pulse_count"):
+                            why_lines.append(f"      OTX: {src['otx']['pulse_count']} threat pulses")
+                        if src.get("abuseipdb", {}).get("confidence", 0) > 0:
+                            why_lines.append(f"      AbuseIPDB: {src['abuseipdb']['confidence']}% abuse confidence")
+                        gn = src.get("greynoise", {})
+                        if gn.get("classification"):
+                            why_lines.append(f"      GreyNoise: {gn.get('name', gn['classification'])}")
+                        vt = src.get("virustotal", {})
+                        if vt.get("malicious", 0) > 0:
+                            why_lines.append(f"      VirusTotal: {vt['malicious']} engines flagged")
+                        tf = src.get("threatfox", {})
+                        if tf.get("found") and tf.get("malware"):
+                            why_lines.append(f"      ThreatFox: {', '.join(tf['malware'])}")
                 if intel_data.get("risky_domains"):
                     for domain_info in intel_data["risky_domains"][:3]:
                         risk = domain_info["risk_score"]
                         why_lines.append(f"    Domain: {domain_info['domain']} — {risk:.0f}/100")
+                        src = domain_info.get("sources", {})
+                        if src.get("urlhaus", {}).get("found"):
+                            why_lines.append(f"      URLhaus: {src['urlhaus'].get('url_count', 0)} malicious URLs")
+                        vt = src.get("virustotal", {})
+                        if vt.get("malicious", 0) > 0:
+                            why_lines.append(f"      VirusTotal: {vt['malicious']} engines flagged")
+                        tf = domain_info.get("sources", {}).get("threatfox", {})
+                        if tf.get("found") and tf.get("malware"):
+                            why_lines.append(f"      ThreatFox: {', '.join(tf['malware'])}")
                 why_lines.append("")
 
         why_lines.append("----------------------------------------")
@@ -12333,7 +13384,12 @@ class PCAPSentryApp:
                     from threat_intelligence import ThreatIntelligence
 
                     otx_key = self.settings.get("otx_api_key", "").strip() or None
-                    ti = ThreatIntelligence(otx_api_key=otx_key)
+                    ti = ThreatIntelligence(
+                        otx_api_key=otx_key,
+                        abuseipdb_api_key=self.settings.get("abuseipdb_api_key", "").strip() or None,
+                        greynoise_api_key=self.settings.get("greynoise_api_key", "").strip() or None,
+                        virustotal_api_key=self.settings.get("virustotal_api_key", "").strip() or None,
+                    )
                     if ti.is_available():
                         print("[DEBUG] Enriching stats with threat intelligence...")
 
@@ -12694,6 +13750,14 @@ class PCAPSentryApp:
             classifier_result = result["classifier_result"]
             self.current_verdict = result.get("verdict")
             self.current_risk_score = result.get("risk_score")
+            self._last_export_data = {
+                "verdict": result.get("verdict"),
+                "risk_score": result.get("risk_score"),
+                "threat_intel_findings": result.get("threat_intel_findings", {}),
+                "suspicious_flows": result.get("suspicious_flows", []),
+                "wireshark_filters": result.get("wireshark_filters", []),
+                "pcap_file": self.target_path_var.get(),
+            }
 
             self.current_df = df
             self.current_stats = stats
@@ -12747,6 +13811,7 @@ class PCAPSentryApp:
             self._update_packet_hints(df, stats, flow_df=flow_df_early)
 
             self.status_var.set("Done")
+            self._update_quick_label_panel()
 
             # Clear and populate flow table efficiently
             self.flow_table.delete(*self.flow_table.get_children())
@@ -12805,6 +13870,172 @@ class PCAPSentryApp:
             self.kb_cache = load_knowledge_base()
         return self.kb_cache
 
+    # ── Quick-label helpers ────────────────────────────────────────────────
+
+    def _update_quick_label_panel(self) -> None:
+        """Refresh the 'Label Current Analysis' info line and enable/disable buttons."""
+        if not hasattr(self, "ql_safe_btn"):
+            return  # Train tab not yet built
+        if not self.current_stats:
+            self._quick_label_info_var.set("No analysis loaded \u2014 run an analysis on the Analyze tab first.")
+            for btn in (self.ql_safe_btn, self.ql_unsure_btn, self.ql_mal_btn):
+                btn.configure(state=tk.DISABLED)
+            return
+
+        pcap_name = os.path.basename(self.target_path_var.get()) or "unknown"
+        verdict = self.current_verdict or "unknown"
+        risk = getattr(self, "current_risk_score", None)
+        risk_str = f"  \u2502  Risk {risk:.0f}%" if risk is not None else ""
+        self._quick_label_info_var.set(f"Loaded: {pcap_name}  \u2502  Verdict: {verdict}{risk_str}")
+        for btn in (self.ql_safe_btn, self.ql_unsure_btn, self.ql_mal_btn):
+            btn.configure(state=tk.NORMAL)
+
+    def _label_current_as(self, label: str) -> None:
+        """Label the currently loaded analysis stats and add to KB."""
+        if not self.current_stats:
+            messagebox.showwarning("No Analysis", "Run an analysis on the Analyze tab first.")
+            return
+        features = build_features(self.current_stats)
+        summary = summarize_stats(self.current_stats)
+        pcap_name = os.path.basename(self.target_path_var.get()) or "unknown"
+        title_map = {"safe": "Label as Safe", "unsure": "Label as Unsure", "malicious": "Label as Malicious"}
+        self._apply_label_to_kb(
+            label,
+            self.current_stats,
+            features,
+            f"{pcap_name}: {summary}",
+            title_map.get(label, "Label"),
+            f"Added current analysis ({pcap_name}) as '{label}' to the knowledge base.",
+        )
+
+    # ── KB browser helpers ─────────────────────────────────────────────────
+
+    def _refresh_kb_browser(self) -> None:
+        """Repopulate the KB browser listbox with current entries."""
+        if not hasattr(self, "kb_browser_list"):
+            return
+        kb = self.kb_cache if self.kb_cache is not None else load_knowledge_base()
+        self.kb_browser_list.delete(0, tk.END)
+        self._kb_browser_entries: list[dict] = []
+        for label_key in ("safe", "unsure", "malicious"):
+            for entry in kb.get(label_key, []):
+                self._kb_browser_entries.append({"label": label_key, "entry": entry})
+                ts = entry.get("timestamp", "")[:16].replace("T", " ") if entry.get("timestamp") else "no date"
+                pkts = ""
+                stats_blob = entry.get("stats") or {}
+                if isinstance(stats_blob, dict):
+                    pkt_count = stats_blob.get("total_packets") or stats_blob.get("packet_count", "")
+                    if pkt_count:
+                        pkts = f"  {int(pkt_count):,} pkts"
+                summary = (entry.get("summary") or "")[:60]
+                tag = f"[{label_key[:3]}]"
+                line = f"{tag:<6}  {ts}  {pkts:<12}  {summary}"
+                self.kb_browser_list.insert(tk.END, line)
+
+        total = len(self._kb_browser_entries)
+        n_safe = len(kb.get("safe", []))
+        n_mal = len(kb.get("malicious", []))
+        n_un = len(kb.get("unsure", []))
+        if hasattr(self, "_kb_count_var"):
+            self._kb_count_var.set(f"{total} entries  ({n_safe} safe / {n_mal} malicious / {n_un} unsure)")
+
+    def _delete_selected_kb_entry(self) -> None:
+        """Remove the selected KB browser entry from the knowledge base."""
+        if not hasattr(self, "kb_browser_list"):
+            return
+        selection = self.kb_browser_list.curselection()
+        if not selection:
+            messagebox.showinfo("No Selection", "Select an entry from the list first.")
+            return
+        idx = selection[0]
+        if not hasattr(self, "_kb_browser_entries") or idx >= len(self._kb_browser_entries):
+            return
+        item = self._kb_browser_entries[idx]
+        label_key: str = item["label"]
+        entry: dict = item["entry"]
+        ts = entry.get("timestamp", "")
+        if not messagebox.askyesno(
+            "Delete Entry",
+            f"Remove this [{label_key}] entry from {ts[:10] if ts else 'unknown date'}?\n\nThis cannot be undone.",
+        ):
+            return
+        kb = load_knowledge_base()
+        original_count = len(kb.get(label_key, []))
+        kb[label_key] = [e for e in kb.get(label_key, []) if e.get("timestamp") != ts]
+        if len(kb[label_key]) < original_count:
+            save_knowledge_base(kb)
+            self._invalidate_caches()
+            self._refresh_kb()
+            self._refresh_kb_browser()
+            self._refresh_model_status()
+            messagebox.showinfo("Deleted", "Entry removed from the knowledge base.")
+            if self.use_local_model_var.get():
+                self._retrain_model_now(silent=True)
+        else:
+            messagebox.showwarning("Not Found", "Could not locate the entry in the knowledge base.")
+
+    # ── Model status helpers ───────────────────────────────────────────────
+
+    def _refresh_model_status(self) -> None:
+        """Update the model status string in the Train tab."""
+        if not hasattr(self, "_model_status_var") or self._model_status_var is None:
+            return
+        kb = self.kb_cache if self.kb_cache is not None else load_knowledge_base()
+        n_safe = len(kb.get("safe", []))
+        n_mal = len(kb.get("malicious", []))
+        n_un = len(kb.get("unsure", []))
+        total = n_safe + n_mal + n_un
+        model_path = os.path.join(APP_DATA_DIR, "pcap_sentry_model.pkl")
+        if os.path.exists(model_path):
+            mtime = os.path.getmtime(model_path)
+            import datetime as _dt
+
+            trained_str = _dt.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+            model_info = f"Model file found  (last trained {trained_str})"
+        else:
+            model_info = "No model file yet \u2014 add at least 1 safe + 1 malicious sample, then click Retrain."
+        self._model_status_var.set(
+            f"KB: {total} entries ({n_safe} safe / {n_mal} malicious / {n_un} unsure)    {model_info}"
+        )
+
+    def _retrain_model_now(self, silent: bool = False) -> None:
+        """Retrain the local ML model from all current KB entries in a background thread."""
+        kb = load_knowledge_base()
+        n_safe = len(kb.get("safe", []))
+        n_mal = len(kb.get("malicious", []))
+        if n_safe < 1 or n_mal < 1:
+            if not silent:
+                messagebox.showwarning(
+                    "Not Enough Data",
+                    f"Need at least 1 safe and 1 malicious example to train.\n\n"
+                    f"Current KB: {n_safe} safe, {n_mal} malicious.",
+                )
+            return
+
+        def _do_retrain():
+            try:
+                bundle, err = _train_local_model(kb)
+                if bundle:
+                    _save_local_model(bundle)
+                    self.root.after(0, self._on_retrain_complete, True, None)
+                else:
+                    self.root.after(0, self._on_retrain_complete, False, err or "Training returned no model.")
+            except Exception as exc:
+                self.root.after(0, self._on_retrain_complete, False, str(exc))
+
+        if not silent:
+            self.status_var.set("Retraining local model\u2026")
+        threading.Thread(target=_do_retrain, daemon=True).start()
+
+    def _on_retrain_complete(self, success: bool, error: str | None) -> None:
+        """Called on the main thread after retraining finishes."""
+        self._refresh_model_status()
+        if success:
+            self.status_var.set("Local model retrained successfully.")
+        else:
+            self.status_var.set("Retrain failed.")
+            messagebox.showerror("Retrain Failed", error or "Unknown error during training.")
+
     def _invalidate_caches(self) -> None:
         """Invalidate all performance caches when KB changes"""
         self.kb_cache = None
@@ -12825,6 +14056,9 @@ class PCAPSentryApp:
         # Invalidate derived caches but keep kb_cache (we just refreshed it)
         self.normalizer_cache = None
         self.threat_intel_cache = None
+        # Keep Train tab panels in sync
+        self._refresh_kb_browser()
+        self._refresh_model_status()
 
     def _on_tab_changed(self, _event) -> None:
         self.sample_note_var.set("")

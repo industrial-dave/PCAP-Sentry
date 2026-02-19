@@ -92,6 +92,42 @@
 
 
 
+
+
+## 2026.02.19-5 - 2026-02-19
+- Minor tweaks and improvements
+## 2026.02.19-6 - 2026-02-19
+- **Pre-trained baseline model:** `generate_seed_data.py` produces `assets/pcap_sentry_baseline_model.pkl` (199 KB) trained on 146 synthetic but realistic traffic profiles across 13 classes (web browsing, office, streaming, VoIP, file transfer vs port scan, DDoS, C2 beacon, DNS tunnel, ransomware SMB, SSH brute-force, malware dropper, data exfiltration)
+- **Combined retraining:** `_train_local_model()` now merges seed rows + user KB entries (KB rows weighted 3×) and trains a `RandomForestClassifier` instead of `LogisticRegression`; model improves with every new labeled analysis
+- **First-run bootstrap:** `_bootstrap_baseline_model()` auto-copies the bundled `.pkl` to `APP_DATA_DIR` on first launch so analysis works out-of-the-box, without requiring any user labeling
+- **PyInstaller spec:** baseline model, SHA-256, and seed data JSON now bundled in the installer under `assets/`
+
+## 2026.02.19-5 - 2026-02-19
+- **Train tab — Quick-label panel:** New "Label Current Analysis" section at the top of the Train tab; after running any analysis, three one-click buttons (✓ Safe / ? Unsure / ✗ Malicious) instantly add its features to the KB without re-parsing
+- **Train tab — Model status panel:** Shows KB entry counts by label, model file last-trained timestamp, and a standalone "Retrain Now" button alongside the existing "Enable local ML model" toggle
+- **Train tab — KB browser:** Scrollable list of every KB entry (label, date, packet count, summary) with per-entry delete and a Refresh button; deleting an entry autoretrains the model when local ML is enabled
+- **Hooks:** Analysis callback updates the quick-label panel on completion; `_refresh_kb()` now syncs the KB browser and model status panels automatically
+
+## 2026.02.19-4 - 2026-02-19
+- **Education:** Expanded all 12 PATTERN_EDUCATION entries with: technical deep-dive, common malware families, on-the-machine host investigation steps, remediation actions, and external learning links (MITRE, SANS, Palo Alto, CISA)
+
+## 2026.02.19-3 - 2026-02-19
+- **ThreatFox:** Integrated abuse.ch ThreatFox IOC feed (no API key required) for IP and domain lookups
+- **GreyNoise:** Anonymous community queries now work without an API key (key still accepted for higher limits)
+- **Persistent TI cache:** `ti_cache.json` persists across restarts (1-hour TTL per entry)
+- **API usage tracking:** Daily counters for AbuseIPDB and VirusTotal saved in `api_usage.json`
+- **MITRE ATT&CK:** Technique IDs (e.g. T1071.001, T1046) appended to all 12 `PATTERN_EDUCATION` entries
+- **Export Results:** File → Export Results as JSON saves verdict, risk score, TI findings, flows and filters
+- **Right-click menus:** Copy / Select All context menu on Results, Why, and Education text panels
+- **Preferences:** API Keys tab now shows "Used today: X / Y" for AbuseIPDB and VirusTotal
+- **TI rendering:** Education, Results, and Why tabs now display ThreatFox, OTX, GreyNoise, URLhaus details where available
+
+## 2026.02.19-2 - 2026-02-19
+- **API Keys:** Added AbuseIPDB, GreyNoise, and VirusTotal key management with verify buttons
+- **Preferences:** Tabbed layout (General / API Keys) in preferences dialog
+
+## 2026.02.19-1 - 2026-02-19
+- UX: Clear PARRY chat history on startup (no cross-session persistence)
 ## 2026.02.18-9 - 2026-02-18
 - **Fix:** Chat input/Send/Clear buttons always visible — pack input frame before text widget (side=BOTTOM)
 
