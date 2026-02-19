@@ -3981,7 +3981,9 @@ class PCAPSentryApp:
         self.target_drop_area = None
         self.why_text = None
         self.education_text = None
-        # self.education_questions_frame, self.contextual_questions, self.reassess_button removed (refine/contextual questions feature removed)
+        self.education_questions_frame = None
+        self.contextual_questions = []
+        self.reassess_button = None
         self.copy_filters_button = None
         self.wireshark_filters = []
         self.packet_table = None
@@ -8328,6 +8330,8 @@ class PCAPSentryApp:
 
     def _populate_contextual_questions(self, questions) -> None:
         """Display contextual questions in the Improve Accuracy tab with Yes/No buttons."""
+        if self.education_questions_frame is None:
+            return
         # Clear existing questions
         for widget in self.education_questions_frame.winfo_children():
             widget.destroy()
