@@ -1343,25 +1343,29 @@ def _load_seed_rows() -> tuple[list[dict], list[str]]:
 #   Username field: always "credential"         (Target is the unique PK on WCM)
 #
 # Key-name constants — also used as the dict keys inside settings:
-_KEY_LLM        = "llm_api_key"
-_KEY_OTX        = "otx_api_key"
-_KEY_ABUSEIPDB  = "abuseipdb_api_key"
-_KEY_GREYNOISE  = "greynoise_api_key"
+_KEY_LLM = "llm_api_key"
+_KEY_OTX = "otx_api_key"
+_KEY_ABUSEIPDB = "abuseipdb_api_key"
+_KEY_GREYNOISE = "greynoise_api_key"
 _KEY_VIRUSTOTAL = "virustotal_api_key"
-_KEY_CHAT_ENC   = "chat_encryption_key"
-_KEY_KB_ENC     = "kb_encryption_key"
+_KEY_CHAT_ENC = "chat_encryption_key"
+_KEY_KB_ENC = "kb_encryption_key"
 
 # All API keys that appear in the API Keys tab — used for batch load/save/delete
 _ALL_API_KEYS: list[str] = [
-    _KEY_LLM, _KEY_OTX, _KEY_ABUSEIPDB, _KEY_GREYNOISE, _KEY_VIRUSTOTAL,
+    _KEY_LLM,
+    _KEY_OTX,
+    _KEY_ABUSEIPDB,
+    _KEY_GREYNOISE,
+    _KEY_VIRUSTOTAL,
 ]
 
 # Backward-compat aliases expected by the data-encryption helpers below
 _KEYRING_USERNAME_CHAT_KEY = _KEY_CHAT_ENC
-_KEYRING_USERNAME_KB_KEY   = _KEY_KB_ENC
+_KEYRING_USERNAME_KB_KEY = _KEY_KB_ENC
 
 _CRED_SERVICE_PREFIX = "PCAP_Sentry"
-_CRED_USERNAME       = "credential"
+_CRED_USERNAME = "credential"
 
 
 def _cred_target(name: str) -> str:
@@ -1373,6 +1377,7 @@ def _keyring_available() -> bool:
     """Return True when the keyring module is importable and functional."""
     try:
         import keyring
+
         return bool(keyring)
     except Exception:
         return False
@@ -1389,6 +1394,7 @@ def _store_cred(name: str, value: str) -> None:
         return
     try:
         import keyring
+
         keyring.set_password(_cred_target(name), _CRED_USERNAME, value)
     except Exception:
         pass  # Key stays in memory; plaintext file storage is intentionally avoided
@@ -1398,6 +1404,7 @@ def _load_cred(name: str) -> str:
     """Return the stored value for *name*, or ``""`` on any error or absence."""
     try:
         import keyring
+
         val: str | None = keyring.get_password(_cred_target(name), _CRED_USERNAME)
         return val or ""
     except Exception:
@@ -1408,37 +1415,77 @@ def _delete_cred(name: str) -> None:
     """Remove *name* from Windows Credential Manager; silently ignores missing."""
     try:
         import keyring
+
         keyring.delete_password(_cred_target(name), _CRED_USERNAME)
     except Exception:
         pass
 
 
 # ── Backward-compat aliases used internally by encryption helpers ─────────────
-_store_credential  = _store_cred
-_load_credential   = _load_cred
+_store_credential = _store_cred
+_load_credential = _load_cred
 _delete_credential = _delete_cred
 
 
 # ── Per-key convenience wrappers ──────────────────────────────────────────────
-def _store_api_key(key: str) -> None:       _store_cred(_KEY_LLM, key)
-def _load_api_key() -> str:                 return _load_cred(_KEY_LLM)
-def _delete_api_key() -> None:              _delete_cred(_KEY_LLM)
+def _store_api_key(key: str) -> None:
+    _store_cred(_KEY_LLM, key)
 
-def _store_otx_api_key(key: str) -> None:   _store_cred(_KEY_OTX, key)
-def _load_otx_api_key() -> str:             return _load_cred(_KEY_OTX)
-def _delete_otx_api_key() -> None:          _delete_cred(_KEY_OTX)
 
-def _store_abuseipdb_api_key(key: str) -> None:   _store_cred(_KEY_ABUSEIPDB, key)
-def _load_abuseipdb_api_key() -> str:             return _load_cred(_KEY_ABUSEIPDB)
-def _delete_abuseipdb_api_key() -> None:          _delete_cred(_KEY_ABUSEIPDB)
+def _load_api_key() -> str:
+    return _load_cred(_KEY_LLM)
 
-def _store_greynoise_api_key(key: str) -> None:   _store_cred(_KEY_GREYNOISE, key)
-def _load_greynoise_api_key() -> str:             return _load_cred(_KEY_GREYNOISE)
-def _delete_greynoise_api_key() -> None:          _delete_cred(_KEY_GREYNOISE)
 
-def _store_virustotal_api_key(key: str) -> None:  _store_cred(_KEY_VIRUSTOTAL, key)
-def _load_virustotal_api_key() -> str:            return _load_cred(_KEY_VIRUSTOTAL)
-def _delete_virustotal_api_key() -> None:         _delete_cred(_KEY_VIRUSTOTAL)
+def _delete_api_key() -> None:
+    _delete_cred(_KEY_LLM)
+
+
+def _store_otx_api_key(key: str) -> None:
+    _store_cred(_KEY_OTX, key)
+
+
+def _load_otx_api_key() -> str:
+    return _load_cred(_KEY_OTX)
+
+
+def _delete_otx_api_key() -> None:
+    _delete_cred(_KEY_OTX)
+
+
+def _store_abuseipdb_api_key(key: str) -> None:
+    _store_cred(_KEY_ABUSEIPDB, key)
+
+
+def _load_abuseipdb_api_key() -> str:
+    return _load_cred(_KEY_ABUSEIPDB)
+
+
+def _delete_abuseipdb_api_key() -> None:
+    _delete_cred(_KEY_ABUSEIPDB)
+
+
+def _store_greynoise_api_key(key: str) -> None:
+    _store_cred(_KEY_GREYNOISE, key)
+
+
+def _load_greynoise_api_key() -> str:
+    return _load_cred(_KEY_GREYNOISE)
+
+
+def _delete_greynoise_api_key() -> None:
+    _delete_cred(_KEY_GREYNOISE)
+
+
+def _store_virustotal_api_key(key: str) -> None:
+    _store_cred(_KEY_VIRUSTOTAL, key)
+
+
+def _load_virustotal_api_key() -> str:
+    return _load_cred(_KEY_VIRUSTOTAL)
+
+
+def _delete_virustotal_api_key() -> None:
+    _delete_cred(_KEY_VIRUSTOTAL)
 
 
 # ── Data encryption helpers ──────────────────────────────────────────────────
@@ -5341,10 +5388,10 @@ class PCAPSentryApp:
         # Explicit user save: delete from WCM any key the user intentionally cleared.
         if _keyring_available():
             _key_var_map = {
-                _KEY_LLM:        self.llm_api_key_var,
-                _KEY_OTX:        self.otx_api_key_var,
-                _KEY_ABUSEIPDB:  self.abuseipdb_api_key_var,
-                _KEY_GREYNOISE:  self.greynoise_api_key_var,
+                _KEY_LLM: self.llm_api_key_var,
+                _KEY_OTX: self.otx_api_key_var,
+                _KEY_ABUSEIPDB: self.abuseipdb_api_key_var,
+                _KEY_GREYNOISE: self.greynoise_api_key_var,
                 _KEY_VIRUSTOTAL: self.virustotal_api_key_var,
             }
             for _kname, _var in _key_var_map.items():
@@ -10889,6 +10936,7 @@ class PCAPSentryApp:
                 return True, "Local provider — no key needed"
             try:
                 import requests
+
                 if provider == "openai":
                     r = requests.get(
                         "https://api.openai.com/v1/models",
@@ -10913,8 +10961,16 @@ class PCAPSentryApp:
                 if provider == "anthropic":
                     r = requests.post(
                         "https://api.anthropic.com/v1/messages",
-                        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                        json={"model": "claude-3-haiku-20240307", "max_tokens": 1, "messages": [{"role": "user", "content": "Hi"}]},
+                        headers={
+                            "x-api-key": key,
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json",
+                        },
+                        json={
+                            "model": "claude-3-haiku-20240307",
+                            "max_tokens": 1,
+                            "messages": [{"role": "user", "content": "Hi"}],
+                        },
                         timeout=10,
                     )
                     if r.status_code == 200:

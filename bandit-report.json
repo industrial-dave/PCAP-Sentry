@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2026-02-20T20:43:30Z",
+  "generated_at": "2026-02-20T21:18:22Z",
   "metrics": {
     "Python/enhanced_ml_trainer.py": {
       "CONFIDENCE.HIGH": 0,
@@ -16,15 +16,15 @@
       "skipped_tests": 0
     },
     "Python/pcap_sentry_gui.py": {
-      "CONFIDENCE.HIGH": 119,
+      "CONFIDENCE.HIGH": 117,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 2,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 121,
+      "SEVERITY.LOW": 119,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 13791,
+      "loc": 13789,
       "nosec": 0,
       "skipped_tests": 7
     },
@@ -55,15 +55,15 @@
       "skipped_tests": 3
     },
     "_totals": {
-      "CONFIDENCE.HIGH": 124,
+      "CONFIDENCE.HIGH": 122,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 3,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 127,
+      "SEVERITY.LOW": 125,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 15285,
+      "loc": 15283,
       "nosec": 0,
       "skipped_tests": 10
     }
@@ -394,7 +394,7 @@
       "test_name": "try_except_pass"
     },
     {
-      "code": "1383         keyring.set_password(_kr_service(name), name, value)\n1384     except Exception:\n1385         pass  # Fallback: value stays in settings.json\n1386 \n",
+      "code": "1392         keyring.set_password(_cred_target(name), _CRED_USERNAME, value)\n1393     except Exception:\n1394         pass  # Key stays in memory; plaintext file storage is intentionally avoided\n1395 \n",
       "col_offset": 4,
       "end_col_offset": 12,
       "filename": "Python/pcap_sentry_gui.py",
@@ -405,38 +405,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1384,
+      "line_number": 1393,
       "line_range": [
-        1384,
-        1385
+        1393,
+        1394
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "1409                 keyring.delete_password(_KEYRING_SERVICE, name)\n1410             except Exception:\n1411                 pass\n1412             return legacy\n",
-      "col_offset": 12,
-      "end_col_offset": 20,
-      "filename": "Python/pcap_sentry_gui.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1410,
-      "line_range": [
-        1410,
-        1411
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
-      "test_id": "B110",
-      "test_name": "try_except_pass"
-    },
-    {
-      "code": "1427         keyring.delete_password(_kr_service(name), name)\n1428     except Exception:\n1429         pass\n1430     try:\n",
+      "code": "1411         keyring.delete_password(_cred_target(name), _CRED_USERNAME)\n1412     except Exception:\n1413         pass\n1414 \n",
       "col_offset": 4,
       "end_col_offset": 12,
       "filename": "Python/pcap_sentry_gui.py",
@@ -447,17 +426,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1428,
+      "line_number": 1412,
       "line_range": [
-        1428,
-        1429
+        1412,
+        1413
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "1433         keyring.delete_password(_KEYRING_SERVICE, name)\n1434     except Exception:\n1435         pass\n1436 \n",
+      "code": "1564                 return defaults\n1565     except Exception:\n1566         pass\n1567     return _default_settings()\n",
       "col_offset": 4,
       "end_col_offset": 12,
       "filename": "Python/pcap_sentry_gui.py",
@@ -468,17 +447,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1434,
+      "line_number": 1565,
       "line_range": [
-        1434,
-        1435
+        1565,
+        1566
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "1644                 return defaults\n1645     except Exception:\n1646         pass\n1647     return _default_settings()\n",
+      "code": "1602             raise\n1603     except Exception:\n1604         pass\n1605 \n",
       "col_offset": 4,
       "end_col_offset": 12,
       "filename": "Python/pcap_sentry_gui.py",
@@ -489,38 +468,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1645,
+      "line_number": 1603,
       "line_range": [
-        1645,
-        1646
+        1603,
+        1604
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "1686             raise\n1687     except Exception:\n1688         pass\n1689 \n",
-      "col_offset": 4,
-      "end_col_offset": 12,
-      "filename": "Python/pcap_sentry_gui.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1687,
-      "line_range": [
-        1687,
-        1688
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
-      "test_id": "B110",
-      "test_name": "try_except_pass"
-    },
-    {
-      "code": "1751                     return data\n1752         except Exception:\n1753             pass\n1754         return _default_kb()\n",
+      "code": "1667                     return data\n1668         except Exception:\n1669             pass\n1670         return _default_kb()\n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -531,17 +489,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1752,
+      "line_number": 1668,
       "line_range": [
-        1752,
-        1753
+        1668,
+        1669
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "1801                 os.remove(os.path.join(backup_dir, oldest))\n1802     except Exception:\n1803         pass  # Best-effort \u2013 never block shutdown\n1804 \n",
+      "code": "1717                 os.remove(os.path.join(backup_dir, oldest))\n1718     except Exception:\n1719         pass  # Best-effort \u2013 never block shutdown\n1720 \n",
       "col_offset": 4,
       "end_col_offset": 12,
       "filename": "Python/pcap_sentry_gui.py",
@@ -552,17 +510,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1802,
+      "line_number": 1718,
       "line_range": [
-        1802,
-        1803
+        1718,
+        1719
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "2765                     _add_cred(\"HTTP-Basic\", src, dst, \"Password\", pw)\n2766             except Exception:\n2767                 pass\n2768         # NTLM in HTTP \u2014 uses pre-compiled regex\n",
+      "code": "2681                     _add_cred(\"HTTP-Basic\", src, dst, \"Password\", pw)\n2682             except Exception:\n2683                 pass\n2684         # NTLM in HTTP \u2014 uses pre-compiled regex\n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "Python/pcap_sentry_gui.py",
@@ -573,19 +531,61 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 2766,
+      "line_number": 2682,
       "line_range": [
-        2766,
-        2767
+        2682,
+        2683
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "2829                         _add_cred(\"SMTP\", src, dst, \"Auth-Data\", pieces[0])\n2830                 except Exception:\n2831                     pass\n2832         elif upper.startswith(\"EHLO \") or upper.startswith(\"HELO \"):\n",
+      "code": "2745                         _add_cred(\"SMTP\", src, dst, \"Auth-Data\", pieces[0])\n2746                 except Exception:\n2747                     pass\n2748         elif upper.startswith(\"EHLO \") or upper.startswith(\"HELO \"):\n",
       "col_offset": 16,
       "end_col_offset": 24,
+      "filename": "Python/pcap_sentry_gui.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 2746,
+      "line_range": [
+        2746,
+        2747
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
+    },
+    {
+      "code": "2817                 _add_cred(\"SNMP\", src, dst, \"Community\", community, \"Default/weak community string\")\n2818         except Exception:\n2819             pass\n2820 \n",
+      "col_offset": 8,
+      "end_col_offset": 16,
+      "filename": "Python/pcap_sentry_gui.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 2818,
+      "line_range": [
+        2818,
+        2819
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
+    },
+    {
+      "code": "2829                 _add_cred(\"Kerberos\", src, dst, \"Principal\", principal)\n2830         except Exception:\n2831             pass\n2832 \n",
+      "col_offset": 8,
+      "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
       "issue_confidence": "HIGH",
       "issue_cwe": {
@@ -604,7 +604,7 @@
       "test_name": "try_except_pass"
     },
     {
-      "code": "2901                 _add_cred(\"SNMP\", src, dst, \"Community\", community, \"Default/weak community string\")\n2902         except Exception:\n2903             pass\n2904 \n",
+      "code": "2855                 idx += 2 + opt_len\n2856         except Exception:\n2857             pass\n2858 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -615,59 +615,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 2902,
+      "line_number": 2856,
       "line_range": [
-        2902,
-        2903
+        2856,
+        2857
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "2913                 _add_cred(\"Kerberos\", src, dst, \"Principal\", principal)\n2914         except Exception:\n2915             pass\n2916 \n",
-      "col_offset": 8,
-      "end_col_offset": 16,
-      "filename": "Python/pcap_sentry_gui.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 2914,
-      "line_range": [
-        2914,
-        2915
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
-      "test_id": "B110",
-      "test_name": "try_except_pass"
-    },
-    {
-      "code": "2939                 idx += 2 + opt_len\n2940         except Exception:\n2941             pass\n2942 \n",
-      "col_offset": 8,
-      "end_col_offset": 16,
-      "filename": "Python/pcap_sentry_gui.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 2940,
-      "line_range": [
-        2940,
-        2941
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
-      "test_id": "B110",
-      "test_name": "try_except_pass"
-    },
-    {
-      "code": "3062                             _add_host(dst_ip, hostname=dn)\n3063                     except Exception:\n3064                         pass\n3065 \n",
+      "code": "2978                             _add_host(dst_ip, hostname=dn)\n2979                     except Exception:\n2980                         pass\n2981 \n",
       "col_offset": 20,
       "end_col_offset": 28,
       "filename": "Python/pcap_sentry_gui.py",
@@ -678,17 +636,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 3063,
+      "line_number": 2979,
       "line_range": [
-        3063,
-        3064
+        2979,
+        2980
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "3088         return\n3089     j: int = random.randint(1, seen_count)\n3090     if j <= limit:\n",
+      "code": "3004         return\n3005     j: int = random.randint(1, seen_count)\n3006     if j <= limit:\n",
       "col_offset": 13,
       "end_col_offset": 42,
       "filename": "Python/pcap_sentry_gui.py",
@@ -699,16 +657,16 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Standard pseudo-random generators are not suitable for security/cryptographic purposes.",
-      "line_number": 3089,
+      "line_number": 3005,
       "line_range": [
-        3089
+        3005
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_calls.html#b311-random",
       "test_id": "B311",
       "test_name": "blacklist"
     },
     {
-      "code": "3498                                 dns_query: str = str(qname).rstrip(\".\")\n3499                     except Exception:\n3500                         pass\n3501 \n",
+      "code": "3414                                 dns_query: str = str(qname).rstrip(\".\")\n3415                     except Exception:\n3416                         pass\n3417 \n",
       "col_offset": 20,
       "end_col_offset": 28,
       "filename": "Python/pcap_sentry_gui.py",
@@ -719,17 +677,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 3499,
+      "line_number": 3415,
       "line_range": [
-        3499,
-        3500
+        3415,
+        3416
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "3523                                 tls_sni, tls_version, tls_alpn = _extract_tls_metadata(pkt_obj, tls_support)\n3524                             except Exception:\n3525                                 pass\n3526 \n",
+      "code": "3439                                 tls_sni, tls_version, tls_alpn = _extract_tls_metadata(pkt_obj, tls_support)\n3440                             except Exception:\n3441                                 pass\n3442 \n",
       "col_offset": 28,
       "end_col_offset": 36,
       "filename": "Python/pcap_sentry_gui.py",
@@ -740,17 +698,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 3524,
+      "line_number": 3440,
       "line_range": [
-        3524,
-        3525
+        3440,
+        3441
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4405             self.root.after(200, self._check_internet_and_set_offline)\n4406         except Exception:\n4407             pass  # Don't crash if internet check can't be scheduled\n4408 \n",
+      "code": "4321             self.root.after(200, self._check_internet_and_set_offline)\n4322         except Exception:\n4323             pass  # Don't crash if internet check can't be scheduled\n4324 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -761,17 +719,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4406,
+      "line_number": 4322,
       "line_range": [
-        4406,
-        4407
+        4322,
+        4323
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4410             self.root.after(300, self._validate_llm_model_on_startup)\n4411         except Exception:\n4412             pass  # Don't crash if model validation can't be scheduled\n4413 \n",
+      "code": "4326             self.root.after(300, self._validate_llm_model_on_startup)\n4327         except Exception:\n4328             pass  # Don't crash if model validation can't be scheduled\n4329 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -782,17 +740,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4411,
+      "line_number": 4327,
       "line_range": [
-        4411,
-        4412
+        4327,
+        4328
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4415             self.root.after(400, self._auto_detect_llm)\n4416         except Exception:\n4417             pass  # Don't crash if LLM auto-detect can't be scheduled\n4418 \n",
+      "code": "4331             self.root.after(400, self._auto_detect_llm)\n4332         except Exception:\n4333             pass  # Don't crash if LLM auto-detect can't be scheduled\n4334 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -803,17 +761,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4416,
+      "line_number": 4332,
       "line_range": [
-        4416,
-        4417
+        4332,
+        4333
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4421             self.root.after(600, lambda: _preload_scapy_background(self))\n4422         except Exception:\n4423             pass  # Don't crash if Scapy preload can't be scheduled\n4424 \n",
+      "code": "4337             self.root.after(600, lambda: _preload_scapy_background(self))\n4338         except Exception:\n4339             pass  # Don't crash if Scapy preload can't be scheduled\n4340 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -824,17 +782,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4422,
+      "line_number": 4338,
       "line_range": [
-        4422,
-        4423
+        4338,
+        4339
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4428             self.root.after(1000, self._pregenerate_spin_frames_async)\n4429         except Exception:\n4430             pass  # Don't crash if spin frame pre-generation can't be scheduled\n4431 \n",
+      "code": "4344             self.root.after(1000, self._pregenerate_spin_frames_async)\n4345         except Exception:\n4346             pass  # Don't crash if spin frame pre-generation can't be scheduled\n4347 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -845,17 +803,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4429,
+      "line_number": 4345,
       "line_range": [
-        4429,
-        4430
+        4345,
+        4346
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4444                 self._bg_draw_pending = None\n4445             except Exception:\n4446                 pass\n4447 \n",
+      "code": "4360                 self._bg_draw_pending = None\n4361             except Exception:\n4362                 pass\n4363 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "Python/pcap_sentry_gui.py",
@@ -866,17 +824,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4445,
+      "line_number": 4361,
       "line_range": [
-        4445,
-        4446
+        4361,
+        4362
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4465                             break\n4466             except Exception:\n4467                 pass\n4468 \n",
+      "code": "4381                             break\n4382             except Exception:\n4383                 pass\n4384 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "Python/pcap_sentry_gui.py",
@@ -887,17 +845,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4466,
+      "line_number": 4382,
       "line_range": [
-        4466,
-        4467
+        4382,
+        4383
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4508                 save_settings(settings_snapshot)\n4509             except Exception:\n4510                 pass  # Best effort, don't block shutdown\n4511 \n",
+      "code": "4424                 save_settings(settings_snapshot)\n4425             except Exception:\n4426                 pass  # Best effort, don't block shutdown\n4427 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "Python/pcap_sentry_gui.py",
@@ -908,17 +866,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4509,
+      "line_number": 4425,
       "line_range": [
-        4509,
-        4510
+        4425,
+        4426
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4586             with contextlib.suppress(Exception):\n4587                 subprocess.run(\n4588                     [\"taskkill\", \"/F\", \"/T\", \"/IM\", proc],\n4589                     stdout=subprocess.DEVNULL,\n4590                     stderr=subprocess.DEVNULL,\n4591                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n4592                 )\n4593 \n",
+      "code": "4502             with contextlib.suppress(Exception):\n4503                 subprocess.run(\n4504                     [\"taskkill\", \"/F\", \"/T\", \"/IM\", proc],\n4505                     stdout=subprocess.DEVNULL,\n4506                     stderr=subprocess.DEVNULL,\n4507                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n4508                 )\n4509 \n",
       "col_offset": 16,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -929,21 +887,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 4587,
+      "line_number": 4503,
       "line_range": [
-        4587,
-        4588,
-        4589,
-        4590,
-        4591,
-        4592
+        4503,
+        4504,
+        4505,
+        4506,
+        4507,
+        4508
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "4586             with contextlib.suppress(Exception):\n4587                 subprocess.run(\n4588                     [\"taskkill\", \"/F\", \"/T\", \"/IM\", proc],\n4589                     stdout=subprocess.DEVNULL,\n4590                     stderr=subprocess.DEVNULL,\n4591                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n4592                 )\n4593 \n",
+      "code": "4502             with contextlib.suppress(Exception):\n4503                 subprocess.run(\n4504                     [\"taskkill\", \"/F\", \"/T\", \"/IM\", proc],\n4505                     stdout=subprocess.DEVNULL,\n4506                     stderr=subprocess.DEVNULL,\n4507                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n4508                 )\n4509 \n",
       "col_offset": 16,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -954,21 +912,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 4587,
+      "line_number": 4503,
       "line_range": [
-        4587,
-        4588,
-        4589,
-        4590,
-        4591,
-        4592
+        4503,
+        4504,
+        4505,
+        4506,
+        4507,
+        4508
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "4664         try:\n4665             os.startfile(APP_DATA_DIR)\n4666         except OSError as exc:\n",
+      "code": "4580         try:\n4581             os.startfile(APP_DATA_DIR)\n4582         except OSError as exc:\n",
       "col_offset": 12,
       "end_col_offset": 38,
       "filename": "Python/pcap_sentry_gui.py",
@@ -979,16 +937,16 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process without a shell.",
-      "line_number": 4665,
+      "line_number": 4581,
       "line_range": [
-        4665
+        4581
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b606_start_process_with_no_shell.html",
       "test_id": "B606",
       "test_name": "start_process_with_no_shell"
     },
     {
-      "code": "4773                 self.root.after(0, lambda frames=pil_frames: self._finalize_spin_frames(frames))\n4774         except Exception:\n4775             pass\n4776 \n",
+      "code": "4689                 self.root.after(0, lambda frames=pil_frames: self._finalize_spin_frames(frames))\n4690         except Exception:\n4691             pass\n4692 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -999,17 +957,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4774,
+      "line_number": 4690,
       "line_range": [
-        4774,
-        4775
+        4690,
+        4691
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4785             self._spin_frames_generated = True\n4786         except Exception:\n4787             pass\n4788 \n",
+      "code": "4701             self._spin_frames_generated = True\n4702         except Exception:\n4703             pass\n4704 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1020,17 +978,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4786,
+      "line_number": 4702,
       "line_range": [
-        4786,
-        4787
+        4702,
+        4703
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4814             self._spin_frames_generated = True\n4815         except Exception:\n4816             pass\n4817 \n",
+      "code": "4730             self._spin_frames_generated = True\n4731         except Exception:\n4732             pass\n4733 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1041,17 +999,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4815,
+      "line_number": 4731,
       "line_range": [
-        4815,
-        4816
+        4731,
+        4732
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "4947                 self._header_icon_image = ImageTk.PhotoImage(src)\n4948             except Exception:\n4949                 pass\n4950         self._brand_label = None\n",
+      "code": "4863                 self._header_icon_image = ImageTk.PhotoImage(src)\n4864             except Exception:\n4865                 pass\n4866         self._brand_label = None\n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1062,17 +1020,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 4948,
+      "line_number": 4864,
       "line_range": [
-        4948,
-        4949
+        4864,
+        4865
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "5324                     hint_text = f\"{url_hint}\\n      Used today: {used:,} / {daily_limit:,}\"\n5325                 except Exception:\n5326                     pass\n5327             ttk.Label(api_frame, text=hint_text, style=\"Hint.TLabel\").pack(anchor=\"w\", pady=(0, 2))\n",
+      "code": "5261                     hint_text = f\"{url_hint}\\n      Used today: {used:,} / {daily_limit:,}\"\n5262                 except Exception:\n5263                     pass\n5264             ttk.Label(api_frame, text=hint_text, style=\"Hint.TLabel\").pack(anchor=\"w\", pady=(0, 2))\n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1083,17 +1041,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 5325,
+      "line_number": 5262,
       "line_range": [
-        5325,
-        5326
+        5262,
+        5263
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "5517         if os.path.exists(app_data_dir):\n5518             os.startfile(app_data_dir)\n5519         else:\n",
+      "code": "5443         if os.path.exists(app_data_dir):\n5444             os.startfile(app_data_dir)\n5445         else:\n",
       "col_offset": 12,
       "end_col_offset": 38,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1104,16 +1062,16 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process without a shell.",
-      "line_number": 5518,
+      "line_number": 5444,
       "line_range": [
-        5518
+        5444
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b606_start_process_with_no_shell.html",
       "test_id": "B606",
       "test_name": "start_process_with_no_shell"
     },
     {
-      "code": "5781                     self.root.after_cancel(_dl_anim[\"anim_id\"])\n5782                 except Exception:\n5783                     pass\n5784                 _dl_anim[\"anim_id\"] = None\n",
+      "code": "5707                     self.root.after_cancel(_dl_anim[\"anim_id\"])\n5708                 except Exception:\n5709                     pass\n5710                 _dl_anim[\"anim_id\"] = None\n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1124,17 +1082,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 5782,
+      "line_number": 5708,
       "line_range": [
-        5782,
-        5783
+        5708,
+        5709
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "5786                 progress_window.destroy()\n5787             except Exception:\n5788                 pass\n5789 \n",
+      "code": "5712                 progress_window.destroy()\n5713             except Exception:\n5714                 pass\n5715 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1145,17 +1103,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 5787,
+      "line_number": 5713,
       "line_range": [
-        5787,
-        5788
+        5713,
+        5714
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "5958                 widget.edit_undo()\n5959         except Exception:\n5960             pass\n5961 \n",
+      "code": "5884                 widget.edit_undo()\n5885         except Exception:\n5886             pass\n5887 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1166,17 +1124,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 5959,
+      "line_number": 5885,
       "line_range": [
-        5959,
-        5960
+        5885,
+        5886
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "5967                 widget.edit_redo()\n5968         except Exception:\n5969             pass\n5970 \n",
+      "code": "5893                 widget.edit_redo()\n5894         except Exception:\n5895             pass\n5896 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1187,17 +1145,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 5968,
+      "line_number": 5894,
       "line_range": [
-        5968,
-        5969
+        5894,
+        5895
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "5976                 widget.event_generate(\"<<Cut>>\")\n5977         except Exception:\n5978             pass\n5979 \n",
+      "code": "5902                 widget.event_generate(\"<<Cut>>\")\n5903         except Exception:\n5904             pass\n5905 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1208,17 +1166,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 5977,
+      "line_number": 5903,
       "line_range": [
-        5977,
-        5978
+        5903,
+        5904
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "5985                 widget.event_generate(\"<<Copy>>\")\n5986         except Exception:\n5987             pass\n5988 \n",
+      "code": "5911                 widget.event_generate(\"<<Copy>>\")\n5912         except Exception:\n5913             pass\n5914 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1229,17 +1187,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 5986,
+      "line_number": 5912,
       "line_range": [
-        5986,
-        5987
+        5912,
+        5913
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "5994                 widget.event_generate(\"<<Paste>>\")\n5995         except Exception:\n5996             pass\n5997 \n",
+      "code": "5920                 widget.event_generate(\"<<Paste>>\")\n5921         except Exception:\n5922             pass\n5923 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1250,17 +1208,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 5995,
+      "line_number": 5921,
       "line_range": [
-        5995,
-        5996
+        5921,
+        5922
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "6009                 widget.see(tk.INSERT)\n6010         except Exception:\n6011             pass\n6012 \n",
+      "code": "5935                 widget.see(tk.INSERT)\n5936         except Exception:\n5937             pass\n5938 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1271,17 +1229,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 6010,
+      "line_number": 5936,
       "line_range": [
-        6010,
-        6011
+        5936,
+        5937
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "6568                     self._append_chat_message(role, content)\n6569         except Exception:\n6570             pass  # Don't crash if history restoration fails\n6571 \n",
+      "code": "6494                     self._append_chat_message(role, content)\n6495         except Exception:\n6496             pass  # Don't crash if history restoration fails\n6497 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1292,17 +1250,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 6569,
+      "line_number": 6495,
       "line_range": [
-        6569,
-        6570
+        6495,
+        6496
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "9446             )\n9447         except Exception:\n9448             pass\n9449 \n",
+      "code": "9372             )\n9373         except Exception:\n9374             pass\n9375 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1313,17 +1271,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 9447,
+      "line_number": 9373,
       "line_range": [
-        9447,
-        9448
+        9373,
+        9374
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "9621                     return candidate\n9622         except Exception:\n9623             pass\n9624         return normalize(data)\n",
+      "code": "9547                     return candidate\n9548         except Exception:\n9549             pass\n9550         return normalize(data)\n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1334,17 +1292,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 9622,
+      "line_number": 9548,
       "line_range": [
-        9622,
-        9623
+        9548,
+        9549
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "10222             self._update_llm_header_indicator()\n10223         except Exception:\n10224             pass  # Don't crash if LLM status update fails\n10225 \n",
+      "code": "10148             self._update_llm_header_indicator()\n10149         except Exception:\n10150             pass  # Don't crash if LLM status update fails\n10151 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1355,17 +1313,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 10223,
+      "line_number": 10149,
       "line_range": [
-        10223,
-        10224
+        10149,
+        10150
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "10258             self.llm_header_indicator.configure(bg=bg, highlightbackground=border)\n10259         except Exception:\n10260             pass  # Don't crash if LLM header update fails\n10261 \n",
+      "code": "10184             self.llm_header_indicator.configure(bg=bg, highlightbackground=border)\n10185         except Exception:\n10186             pass  # Don't crash if LLM header update fails\n10187 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1376,17 +1334,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 10259,
+      "line_number": 10185,
       "line_range": [
-        10259,
-        10260
+        10185,
+        10186
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "10501                     try:\n10502                         subprocess.Popen(\n10503                             [\"ollama\", \"serve\"],\n10504                             stdout=subprocess.DEVNULL,\n10505                             stderr=subprocess.DEVNULL,\n10506                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n10507                         )\n10508                         time.sleep(1.2)\n",
+      "code": "10427                     try:\n10428                         subprocess.Popen(\n10429                             [\"ollama\", \"serve\"],\n10430                             stdout=subprocess.DEVNULL,\n10431                             stderr=subprocess.DEVNULL,\n10432                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n10433                         )\n10434                         time.sleep(1.2)\n",
       "col_offset": 24,
       "end_col_offset": 25,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1397,21 +1355,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 10502,
+      "line_number": 10428,
       "line_range": [
-        10502,
-        10503,
-        10504,
-        10505,
-        10506,
-        10507
+        10428,
+        10429,
+        10430,
+        10431,
+        10432,
+        10433
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "10501                     try:\n10502                         subprocess.Popen(\n10503                             [\"ollama\", \"serve\"],\n10504                             stdout=subprocess.DEVNULL,\n10505                             stderr=subprocess.DEVNULL,\n10506                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n10507                         )\n10508                         time.sleep(1.2)\n",
+      "code": "10427                     try:\n10428                         subprocess.Popen(\n10429                             [\"ollama\", \"serve\"],\n10430                             stdout=subprocess.DEVNULL,\n10431                             stderr=subprocess.DEVNULL,\n10432                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n10433                         )\n10434                         time.sleep(1.2)\n",
       "col_offset": 24,
       "end_col_offset": 25,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1422,21 +1380,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 10502,
+      "line_number": 10428,
       "line_range": [
-        10502,
-        10503,
-        10504,
-        10505,
-        10506,
-        10507
+        10428,
+        10429,
+        10430,
+        10431,
+        10432,
+        10433
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "10545                     return self._list_openai_compat_models(endpoint, api_key=api_key)\n10546             except Exception:\n10547                 pass\n10548             return []\n",
+      "code": "10471                     return self._list_openai_compat_models(endpoint, api_key=api_key)\n10472             except Exception:\n10473                 pass\n10474             return []\n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1447,17 +1405,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 10546,
+      "line_number": 10472,
       "line_range": [
-        10546,
-        10547
+        10472,
+        10473
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "10628                         found.append((name, prov, endpoint, model_id))\n10629                 except Exception:\n10630                     pass\n10631             return found\n",
+      "code": "10554                         found.append((name, prov, endpoint, model_id))\n10555                 except Exception:\n10556                     pass\n10557             return found\n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1468,17 +1426,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 10629,
+      "line_number": 10555,
       "line_range": [
-        10629,
-        10630
+        10555,
+        10556
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "11196                     try:\n11197                         subprocess.Popen(\n11198                             [\"ollama\", \"serve\"],\n11199                             stdout=subprocess.DEVNULL,\n11200                             stderr=subprocess.DEVNULL,\n11201                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11202                         )\n11203                         time.sleep(0.5)\n",
+      "code": "11181                     try:\n11182                         subprocess.Popen(\n11183                             [\"ollama\", \"serve\"],\n11184                             stdout=subprocess.DEVNULL,\n11185                             stderr=subprocess.DEVNULL,\n11186                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11187                         )\n11188                         time.sleep(0.5)\n",
       "col_offset": 24,
       "end_col_offset": 25,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1489,21 +1447,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 11197,
+      "line_number": 11182,
       "line_range": [
-        11197,
-        11198,
-        11199,
-        11200,
-        11201,
-        11202
+        11182,
+        11183,
+        11184,
+        11185,
+        11186,
+        11187
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "11196                     try:\n11197                         subprocess.Popen(\n11198                             [\"ollama\", \"serve\"],\n11199                             stdout=subprocess.DEVNULL,\n11200                             stderr=subprocess.DEVNULL,\n11201                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11202                         )\n11203                         time.sleep(0.5)\n",
+      "code": "11181                     try:\n11182                         subprocess.Popen(\n11183                             [\"ollama\", \"serve\"],\n11184                             stdout=subprocess.DEVNULL,\n11185                             stderr=subprocess.DEVNULL,\n11186                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11187                         )\n11188                         time.sleep(0.5)\n",
       "col_offset": 24,
       "end_col_offset": 25,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1514,21 +1472,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 11197,
+      "line_number": 11182,
       "line_range": [
-        11197,
-        11198,
-        11199,
-        11200,
-        11201,
-        11202
+        11182,
+        11183,
+        11184,
+        11185,
+        11186,
+        11187
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "11203                         time.sleep(0.5)\n11204                     except Exception:\n11205                         pass\n11206 \n",
+      "code": "11188                         time.sleep(0.5)\n11189                     except Exception:\n11190                         pass\n11191 \n",
       "col_offset": 20,
       "end_col_offset": 28,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1539,17 +1497,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 11204,
+      "line_number": 11189,
       "line_range": [
-        11204,
-        11205
+        11189,
+        11190
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "11252                 with contextlib.suppress(Exception):\n11253                     subprocess.Popen(\n11254                         [\"ollama\", \"serve\"],\n11255                         stdout=subprocess.DEVNULL,\n11256                         stderr=subprocess.DEVNULL,\n11257                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11258                     )\n11259                 result: subprocess.CompletedProcess[str] = subprocess.run(\n",
+      "code": "11237                 with contextlib.suppress(Exception):\n11238                     subprocess.Popen(\n11239                         [\"ollama\", \"serve\"],\n11240                         stdout=subprocess.DEVNULL,\n11241                         stderr=subprocess.DEVNULL,\n11242                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11243                     )\n11244                 result: subprocess.CompletedProcess[str] = subprocess.run(\n",
       "col_offset": 20,
       "end_col_offset": 21,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1560,21 +1518,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 11253,
+      "line_number": 11238,
       "line_range": [
-        11253,
-        11254,
-        11255,
-        11256,
-        11257,
-        11258
+        11238,
+        11239,
+        11240,
+        11241,
+        11242,
+        11243
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "11252                 with contextlib.suppress(Exception):\n11253                     subprocess.Popen(\n11254                         [\"ollama\", \"serve\"],\n11255                         stdout=subprocess.DEVNULL,\n11256                         stderr=subprocess.DEVNULL,\n11257                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11258                     )\n11259                 result: subprocess.CompletedProcess[str] = subprocess.run(\n",
+      "code": "11237                 with contextlib.suppress(Exception):\n11238                     subprocess.Popen(\n11239                         [\"ollama\", \"serve\"],\n11240                         stdout=subprocess.DEVNULL,\n11241                         stderr=subprocess.DEVNULL,\n11242                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11243                     )\n11244                 result: subprocess.CompletedProcess[str] = subprocess.run(\n",
       "col_offset": 20,
       "end_col_offset": 21,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1585,21 +1543,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 11253,
+      "line_number": 11238,
       "line_range": [
-        11253,
-        11254,
-        11255,
-        11256,
-        11257,
-        11258
+        11238,
+        11239,
+        11240,
+        11241,
+        11242,
+        11243
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "11258                     )\n11259                 result: subprocess.CompletedProcess[str] = subprocess.run(\n11260                     [\"ollama\", \"rm\", model_name],\n11261                     capture_output=True,\n11262                     text=True,\n11263                     timeout=120,\n11264                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11265                 )\n11266                 if result.returncode != 0:\n",
+      "code": "11243                     )\n11244                 result: subprocess.CompletedProcess[str] = subprocess.run(\n11245                     [\"ollama\", \"rm\", model_name],\n11246                     capture_output=True,\n11247                     text=True,\n11248                     timeout=120,\n11249                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11250                 )\n11251                 if result.returncode != 0:\n",
       "col_offset": 59,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1610,22 +1568,22 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 11259,
+      "line_number": 11244,
       "line_range": [
-        11259,
-        11260,
-        11261,
-        11262,
-        11263,
-        11264,
-        11265
+        11244,
+        11245,
+        11246,
+        11247,
+        11248,
+        11249,
+        11250
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "11258                     )\n11259                 result: subprocess.CompletedProcess[str] = subprocess.run(\n11260                     [\"ollama\", \"rm\", model_name],\n11261                     capture_output=True,\n11262                     text=True,\n11263                     timeout=120,\n11264                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11265                 )\n11266                 if result.returncode != 0:\n",
+      "code": "11243                     )\n11244                 result: subprocess.CompletedProcess[str] = subprocess.run(\n11245                     [\"ollama\", \"rm\", model_name],\n11246                     capture_output=True,\n11247                     text=True,\n11248                     timeout=120,\n11249                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11250                 )\n11251                 if result.returncode != 0:\n",
       "col_offset": 59,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1636,22 +1594,22 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 11259,
+      "line_number": 11244,
       "line_range": [
-        11259,
-        11260,
-        11261,
-        11262,
-        11263,
-        11264,
-        11265
+        11244,
+        11245,
+        11246,
+        11247,
+        11248,
+        11249,
+        11250
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "11343                 with contextlib.suppress(Exception):\n11344                     subprocess.Popen(\n11345                         [\"ollama\", \"serve\"],\n11346                         stdout=subprocess.DEVNULL,\n11347                         stderr=subprocess.DEVNULL,\n11348                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11349                     )\n11350                 time.sleep(1)\n",
+      "code": "11328                 with contextlib.suppress(Exception):\n11329                     subprocess.Popen(\n11330                         [\"ollama\", \"serve\"],\n11331                         stdout=subprocess.DEVNULL,\n11332                         stderr=subprocess.DEVNULL,\n11333                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11334                     )\n11335                 time.sleep(1)\n",
       "col_offset": 20,
       "end_col_offset": 21,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1662,21 +1620,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 11344,
+      "line_number": 11329,
       "line_range": [
-        11344,
-        11345,
-        11346,
-        11347,
-        11348,
-        11349
+        11329,
+        11330,
+        11331,
+        11332,
+        11333,
+        11334
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "11343                 with contextlib.suppress(Exception):\n11344                     subprocess.Popen(\n11345                         [\"ollama\", \"serve\"],\n11346                         stdout=subprocess.DEVNULL,\n11347                         stderr=subprocess.DEVNULL,\n11348                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11349                     )\n11350                 time.sleep(1)\n",
+      "code": "11328                 with contextlib.suppress(Exception):\n11329                     subprocess.Popen(\n11330                         [\"ollama\", \"serve\"],\n11331                         stdout=subprocess.DEVNULL,\n11332                         stderr=subprocess.DEVNULL,\n11333                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11334                     )\n11335                 time.sleep(1)\n",
       "col_offset": 20,
       "end_col_offset": 21,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1687,21 +1645,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 11344,
+      "line_number": 11329,
       "line_range": [
-        11344,
-        11345,
-        11346,
-        11347,
-        11348,
-        11349
+        11329,
+        11330,
+        11331,
+        11332,
+        11333,
+        11334
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "11375                         msg = json.loads(line.decode(\"utf-8\"))\n11376                     except Exception:\n11377                         continue\n11378 \n",
+      "code": "11360                         msg = json.loads(line.decode(\"utf-8\"))\n11361                     except Exception:\n11362                         continue\n11363 \n",
       "col_offset": 20,
       "end_col_offset": 32,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1712,17 +1670,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Continue detected.",
-      "line_number": 11376,
+      "line_number": 11361,
       "line_range": [
-        11376,
-        11377
+        11361,
+        11362
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b112_try_except_continue.html",
       "test_id": "B112",
       "test_name": "try_except_continue"
     },
     {
-      "code": "11540             with contextlib.suppress(Exception):\n11541                 subprocess.Popen(\n11542                     [\"ollama\", \"serve\"],\n11543                     stdout=subprocess.DEVNULL,\n11544                     stderr=subprocess.DEVNULL,\n11545                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11546                 )\n11547             time.sleep(1)  # Give serve a moment to start\n",
+      "code": "11525             with contextlib.suppress(Exception):\n11526                 subprocess.Popen(\n11527                     [\"ollama\", \"serve\"],\n11528                     stdout=subprocess.DEVNULL,\n11529                     stderr=subprocess.DEVNULL,\n11530                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11531                 )\n11532             time.sleep(1)  # Give serve a moment to start\n",
       "col_offset": 16,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1733,21 +1691,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 11541,
+      "line_number": 11526,
       "line_range": [
-        11541,
-        11542,
-        11543,
-        11544,
-        11545,
-        11546
+        11526,
+        11527,
+        11528,
+        11529,
+        11530,
+        11531
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "11540             with contextlib.suppress(Exception):\n11541                 subprocess.Popen(\n11542                     [\"ollama\", \"serve\"],\n11543                     stdout=subprocess.DEVNULL,\n11544                     stderr=subprocess.DEVNULL,\n11545                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11546                 )\n11547             time.sleep(1)  # Give serve a moment to start\n",
+      "code": "11525             with contextlib.suppress(Exception):\n11526                 subprocess.Popen(\n11527                     [\"ollama\", \"serve\"],\n11528                     stdout=subprocess.DEVNULL,\n11529                     stderr=subprocess.DEVNULL,\n11530                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11531                 )\n11532             time.sleep(1)  # Give serve a moment to start\n",
       "col_offset": 16,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1758,21 +1716,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 11541,
+      "line_number": 11526,
       "line_range": [
-        11541,
-        11542,
-        11543,
-        11544,
-        11545,
-        11546
+        11526,
+        11527,
+        11528,
+        11529,
+        11530,
+        11531
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "11601             with contextlib.suppress(Exception):\n11602                 subprocess.run(\n11603                     [\"taskkill\", \"/F\", \"/IM\", \"ollama.exe\"],\n11604                     capture_output=True,\n11605                     timeout=5,\n11606                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11607                 )\n11608 \n",
+      "code": "11586             with contextlib.suppress(Exception):\n11587                 subprocess.run(\n11588                     [\"taskkill\", \"/F\", \"/IM\", \"ollama.exe\"],\n11589                     capture_output=True,\n11590                     timeout=5,\n11591                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11592                 )\n11593 \n",
       "col_offset": 16,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1783,21 +1741,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 11602,
+      "line_number": 11587,
       "line_range": [
-        11602,
-        11603,
-        11604,
-        11605,
-        11606,
-        11607
+        11587,
+        11588,
+        11589,
+        11590,
+        11591,
+        11592
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "11601             with contextlib.suppress(Exception):\n11602                 subprocess.run(\n11603                     [\"taskkill\", \"/F\", \"/IM\", \"ollama.exe\"],\n11604                     capture_output=True,\n11605                     timeout=5,\n11606                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11607                 )\n11608 \n",
+      "code": "11586             with contextlib.suppress(Exception):\n11587                 subprocess.run(\n11588                     [\"taskkill\", \"/F\", \"/IM\", \"ollama.exe\"],\n11589                     capture_output=True,\n11590                     timeout=5,\n11591                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11592                 )\n11593 \n",
       "col_offset": 16,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1808,21 +1766,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 11602,
+      "line_number": 11587,
       "line_range": [
-        11602,
-        11603,
-        11604,
-        11605,
-        11606,
-        11607
+        11587,
+        11588,
+        11589,
+        11590,
+        11591,
+        11592
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "11798         try:\n11799             result: subprocess.CompletedProcess[str] = subprocess.run(\n11800                 [cmd, *args],\n11801                 capture_output=True,\n11802                 text=True,\n11803                 timeout=5,\n11804                 creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11805             )\n11806             return result.returncode == 0\n",
+      "code": "11783         try:\n11784             result: subprocess.CompletedProcess[str] = subprocess.run(\n11785                 [cmd, *args],\n11786                 capture_output=True,\n11787                 text=True,\n11788                 timeout=5,\n11789                 creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11790             )\n11791             return result.returncode == 0\n",
       "col_offset": 55,
       "end_col_offset": 13,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1833,22 +1791,22 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 11799,
+      "line_number": 11784,
       "line_range": [
-        11799,
-        11800,
-        11801,
-        11802,
-        11803,
-        11804,
-        11805
+        11784,
+        11785,
+        11786,
+        11787,
+        11788,
+        11789,
+        11790
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "11903                                 with contextlib.suppress(Exception):\n11904                                     subprocess.run(\n11905                                         [\"taskkill\", \"/F\", \"/IM\", pn],\n11906                                         capture_output=True,\n11907                                         timeout=5,\n11908                                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11909                                     )\n11910                         return \"download\"\n",
+      "code": "11888                                 with contextlib.suppress(Exception):\n11889                                     subprocess.run(\n11890                                         [\"taskkill\", \"/F\", \"/IM\", pn],\n11891                                         capture_output=True,\n11892                                         timeout=5,\n11893                                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11894                                     )\n11895                         return \"download\"\n",
       "col_offset": 36,
       "end_col_offset": 37,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1859,21 +1817,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 11904,
+      "line_number": 11889,
       "line_range": [
-        11904,
-        11905,
-        11906,
-        11907,
-        11908,
-        11909
+        11889,
+        11890,
+        11891,
+        11892,
+        11893,
+        11894
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "11903                                 with contextlib.suppress(Exception):\n11904                                     subprocess.run(\n11905                                         [\"taskkill\", \"/F\", \"/IM\", pn],\n11906                                         capture_output=True,\n11907                                         timeout=5,\n11908                                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11909                                     )\n11910                         return \"download\"\n",
+      "code": "11888                                 with contextlib.suppress(Exception):\n11889                                     subprocess.run(\n11890                                         [\"taskkill\", \"/F\", \"/IM\", pn],\n11891                                         capture_output=True,\n11892                                         timeout=5,\n11893                                         creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11894                                     )\n11895                         return \"download\"\n",
       "col_offset": 36,
       "end_col_offset": 37,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1884,21 +1842,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 11904,
+      "line_number": 11889,
       "line_range": [
-        11904,
-        11905,
-        11906,
-        11907,
-        11908,
-        11909
+        11889,
+        11890,
+        11891,
+        11892,
+        11893,
+        11894
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "11920             try:\n11921                 proc: os.Popen[str] = subprocess.Popen(\n11922                     [\n11923                         \"winget\",\n11924                         \"install\",\n11925                         \"-e\",\n11926                         \"--id\",\n11927                         winget_id,\n11928                         \"--accept-package-agreements\",\n11929                         \"--accept-source-agreements\",\n11930                         \"-h\",\n11931                     ],\n11932                     stdout=subprocess.PIPE,\n11933                     stderr=subprocess.STDOUT,\n11934                     text=True,\n11935                     bufsize=1,\n11936                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11937                 )\n11938                 line_q = queue.Queue()\n",
+      "code": "11905             try:\n11906                 proc: os.Popen[str] = subprocess.Popen(\n11907                     [\n11908                         \"winget\",\n11909                         \"install\",\n11910                         \"-e\",\n11911                         \"--id\",\n11912                         winget_id,\n11913                         \"--accept-package-agreements\",\n11914                         \"--accept-source-agreements\",\n11915                         \"-h\",\n11916                     ],\n11917                     stdout=subprocess.PIPE,\n11918                     stderr=subprocess.STDOUT,\n11919                     text=True,\n11920                     bufsize=1,\n11921                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11922                 )\n11923                 line_q = queue.Queue()\n",
       "col_offset": 38,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1909,32 +1867,32 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 11921,
+      "line_number": 11906,
       "line_range": [
+        11906,
+        11907,
+        11908,
+        11909,
+        11910,
+        11911,
+        11912,
+        11913,
+        11914,
+        11915,
+        11916,
+        11917,
+        11918,
+        11919,
+        11920,
         11921,
-        11922,
-        11923,
-        11924,
-        11925,
-        11926,
-        11927,
-        11928,
-        11929,
-        11930,
-        11931,
-        11932,
-        11933,
-        11934,
-        11935,
-        11936,
-        11937
+        11922
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "11920             try:\n11921                 proc: os.Popen[str] = subprocess.Popen(\n11922                     [\n11923                         \"winget\",\n11924                         \"install\",\n11925                         \"-e\",\n11926                         \"--id\",\n11927                         winget_id,\n11928                         \"--accept-package-agreements\",\n11929                         \"--accept-source-agreements\",\n11930                         \"-h\",\n11931                     ],\n11932                     stdout=subprocess.PIPE,\n11933                     stderr=subprocess.STDOUT,\n11934                     text=True,\n11935                     bufsize=1,\n11936                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11937                 )\n11938                 line_q = queue.Queue()\n",
+      "code": "11905             try:\n11906                 proc: os.Popen[str] = subprocess.Popen(\n11907                     [\n11908                         \"winget\",\n11909                         \"install\",\n11910                         \"-e\",\n11911                         \"--id\",\n11912                         winget_id,\n11913                         \"--accept-package-agreements\",\n11914                         \"--accept-source-agreements\",\n11915                         \"-h\",\n11916                     ],\n11917                     stdout=subprocess.PIPE,\n11918                     stderr=subprocess.STDOUT,\n11919                     text=True,\n11920                     bufsize=1,\n11921                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11922                 )\n11923                 line_q = queue.Queue()\n",
       "col_offset": 38,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1945,32 +1903,32 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 11921,
+      "line_number": 11906,
       "line_range": [
+        11906,
+        11907,
+        11908,
+        11909,
+        11910,
+        11911,
+        11912,
+        11913,
+        11914,
+        11915,
+        11916,
+        11917,
+        11918,
+        11919,
+        11920,
         11921,
-        11922,
-        11923,
-        11924,
-        11925,
-        11926,
-        11927,
-        11928,
-        11929,
-        11930,
-        11931,
-        11932,
-        11933,
-        11934,
-        11935,
-        11936,
-        11937
+        11922
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "11943                             line_q.put(ln)\n11944                     except Exception:\n11945                         pass\n11946                     line_q.put(None)\n",
+      "code": "11928                             line_q.put(ln)\n11929                     except Exception:\n11930                         pass\n11931                     line_q.put(None)\n",
       "col_offset": 20,
       "end_col_offset": 28,
       "filename": "Python/pcap_sentry_gui.py",
@@ -1981,17 +1939,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 11944,
+      "line_number": 11929,
       "line_range": [
-        11944,
-        11945
+        11929,
+        11930
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "11975                             with contextlib.suppress(Exception):\n11976                                 subprocess.run(\n11977                                     [\"taskkill\", \"/F\", \"/IM\", pn],\n11978                                     capture_output=True,\n11979                                     timeout=5,\n11980                                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11981                                 )\n11982                     return \"winget\"\n",
+      "code": "11960                             with contextlib.suppress(Exception):\n11961                                 subprocess.run(\n11962                                     [\"taskkill\", \"/F\", \"/IM\", pn],\n11963                                     capture_output=True,\n11964                                     timeout=5,\n11965                                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11966                                 )\n11967                     return \"winget\"\n",
       "col_offset": 32,
       "end_col_offset": 33,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2002,21 +1960,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 11976,
+      "line_number": 11961,
       "line_range": [
-        11976,
-        11977,
-        11978,
-        11979,
-        11980,
-        11981
+        11961,
+        11962,
+        11963,
+        11964,
+        11965,
+        11966
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "11975                             with contextlib.suppress(Exception):\n11976                                 subprocess.run(\n11977                                     [\"taskkill\", \"/F\", \"/IM\", pn],\n11978                                     capture_output=True,\n11979                                     timeout=5,\n11980                                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11981                                 )\n11982                     return \"winget\"\n",
+      "code": "11960                             with contextlib.suppress(Exception):\n11961                                 subprocess.run(\n11962                                     [\"taskkill\", \"/F\", \"/IM\", pn],\n11963                                     capture_output=True,\n11964                                     timeout=5,\n11965                                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11966                                 )\n11967                     return \"winget\"\n",
       "col_offset": 32,
       "end_col_offset": 33,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2027,21 +1985,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 11976,
+      "line_number": 11961,
       "line_range": [
-        11976,
-        11977,
-        11978,
-        11979,
-        11980,
-        11981
+        11961,
+        11962,
+        11963,
+        11964,
+        11965,
+        11966
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "11984                 pass\n11985             except Exception:\n11986                 pass\n11987 \n",
+      "code": "11969                 pass\n11970             except Exception:\n11971                 pass\n11972 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2052,17 +2010,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 11985,
+      "line_number": 11970,
       "line_range": [
-        11985,
-        11986
+        11970,
+        11971
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12001                         with contextlib.suppress(Exception):\n12002                             subprocess.run(\n12003                                 [\"taskkill\", \"/F\", \"/IM\", proc_name],\n12004                                 capture_output=True,\n12005                                 timeout=5,\n12006                                 creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n12007                             )\n12008                 # Remove auto-start shortcut that some servers (e.g. Ollama) add\n",
+      "code": "11986                         with contextlib.suppress(Exception):\n11987                             subprocess.run(\n11988                                 [\"taskkill\", \"/F\", \"/IM\", proc_name],\n11989                                 capture_output=True,\n11990                                 timeout=5,\n11991                                 creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11992                             )\n11993                 # Remove auto-start shortcut that some servers (e.g. Ollama) add\n",
       "col_offset": 28,
       "end_col_offset": 29,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2073,21 +2031,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 12002,
+      "line_number": 11987,
       "line_range": [
-        12002,
-        12003,
-        12004,
-        12005,
-        12006,
-        12007
+        11987,
+        11988,
+        11989,
+        11990,
+        11991,
+        11992
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "12001                         with contextlib.suppress(Exception):\n12002                             subprocess.run(\n12003                                 [\"taskkill\", \"/F\", \"/IM\", proc_name],\n12004                                 capture_output=True,\n12005                                 timeout=5,\n12006                                 creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n12007                             )\n12008                 # Remove auto-start shortcut that some servers (e.g. Ollama) add\n",
+      "code": "11986                         with contextlib.suppress(Exception):\n11987                             subprocess.run(\n11988                                 [\"taskkill\", \"/F\", \"/IM\", proc_name],\n11989                                 capture_output=True,\n11990                                 timeout=5,\n11991                                 creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n11992                             )\n11993                 # Remove auto-start shortcut that some servers (e.g. Ollama) add\n",
       "col_offset": 28,
       "end_col_offset": 29,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2098,42 +2056,42 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 12002,
+      "line_number": 11987,
       "line_range": [
-        12002,
-        12003,
-        12004,
-        12005,
+        11987,
+        11988,
+        11989,
+        11990,
+        11991,
+        11992
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
+      "test_id": "B603",
+      "test_name": "subprocess_without_shell_equals_true"
+    },
+    {
+      "code": "12005                         os.remove(startup_lnk)\n12006                 except Exception:\n12007                     pass\n12008                 # Also check for Ollama-specific startup entry\n",
+      "col_offset": 16,
+      "end_col_offset": 24,
+      "filename": "Python/pcap_sentry_gui.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 12006,
+      "line_range": [
         12006,
         12007
       ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
-      "test_id": "B603",
-      "test_name": "subprocess_without_shell_equals_true"
-    },
-    {
-      "code": "12020                         os.remove(startup_lnk)\n12021                 except Exception:\n12022                     pass\n12023                 # Also check for Ollama-specific startup entry\n",
-      "col_offset": 16,
-      "end_col_offset": 24,
-      "filename": "Python/pcap_sentry_gui.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12021,
-      "line_range": [
-        12021,
-        12022
-      ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12036                             os.remove(ollama_lnk)\n12037                     except Exception:\n12038                         pass\n12039                     # Remove registry auto-start entry if present\n",
+      "code": "12021                             os.remove(ollama_lnk)\n12022                     except Exception:\n12023                         pass\n12024                     # Remove registry auto-start entry if present\n",
       "col_offset": 20,
       "end_col_offset": 28,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2144,17 +2102,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12037,
+      "line_number": 12022,
       "line_range": [
-        12037,
-        12038
+        12022,
+        12023
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12055                             winreg.CloseKey(key)\n12056                     except Exception:\n12057                         pass\n12058                 if \"ollama\" in name.lower():\n",
+      "code": "12040                             winreg.CloseKey(key)\n12041                     except Exception:\n12042                         pass\n12043                 if \"ollama\" in name.lower():\n",
       "col_offset": 20,
       "end_col_offset": 28,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2165,17 +2123,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12056,
+      "line_number": 12041,
       "line_range": [
-        12056,
-        12057
+        12041,
+        12042
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12118                     with contextlib.suppress(Exception):\n12119                         subprocess.run(\n12120                             [\"taskkill\", \"/F\", \"/IM\", proc_name],\n12121                             capture_output=True,\n12122                             timeout=5,\n12123                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n12124                         )\n12125                 time.sleep(1)\n",
+      "code": "12103                     with contextlib.suppress(Exception):\n12104                         subprocess.run(\n12105                             [\"taskkill\", \"/F\", \"/IM\", proc_name],\n12106                             capture_output=True,\n12107                             timeout=5,\n12108                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n12109                         )\n12110                 time.sleep(1)\n",
       "col_offset": 24,
       "end_col_offset": 25,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2186,21 +2144,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 12119,
+      "line_number": 12104,
       "line_range": [
-        12119,
-        12120,
-        12121,
-        12122,
-        12123,
-        12124
+        12104,
+        12105,
+        12106,
+        12107,
+        12108,
+        12109
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "12118                     with contextlib.suppress(Exception):\n12119                         subprocess.run(\n12120                             [\"taskkill\", \"/F\", \"/IM\", proc_name],\n12121                             capture_output=True,\n12122                             timeout=5,\n12123                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n12124                         )\n12125                 time.sleep(1)\n",
+      "code": "12103                     with contextlib.suppress(Exception):\n12104                         subprocess.run(\n12105                             [\"taskkill\", \"/F\", \"/IM\", proc_name],\n12106                             capture_output=True,\n12107                             timeout=5,\n12108                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n12109                         )\n12110                 time.sleep(1)\n",
       "col_offset": 24,
       "end_col_offset": 25,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2211,21 +2169,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 12119,
+      "line_number": 12104,
       "line_range": [
-        12119,
-        12120,
-        12121,
-        12122,
-        12123,
-        12124
+        12104,
+        12105,
+        12106,
+        12107,
+        12108,
+        12109
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "12128             try:\n12129                 proc: os.Popen[str] = subprocess.Popen(\n12130                     [\"winget\", \"uninstall\", \"--id\", winget_id, \"-e\", \"--silent\", \"--accept-source-agreements\"],\n12131                     stdout=subprocess.PIPE,\n12132                     stderr=subprocess.STDOUT,\n12133                     text=True,\n12134                     bufsize=1,\n12135                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n12136                 )\n12137                 line_q = queue.Queue()\n",
+      "code": "12113             try:\n12114                 proc: os.Popen[str] = subprocess.Popen(\n12115                     [\"winget\", \"uninstall\", \"--id\", winget_id, \"-e\", \"--silent\", \"--accept-source-agreements\"],\n12116                     stdout=subprocess.PIPE,\n12117                     stderr=subprocess.STDOUT,\n12118                     text=True,\n12119                     bufsize=1,\n12120                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n12121                 )\n12122                 line_q = queue.Queue()\n",
       "col_offset": 38,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2236,23 +2194,23 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 12129,
+      "line_number": 12114,
       "line_range": [
-        12129,
-        12130,
-        12131,
-        12132,
-        12133,
-        12134,
-        12135,
-        12136
+        12114,
+        12115,
+        12116,
+        12117,
+        12118,
+        12119,
+        12120,
+        12121
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "12128             try:\n12129                 proc: os.Popen[str] = subprocess.Popen(\n12130                     [\"winget\", \"uninstall\", \"--id\", winget_id, \"-e\", \"--silent\", \"--accept-source-agreements\"],\n12131                     stdout=subprocess.PIPE,\n12132                     stderr=subprocess.STDOUT,\n12133                     text=True,\n12134                     bufsize=1,\n12135                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n12136                 )\n12137                 line_q = queue.Queue()\n",
+      "code": "12113             try:\n12114                 proc: os.Popen[str] = subprocess.Popen(\n12115                     [\"winget\", \"uninstall\", \"--id\", winget_id, \"-e\", \"--silent\", \"--accept-source-agreements\"],\n12116                     stdout=subprocess.PIPE,\n12117                     stderr=subprocess.STDOUT,\n12118                     text=True,\n12119                     bufsize=1,\n12120                     creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n12121                 )\n12122                 line_q = queue.Queue()\n",
       "col_offset": 38,
       "end_col_offset": 17,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2263,23 +2221,23 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 12129,
+      "line_number": 12114,
       "line_range": [
-        12129,
-        12130,
-        12131,
-        12132,
-        12133,
-        12134,
-        12135,
-        12136
+        12114,
+        12115,
+        12116,
+        12117,
+        12118,
+        12119,
+        12120,
+        12121
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "12142                             line_q.put(ln)\n12143                     except Exception:\n12144                         pass\n12145                     line_q.put(None)\n",
+      "code": "12127                             line_q.put(ln)\n12128                     except Exception:\n12129                         pass\n12130                     line_q.put(None)\n",
       "col_offset": 20,
       "end_col_offset": 28,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2290,17 +2248,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12143,
+      "line_number": 12128,
       "line_range": [
-        12143,
-        12144
+        12128,
+        12129
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12190                         os.remove(startup_lnk)\n12191                 except Exception:\n12192                     pass\n12193                 messagebox.showinfo(\n",
+      "code": "12175                         os.remove(startup_lnk)\n12176                 except Exception:\n12177                     pass\n12178                 messagebox.showinfo(\n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2311,17 +2269,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12191,
+      "line_number": 12176,
       "line_range": [
-        12191,
-        12192
+        12176,
+        12177
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12325                         return True  # At least one endpoint is reachable\n12326                     except Exception:\n12327                         continue  # Try next endpoint\n12328                 return False  # All 3 endpoints failed - truly offline\n",
+      "code": "12310                         return True  # At least one endpoint is reachable\n12311                     except Exception:\n12312                         continue  # Try next endpoint\n12313                 return False  # All 3 endpoints failed - truly offline\n",
       "col_offset": 20,
       "end_col_offset": 32,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2332,17 +2290,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Continue detected.",
-      "line_number": 12326,
+      "line_number": 12311,
       "line_range": [
-        12326,
-        12327
+        12311,
+        12312
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b112_try_except_continue.html",
       "test_id": "B112",
       "test_name": "try_except_continue"
     },
     {
-      "code": "12343                         )\n12344                 except Exception:\n12345                     pass  # Don't crash startup if we can't set offline mode\n12346 \n",
+      "code": "12328                         )\n12329                 except Exception:\n12330                     pass  # Don't crash startup if we can't set offline mode\n12331 \n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2353,17 +2311,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12344,
+      "line_number": 12329,
       "line_range": [
-        12344,
-        12345
+        12329,
+        12330
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12351                         self.root.after(0, lambda: _apply(online))\n12352                 except Exception:\n12353                     pass  # Don't crash startup\n12354 \n",
+      "code": "12336                         self.root.after(0, lambda: _apply(online))\n12337                 except Exception:\n12338                     pass  # Don't crash startup\n12339 \n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2374,17 +2332,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12352,
+      "line_number": 12337,
       "line_range": [
-        12352,
-        12353
+        12337,
+        12338
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12355             threading.Thread(target=_run, daemon=True, name=\"InternetCheck\").start()\n12356         except Exception:\n12357             pass  # Don't crash startup if internet check fails to initialize\n12358 \n",
+      "code": "12340             threading.Thread(target=_run, daemon=True, name=\"InternetCheck\").start()\n12341         except Exception:\n12342             pass  # Don't crash startup if internet check fails to initialize\n12343 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2395,17 +2353,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12356,
+      "line_number": 12341,
       "line_range": [
-        12356,
-        12357
+        12341,
+        12342
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12554                         return {\"provider\": \"ollama\", \"endpoint\": ollama_base, \"model\": model_name}\n12555                 except Exception:\n12556                     pass\n12557                 for port in ports:\n",
+      "code": "12539                         return {\"provider\": \"ollama\", \"endpoint\": ollama_base, \"model\": model_name}\n12540                 except Exception:\n12541                     pass\n12542                 for port in ports:\n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2416,17 +2374,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12555,
+      "line_number": 12540,
       "line_range": [
-        12555,
-        12556
+        12540,
+        12541
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12560                         model_id = self._probe_openai_compat(base)\n12561                     except Exception:\n12562                         continue\n12563                     if model_id:\n",
+      "code": "12545                         model_id = self._probe_openai_compat(base)\n12546                     except Exception:\n12547                         continue\n12548                     if model_id:\n",
       "col_offset": 20,
       "end_col_offset": 32,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2437,17 +2395,38 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Continue detected.",
+      "line_number": 12546,
+      "line_range": [
+        12546,
+        12547
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b112_try_except_continue.html",
+      "test_id": "B112",
+      "test_name": "try_except_continue"
+    },
+    {
+      "code": "12560                     self._save_settings_from_vars()\n12561                 except Exception:\n12562                     pass  # Don't crash if we can't apply auto-detected LLM settings\n12563 \n",
+      "col_offset": 16,
+      "end_col_offset": 24,
+      "filename": "Python/pcap_sentry_gui.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
       "line_number": 12561,
       "line_range": [
         12561,
         12562
       ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b112_try_except_continue.html",
-      "test_id": "B112",
-      "test_name": "try_except_continue"
+      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
     },
     {
-      "code": "12575                     self._save_settings_from_vars()\n12576                 except Exception:\n12577                     pass  # Don't crash if we can't apply auto-detected LLM settings\n12578 \n",
+      "code": "12568                         self.root.after(0, lambda: apply_result(result))\n12569                 except Exception:\n12570                     pass  # Don't crash startup\n12571 \n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2458,38 +2437,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12576,
+      "line_number": 12569,
       "line_range": [
-        12576,
-        12577
+        12569,
+        12570
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12583                         self.root.after(0, lambda: apply_result(result))\n12584                 except Exception:\n12585                     pass  # Don't crash startup\n12586 \n",
-      "col_offset": 16,
-      "end_col_offset": 24,
-      "filename": "Python/pcap_sentry_gui.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12584,
-      "line_range": [
-        12584,
-        12585
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
-      "test_id": "B110",
-      "test_name": "try_except_pass"
-    },
-    {
-      "code": "12587             threading.Thread(target=run, daemon=True).start()\n12588         except Exception:\n12589             pass  # Don't crash startup if LLM auto-detect fails to initialize\n12590 \n",
+      "code": "12572             threading.Thread(target=run, daemon=True).start()\n12573         except Exception:\n12574             pass  # Don't crash startup if LLM auto-detect fails to initialize\n12575 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2500,17 +2458,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12588,
+      "line_number": 12573,
       "line_range": [
-        12588,
-        12589
+        12573,
+        12574
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12614                         return {\"success\": False}\n12615                 except Exception:\n12616                     pass\n12617                 return {\"success\": False}\n",
+      "code": "12599                         return {\"success\": False}\n12600                 except Exception:\n12601                     pass\n12602                 return {\"success\": False}\n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2521,17 +2479,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12615,
+      "line_number": 12600,
       "line_range": [
-        12615,
-        12616
+        12600,
+        12601
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12631                         self._set_llm_test_status(\"Not tested\", self.colors.get(\"muted\", \"#8b949e\"))\n12632                 except Exception:\n12633                     pass\n12634 \n",
+      "code": "12616                         self._set_llm_test_status(\"Not tested\", self.colors.get(\"muted\", \"#8b949e\"))\n12617                 except Exception:\n12618                     pass\n12619 \n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2542,17 +2500,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12632,
+      "line_number": 12617,
       "line_range": [
-        12632,
-        12633
+        12617,
+        12618
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12639                         self.root.after(0, lambda: apply_result(result))\n12640                 except Exception:\n12641                     pass\n12642 \n",
+      "code": "12624                         self.root.after(0, lambda: apply_result(result))\n12625                 except Exception:\n12626                     pass\n12627 \n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2563,17 +2521,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12640,
+      "line_number": 12625,
       "line_range": [
-        12640,
-        12641
+        12625,
+        12626
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12643             threading.Thread(target=run, daemon=True).start()\n12644         except Exception:\n12645             pass  # Don't crash startup if LLM verification fails\n12646 \n",
+      "code": "12628             threading.Thread(target=run, daemon=True).start()\n12629         except Exception:\n12630             pass  # Don't crash startup if LLM verification fails\n12631 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2584,17 +2542,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12644,
+      "line_number": 12629,
       "line_range": [
-        12644,
-        12645
+        12629,
+        12630
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12685 \n12686                 except Exception:\n12687                     pass\n12688                 return False\n",
+      "code": "12670 \n12671                 except Exception:\n12672                     pass\n12673                 return False\n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2605,17 +2563,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12686,
+      "line_number": 12671,
       "line_range": [
-        12686,
-        12687
+        12671,
+        12672
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12698                         self._set_llm_test_status(\"Not tested\", self.colors.get(\"muted\", \"#8b949e\"))\n12699                 except Exception:\n12700                     pass\n12701 \n",
+      "code": "12683                         self._set_llm_test_status(\"Not tested\", self.colors.get(\"muted\", \"#8b949e\"))\n12684                 except Exception:\n12685                     pass\n12686 \n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2626,17 +2584,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12699,
+      "line_number": 12684,
       "line_range": [
-        12699,
-        12700
+        12684,
+        12685
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12706                         self.root.after(0, lambda: apply_result(success))\n12707                 except Exception:\n12708                     pass\n12709 \n",
+      "code": "12691                         self.root.after(0, lambda: apply_result(success))\n12692                 except Exception:\n12693                     pass\n12694 \n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2647,17 +2605,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12707,
+      "line_number": 12692,
       "line_range": [
-        12707,
-        12708
+        12692,
+        12693
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "12710             threading.Thread(target=run, daemon=True).start()\n12711         except Exception:\n12712             pass  # Don't crash startup\n12713 \n",
+      "code": "12695             threading.Thread(target=run, daemon=True).start()\n12696         except Exception:\n12697             pass  # Don't crash startup\n12698 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2668,17 +2626,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 12711,
+      "line_number": 12696,
       "line_range": [
-        12711,
-        12712
+        12696,
+        12697
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "13137                     try:\n13138                         subprocess.Popen(\n13139                             [\"ollama\", \"serve\"],\n13140                             stdout=subprocess.DEVNULL,\n13141                             stderr=subprocess.DEVNULL,\n13142                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n13143                         )\n13144                         time.sleep(1.2)\n",
+      "code": "13122                     try:\n13123                         subprocess.Popen(\n13124                             [\"ollama\", \"serve\"],\n13125                             stdout=subprocess.DEVNULL,\n13126                             stderr=subprocess.DEVNULL,\n13127                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n13128                         )\n13129                         time.sleep(1.2)\n",
       "col_offset": 24,
       "end_col_offset": 25,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2689,21 +2647,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 13138,
+      "line_number": 13123,
       "line_range": [
-        13138,
-        13139,
-        13140,
-        13141,
-        13142,
-        13143
+        13123,
+        13124,
+        13125,
+        13126,
+        13127,
+        13128
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "13137                     try:\n13138                         subprocess.Popen(\n13139                             [\"ollama\", \"serve\"],\n13140                             stdout=subprocess.DEVNULL,\n13141                             stderr=subprocess.DEVNULL,\n13142                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n13143                         )\n13144                         time.sleep(1.2)\n",
+      "code": "13122                     try:\n13123                         subprocess.Popen(\n13124                             [\"ollama\", \"serve\"],\n13125                             stdout=subprocess.DEVNULL,\n13126                             stderr=subprocess.DEVNULL,\n13127                             creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n13128                         )\n13129                         time.sleep(1.2)\n",
       "col_offset": 24,
       "end_col_offset": 25,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2714,21 +2672,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 13138,
+      "line_number": 13123,
       "line_range": [
-        13138,
-        13139,
-        13140,
-        13141,
-        13142,
-        13143
+        13123,
+        13124,
+        13125,
+        13126,
+        13127,
+        13128
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "13325                     self.root.after(0, lambda s=suggestion: self._on_llm_suggestion(s))\n13326             except Exception:\n13327                 pass  # Silently ignore \u2014 the suggestion is optional\n13328 \n",
+      "code": "13310                     self.root.after(0, lambda s=suggestion: self._on_llm_suggestion(s))\n13311             except Exception:\n13312                 pass  # Silently ignore \u2014 the suggestion is optional\n13313 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2739,17 +2697,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 13326,
+      "line_number": 13311,
       "line_range": [
-        13326,
-        13327
+        13311,
+        13312
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "15904                     self.results_notebook.select(self.results_tab)\n15905                 except Exception:\n15906                     pass\n15907             self._apply_packet_filters()\n",
+      "code": "15889                     self.results_notebook.select(self.results_tab)\n15890                 except Exception:\n15891                     pass\n15892             self._apply_packet_filters()\n",
       "col_offset": 16,
       "end_col_offset": 24,
       "filename": "Python/pcap_sentry_gui.py",
@@ -2760,10 +2718,10 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 15905,
+      "line_number": 15890,
       "line_range": [
-        15905,
-        15906
+        15890,
+        15891
       ],
       "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html",
       "test_id": "B110",
