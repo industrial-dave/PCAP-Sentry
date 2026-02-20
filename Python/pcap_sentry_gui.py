@@ -12933,28 +12933,29 @@ class PCAPSentryApp:
         if ioc_matches:
             _ioc_ip_set_summary = set(ioc_matches.get("ips", []))
         for _f in suspicious_flows:
-            if _f.get("dst", "") in _ioc_ip_set_summary or _f.get("src", "") in _ioc_ip_set_summary:
-                if _f not in _c2_flows:
-                    _c2_flows.append(_f)
+            if (
+                _f.get("dst", "") in _ioc_ip_set_summary or _f.get("src", "") in _ioc_ip_set_summary
+            ) and _f not in _c2_flows:
+                _c2_flows.append(_f)
 
         # ── Exfil inference helpers (available to both summary + Phase 4) ──────
         _EXFIL_PORT_HINTS = {
-            20:   "FTP data channel — files sent in cleartext (fully readable in Follow Stream)",
-            21:   "FTP control — username + password sent in plaintext before file transfer",
-            22:   "SSH/SFTP — encrypted file or command transfer (content hidden)",
-            25:   "SMTP — email messages + attachments being sent out",
-            53:   "DNS — possible DNS tunneling (data hidden in DNS query strings)",
-            80:   "HTTP — UNENCRYPTED: Follow → TCP Stream to read raw stolen content",
-            110:  "POP3 — email download including cleartext credentials",
-            143:  "IMAP — email messages including cleartext login",
-            389:  "LDAP — Active Directory data: usernames, computer names, group memberships",
-            443:  "HTTPS — encrypted: likely credentials, saved passwords, files, or screenshots",
-            445:  "SMB — Windows file share access (documents, passwords, NTLM hashes)",
-            465:  "SMTP/TLS — encrypted email exfiltration",
-            587:  "SMTP submission — likely email or attachment exfiltration",
-            636:  "LDAPS — encrypted Active Directory data",
-            993:  "IMAP/TLS — encrypted email download",
-            995:  "POP3/TLS — encrypted email + credentials",
+            20: "FTP data channel — files sent in cleartext (fully readable in Follow Stream)",
+            21: "FTP control — username + password sent in plaintext before file transfer",
+            22: "SSH/SFTP — encrypted file or command transfer (content hidden)",
+            25: "SMTP — email messages + attachments being sent out",
+            53: "DNS — possible DNS tunneling (data hidden in DNS query strings)",
+            80: "HTTP — UNENCRYPTED: Follow → TCP Stream to read raw stolen content",
+            110: "POP3 — email download including cleartext credentials",
+            143: "IMAP — email messages including cleartext login",
+            389: "LDAP — Active Directory data: usernames, computer names, group memberships",
+            443: "HTTPS — encrypted: likely credentials, saved passwords, files, or screenshots",
+            445: "SMB — Windows file share access (documents, passwords, NTLM hashes)",
+            465: "SMTP/TLS — encrypted email exfiltration",
+            587: "SMTP submission — likely email or attachment exfiltration",
+            636: "LDAPS — encrypted Active Directory data",
+            993: "IMAP/TLS — encrypted email download",
+            995: "POP3/TLS — encrypted email + credentials",
             1433: "MSSQL — database records (user tables, passwords, financial data)",
             3306: "MySQL/MariaDB — database records",
             3389: "RDP — remote desktop session data",
@@ -12964,22 +12965,45 @@ class PCAPSentryApp:
             8443: "HTTPS alternate port — encrypted",
         }
         _EXFIL_DOMAIN_SIGNALS = [
-            (["discord.com/api/webhooks", "discordapp.com"],       "Discord webhook — classic RedLine/Lumma/Vidar stealer drop for credentials + cookies"),
-            (["api.telegram.org", "telegram.org"],                  "Telegram Bot API — stealers DM stolen credentials directly to attacker"),
-            (["pastebin.com", "paste.ee", "hastebin.com", "pastecode.io", "dpaste.org"],
-                                                                    "Paste site — malware dumping stolen text (passwords, API keys, session tokens)"),
-            (["transfer.sh", "anonfiles.com", "gofile.io", "file.io", "fileditch.com"],
-                                                                    "Anonymous file host — malware uploading stolen documents or archive files"),
-            (["ngrok.io", "ngrok.com"],                             "ngrok tunnel — malware hiding real C2 behind a reverse proxy"),
-            (["s3.amazonaws.com", "amazonaws.com"],                 "AWS S3 bucket — bulk file/data upload to attacker-controlled cloud storage"),
-            (["storage.googleapis.com", "drive.google.com"],       "Google Cloud Storage — possible unauthorized data upload"),
-            (["dropbox.com", "dl.dropboxuser.com"],                 "Dropbox — possible unauthorized file upload masquerading as cloud sync"),
-            (["onedrive.live.com", "sharepoint.com"],               "OneDrive/SharePoint — possible unauthorized upload or lateral data move"),
-            (["gist.github.com", "raw.githubusercontent.com"],     "GitHub Gist/Raw — malware using code-hosting as data drop or config pull"),
+            (
+                ["discord.com/api/webhooks", "discordapp.com"],
+                "Discord webhook — classic RedLine/Lumma/Vidar stealer drop for credentials + cookies",
+            ),
+            (
+                ["api.telegram.org", "telegram.org"],
+                "Telegram Bot API — stealers DM stolen credentials directly to attacker",
+            ),
+            (
+                ["pastebin.com", "paste.ee", "hastebin.com", "pastecode.io", "dpaste.org"],
+                "Paste site — malware dumping stolen text (passwords, API keys, session tokens)",
+            ),
+            (
+                ["transfer.sh", "anonfiles.com", "gofile.io", "file.io", "fileditch.com"],
+                "Anonymous file host — malware uploading stolen documents or archive files",
+            ),
+            (["ngrok.io", "ngrok.com"], "ngrok tunnel — malware hiding real C2 behind a reverse proxy"),
+            (
+                ["s3.amazonaws.com", "amazonaws.com"],
+                "AWS S3 bucket — bulk file/data upload to attacker-controlled cloud storage",
+            ),
+            (
+                ["storage.googleapis.com", "drive.google.com"],
+                "Google Cloud Storage — possible unauthorized data upload",
+            ),
+            (
+                ["dropbox.com", "dl.dropboxuser.com"],
+                "Dropbox — possible unauthorized file upload masquerading as cloud sync",
+            ),
+            (
+                ["onedrive.live.com", "sharepoint.com"],
+                "OneDrive/SharePoint — possible unauthorized upload or lateral data move",
+            ),
+            (
+                ["gist.github.com", "raw.githubusercontent.com"],
+                "GitHub Gist/Raw — malware using code-hosting as data drop or config pull",
+            ),
         ]
-        _all_contacted_domains: set = (
-            set(stats.get("http_hosts", [])) | set(stats.get("tls_sni", []))
-        )
+        _all_contacted_domains: set = set(stats.get("http_hosts", [])) | set(stats.get("tls_sni", []))
 
         def _infer_exfil_data_type(dp_int: int, dst_ip: str) -> list:
             """Return plain-language lines explaining what was likely stolen."""
@@ -12996,9 +13020,13 @@ class PCAPSentryApp:
                 if dp_int == 0:
                     hints.append("Non-standard protocol — raw socket or unknown encapsulation")
                 elif dp_int < 1024:
-                    hints.append(f"Port {dp_int} is a well-known service port — consult IANA registry for exact protocol")
+                    hints.append(
+                        f"Port {dp_int} is a well-known service port — consult IANA registry for exact protocol"
+                    )
                 else:
-                    hints.append(f"Port {dp_int} is non-standard — could be custom C2, encrypted blob, or archive upload")
+                    hints.append(
+                        f"Port {dp_int} is non-standard — could be custom C2, encrypted blob, or archive upload"
+                    )
             return hints
 
         _has_findings = _c2_flows or _exfil_flows or _spread_flows
@@ -13022,9 +13050,9 @@ class PCAPSentryApp:
                 for _f in _c2_flows[:5]:
                     _src = _f.get("src", "?")
                     _dst = _f.get("dst", "?")
-                    _dp  = _f.get("dport", "?")
-                    _pr  = _f.get("proto", "?")
-                    _r   = _f.get("reason", "")
+                    _dp = _f.get("dport", "?")
+                    _pr = _f.get("proto", "?")
+                    _r = _f.get("reason", "")
                     _ioc_flag = "  !! IoC MATCH" if (_dst in _ioc_ip_set_summary or _src in _ioc_ip_set_summary) else ""
                     lines.append(f"    {_src}  →  {_dst}  port {_dp} / {_pr}{_ioc_flag}")
                     lines.append(f"      Reason: {_r}")
@@ -13050,10 +13078,10 @@ class PCAPSentryApp:
                 )
                 lines.append("")
                 for _f in _exfil_flows[:5]:
-                    _src  = _f.get("src", "?")
-                    _dst  = _f.get("dst", "?")
-                    _dp   = _f.get("dport", "?")
-                    _pr   = _f.get("proto", "?")
+                    _src = _f.get("src", "?")
+                    _dst = _f.get("dst", "?")
+                    _dp = _f.get("dport", "?")
+                    _pr = _f.get("proto", "?")
                     _byte = _f.get("bytes", "?")
                     _pkts = _f.get("packets", "?")
                     _dp_i = int(_dp) if str(_dp).isdigit() else 0
@@ -13062,7 +13090,7 @@ class PCAPSentryApp:
                     for _hint in _infer_exfil_data_type(_dp_i, _dst):
                         lines.append(f"  !! {_hint.strip()}")
                     lines.append(f"      Wireshark: ip.src == {_src} && ip.dst == {_dst}")
-                    lines.append( "      Then: Statistics → Conversations to confirm bulk transfer")
+                    lines.append("      Then: Statistics → Conversations to confirm bulk transfer")
                     lines.append("")
                 lines.append(
                     "  To read the actual stolen data (unencrypted flows only):\n"
@@ -13096,13 +13124,13 @@ class PCAPSentryApp:
                 )
                 lines.append("")
                 for _f in _spread_flows[:5]:
-                    _src  = _f.get("src", "?")
-                    _dst  = _f.get("dst", "?")
-                    _dp   = _f.get("dport", "?")
+                    _src = _f.get("src", "?")
+                    _dst = _f.get("dst", "?")
+                    _dp = _f.get("dport", "?")
                     _dp_i = int(_dp) if str(_dp).isdigit() else 0
-                    _pr   = _f.get("proto", "?")
-                    _svc  = _lateral_port_names.get(_dp_i, f"port {_dp}")
-                    _r    = _f.get("reason", "")
+                    _pr = _f.get("proto", "?")
+                    _svc = _lateral_port_names.get(_dp_i, f"port {_dp}")
+                    _r = _f.get("reason", "")
                     lines.append(f"    {_src}  →  {_dst}  via {_svc} ({_pr})")
                     lines.append(f"      Reason: {_r}")
                     _pf = "tcp" if _pr == "TCP" else "udp"
@@ -13125,7 +13153,7 @@ class PCAPSentryApp:
                 lines.append("")
 
             lines.append("─" * 60)
-            lines.append("  See Phases 3–5 further below for detailed investigation")
+            lines.append("  See Phases 3-5 further below for detailed investigation")
             lines.append("  techniques, Wireshark filters, and step-by-step guides.")
             lines.append("─" * 60)
             lines.append("")
@@ -13624,8 +13652,10 @@ class PCAPSentryApp:
             for item in suspicious_flows[:6]:
                 for addr_key in ("src", "dst"):
                     ip_val = item.get(addr_key, "")
-                    if ip_val and ip_val not in seen_ext and not ip_val.startswith(
-                        ("10.", "192.168.", "172.1", "172.2", "172.3", "127.", "0.")
+                    if (
+                        ip_val
+                        and ip_val not in seen_ext
+                        and not ip_val.startswith(("10.", "192.168.", "172.1", "172.2", "172.3", "127.", "0."))
                     ):
                         ext_ips.append(ip_val)
                         seen_ext.add(ip_val)
@@ -13775,9 +13805,9 @@ class PCAPSentryApp:
                 lines.append("  C2 CANDIDATES IN THIS CAPTURE:")
                 for cand in c2_candidates[:3]:
                     lines.append(
-                        f"    {cand.get('src','?')} → {cand.get('dst','?')}:"
-                        f"  port {cand.get('dport','?')} / {cand.get('proto','?')}"
-                        f"  ({cand.get('reason','')})"
+                        f"    {cand.get('src', '?')} → {cand.get('dst', '?')}:"
+                        f"  port {cand.get('dport', '?')} / {cand.get('proto', '?')}"
+                        f"  ({cand.get('reason', '')})"
                     )
                 lines.append(
                     "  Apply 'Follow TCP Stream' to each of these to see whether\n"
@@ -13828,7 +13858,7 @@ class PCAPSentryApp:
             "\n"
             "  ICMP tunneling:\n"
             "    • Data hidden in ICMP Echo (ping) payloads.\n"
-            "    • Normal pings have payloads of 32–56 bytes; tunneled\n"
+            "    • Normal pings have payloads of 32-56 bytes; tunneled\n"
             "      pings carry hundreds of bytes.\n"
             "    • Filter: icmp && frame.len > 100\n"
             "\n"
@@ -13841,9 +13871,9 @@ class PCAPSentryApp:
         )
         if suspicious_flows:
             exfil_candidates = [
-                f for f in suspicious_flows
-                if "high_volume" in f.get("reason", "").lower()
-                or "exfil" in f.get("reason", "").lower()
+                f
+                for f in suspicious_flows
+                if "high_volume" in f.get("reason", "").lower() or "exfil" in f.get("reason", "").lower()
             ]
             if exfil_candidates:
                 lines.append("")
@@ -13851,11 +13881,11 @@ class PCAPSentryApp:
                 lines.append("  (volume + likely data type based on port and contacted domains)")
                 lines.append("")
                 for cand in exfil_candidates[:3]:
-                    _c_dp   = cand.get("dport", "?")
+                    _c_dp = cand.get("dport", "?")
                     _c_dp_i = int(_c_dp) if str(_c_dp).isdigit() else 0
                     lines.append(
-                        f"    {cand.get('src','?')} → {cand.get('dst','?')}:"
-                        f"  {cand.get('bytes','?')} over {cand.get('packets','?')} packets"
+                        f"    {cand.get('src', '?')} → {cand.get('dst', '?')}:"
+                        f"  {cand.get('bytes', '?')} over {cand.get('packets', '?')} packets"
                         f"  (port {_c_dp})"
                     )
                     for _ph in _infer_exfil_data_type(_c_dp_i, cand.get("dst", "?")):
@@ -13927,7 +13957,8 @@ class PCAPSentryApp:
         if suspicious_flows:
             lateral_ports = {445, 3389, 135, 22, 139}
             lateral_flows = [
-                f for f in suspicious_flows
+                f
+                for f in suspicious_flows
                 if str(f.get("dport", "")).isdigit() and int(f.get("dport", 0)) in lateral_ports
             ]
             if lateral_flows:
@@ -13938,8 +13969,7 @@ class PCAPSentryApp:
                         int(lf.get("dport", 0)), str(lf.get("dport", ""))
                     )
                     lines.append(
-                        f"    {lf.get('src','?')} → {lf.get('dst','?')}"
-                        f"  port {lf.get('dport','?')} ({port_name})"
+                        f"    {lf.get('src', '?')} → {lf.get('dst', '?')}  port {lf.get('dport', '?')} ({port_name})"
                     )
                 lines.append(
                     "  Investigate whether the SOURCE IP is an internal host —\n"
@@ -14132,11 +14162,12 @@ class PCAPSentryApp:
         if suspicious_flows:
             for item in suspicious_flows:
                 s = item.get("src", "")
-                if s and s not in seen_int_src and (
-                    s.startswith("10.")
-                    or s.startswith("192.168.")
-                    or s.startswith("172.")
-                    or s.startswith("169.")
+                if (
+                    s
+                    and s not in seen_int_src
+                    and (
+                        s.startswith("10.") or s.startswith("192.168.") or s.startswith("172.") or s.startswith("169.")
+                    )
                 ):
                     internal_src.append(s)
                     seen_int_src.add(s)
@@ -14151,13 +14182,13 @@ class PCAPSentryApp:
             for ip in internal_src[:3]:
                 lines.append(f"    # --- Machine: {ip} ---")
                 lines.append(f"    bootp && ip.src == {ip}")
-                lines.append(f"      → Look for Option 12 (hostname)")
+                lines.append("      → Look for Option 12 (hostname)")
                 lines.append(f"    nbns && ip.src == {ip}")
-                lines.append(f"      → Look for Name Registration Request")
+                lines.append("      → Look for Name Registration Request")
                 lines.append(f"    kerberos && ip.src == {ip}")
-                lines.append(f"      → Look for CNameString (username)")
+                lines.append("      → Look for CNameString (username)")
                 lines.append(f"    ntlmssp && ip.src == {ip}")
-                lines.append(f"      → Look for ntlmssp.auth.username")
+                lines.append("      → Look for ntlmssp.auth.username")
                 lines.append("")
         else:
             lines.append("  Standard identity-extraction filters (paste into Wireshark):")
