@@ -11,6 +11,9 @@
 
 
 
+
+## 2026.02.20-10 - 2026-02-20
+- CASS personality rework - GLaDOS-inspired tone
 ## 2026.02.20-9 - 2026-02-20
 - Rename chatbot from PARRY to CASS with new sarcastic/edgy personality
 ## 2026.02.20-8 - 2026-02-20
