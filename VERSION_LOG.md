@@ -5,6 +5,9 @@
 
 
 
+
+## 2026.02.20-4 - 2026-02-20
+- v2026.02.20-4: Education main tab (Wireshark reference guide, 12 sections, clickable resource links); Details sub-tab rename; Verify All API keys button (parallel, live labels); sensible dialog/window default sizes and minsize guards; ruff format pass
 ## 2026.02.20-4 - 2026-02-20
 - **UI:** Five main tabs — added top-level **Education** tab with static Wireshark reference guide (PCAP format, BPF capture filters, display filter cheat sheet, Follow Stream + file magic bytes, Statistics tools, file extraction, TLS decryption via `SSLKEYLOGFILE` + private key, protocol quick reference, identifying infected hosts, tshark/tcpdump CLI); resource links are clickable and open in the browser
 - **UI:** Results sub-tab renamed **Education → Details** — LabelFrame label changed to "Analysis Details"; all internal string references updated; tab map entry updated in `_build_tabs` and `_on_tab_changed`
