@@ -7,8 +7,11 @@
 
 
 
+## 2026.02.20-6 - 2026-02-20
+- refactor(creds): rebuild credential layer from scratch â€” replace `_kr_service`/`_KEYRING_SERVICE` + legacy-migration code with `_cred_target` (`PCAP_Sentry/<name>`) and a fixed `_CRED_USERNAME = "credential"`; add `_ALL_API_KEYS` batch list for uniform load/save loops; LLM API Key added as first section in API Keys tab; **Verify All** button relocated to top-right of tab header; `_verify_all_api_keys` includes provider-aware `_test_llm` function; `_default_settings()` includes `llm_api_key`
+
 ## 2026.02.20-5 - 2026-02-20
-- fix(icon): fill hexagon interior with solid black — was transparent
+- fix(icon): fill hexagon interior with solid black ï¿½ was transparent
 ## 2026.02.20-4 - 2026-02-20
 - v2026.02.20-4: Education main tab (Wireshark reference guide, 12 sections, clickable resource links); Details sub-tab rename; Verify All API keys button (parallel, live labels); sensible dialog/window default sizes and minsize guards; ruff format pass
 ## 2026.02.20-4 - 2026-02-20

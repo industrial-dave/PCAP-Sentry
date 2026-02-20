@@ -188,39 +188,42 @@ def _verify_model_hmac():
 
 **Mitigation Method: OS Native Credential Manager — unique per-credential target**
 ```python
-def _store_credential(name: str, value: str) -> None:
-    """Store *value* under a unique WCM target for *name*."""
+_CRED_USERNAME = "credential"          # fixed username — same for every key
+
+def _cred_target(name: str) -> str:
+    """Return the unique WCM target string for *name*."""
+    return f"PCAP_Sentry/{name}"
+
+def _store_cred(name: str, value: str) -> None:
+    """Store *value* under its unique WCM target; no-op when value is empty."""
     if not value:
         return
-    keyring.set_password(_kr_service(name), name, value)  # target = PCAP_Sentry/<name>
+    keyring.set_password(_cred_target(name), _CRED_USERNAME, value)
 
-def _load_credential(name: str) -> str:
-    """Load credential, migrating from legacy shared-service format on first read."""
-    val = keyring.get_password(_kr_service(name), name)   # current per-credential target
-    if val:
-        return val
-    # Legacy migration: old code used service="PCAP_Sentry" for all keys,
-    # causing WCM targets to collide and overwrite each other.
-    legacy = keyring.get_password(_KEYRING_SERVICE, name)
-    if legacy:
-        keyring.set_password(_kr_service(name), name, legacy)  # promote to new target
-        keyring.delete_password(_KEYRING_SERVICE, name)         # remove old entry
-        return legacy
-    return ""
+def _load_cred(name: str) -> str:
+    """Return stored credential for *name*, or '' if absent."""
+    val = keyring.get_password(_cred_target(name), _CRED_USERNAME)
+    return val or ""
+
+def _delete_cred(name: str) -> None:
+    """Delete the WCM entry for *name*.  No-op if not present."""
+    with contextlib.suppress(keyring.errors.PasswordDeleteError):
+        keyring.delete_password(_cred_target(name), _CRED_USERNAME)
 ```
 
 **Why This Works:**
-- Each credential occupies its own WCM target (`PCAP_Sentry/<name>`), preventing overwrites
+- Each credential occupies its own WCM target (`PCAP_Sentry/<name>`), preventing collisions and overwrites
+- Fixed username `"credential"` on every entry — the key name does not leak through the WCM username field
 - OS credential manager uses OS-level DPAPI encryption
 - Access control prevents unauthorized access by other users or processes
-- Automatic legacy migration on first read — no user action required
+- No legacy migration code — minimal surface area, zero side-effects on read
 - Fallback: if `keyring` is unavailable, value remains in `settings.json` (no silent discard)
 
 **Additional Protection:**
 - API keys never transmitted over HTTP (TLS-only)
 - Keys not logged or displayed in UI
 
-**Implementation:** [pcap_sentry_gui.py:1370-1435](Python/pcap_sentry_gui.py#L1370-L1435)  
+**Implementation:** [pcap_sentry_gui.py:1368-1430](Python/pcap_sentry_gui.py#L1368-L1430)  
 **Test Coverage:** [test_stability.py:153-182](tests/test_stability.py#L153-182)
 
 ---
@@ -1698,12 +1701,19 @@ PCAP Sentry stores API keys for third-party services and an internal encryption 
 
 Each key occupies a **unique per-credential WCM target** (`PCAP_Sentry/<name>`).
 
-**Code:** [pcap_sentry_gui.py:1370-1435](Python/pcap_sentry_gui.py#L1370-L1435)
+**Code:** [pcap_sentry_gui.py:1368-1430](Python/pcap_sentry_gui.py#L1368-L1430)
 
 ```python
-def _store_credential(name: str, value: str) -> None:
-    """Store *value* under its own WCM target PCAP_Sentry/<name>."""
-    keyring.set_password(_kr_service(name), name, value)
+_CRED_USERNAME = "credential"          # fixed; same for every key
+
+def _cred_target(name: str) -> str:
+    return f"PCAP_Sentry/{name}"
+
+def _store_cred(name: str, value: str) -> None:
+    """Store *value* under its unique WCM target; no-op when value is empty."""
+    if not value:
+        return
+    keyring.set_password(_cred_target(name), _CRED_USERNAME, value)
 ```
 
 **Storage Method:**

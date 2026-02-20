@@ -800,6 +800,8 @@ The **API Keys** tab in Preferences lets you configure optional threat intellige
 
 | Service | Free Without Key | With Key |
 |---------|:---:|---|
+| **LLM API Key** | ⚙ Local models only | Required for cloud providers (OpenAI, Anthropic, Google) |
+| **AlienVault OTX** | ✅ Community pulses | Richer pulse data + higher rate limits (free account) |
 | **abuse.ch ThreatFox** | ✅ Full access | No key needed |
 | **GreyNoise** | ✅ Community tier | Higher limits with key |
 | **AbuseIPDB** | ❌ Limited | 1,000 checks/day (free account) |
@@ -810,7 +812,7 @@ To add a key:
 1. Open **⚙ Preferences** and click the **API Keys** tab.
 2. Click the blue **"Get a free API key →"** link next to any service to open the signup page in your browser.
 3. Paste your key into the relevant field.
-4. Click **Verify** next to an individual key to confirm it is valid, or click **Verify All** to test every configured key simultaneously — per-key pass/fail labels update live and a summary shows the total count.
+4. Click **Verify** next to an individual key to confirm it is valid, or click **Verify All** (top-right of the tab header) to test every configured key simultaneously — per-key pass/fail labels update live and a summary shows the total count.
 5. Click **Save**.
 
 The tab also shows **"Used today: X / Y"** counters for AbuseIPDB and VirusTotal so you can monitor your daily quota usage.
@@ -915,7 +917,7 @@ All preferences are saved to `settings.json` in the application data directory:
 %LOCALAPPDATA%\PCAP_Sentry\settings.json
 ```
 
-> **Security Note:** If the `keyring` Python package is installed, **all** API keys (LLM providers, AlienVault OTX, AbuseIPDB, GreyNoise, VirusTotal) and the model encryption key are each stored under a unique per-credential Windows Credential Manager target — no two credentials share the same WCM target, eliminating the legacy credential-overwrite bug. On first load, any key previously stored in the old shared-service format is automatically migrated to the new per-credential format. If `keyring` is not available, keys fall back to `settings.json`.
+> **Security Note:** If the `keyring` Python package is installed, **all** API keys (LLM providers, AlienVault OTX, AbuseIPDB, GreyNoise, VirusTotal) and the model encryption key are each stored under a unique Windows Credential Manager target of the form `PCAP_Sentry/<key_name>`, with a fixed username `"credential"` — no two keys share the same WCM target. If `keyring` is not available, keys fall back to `settings.json`.
 
 ---
 
