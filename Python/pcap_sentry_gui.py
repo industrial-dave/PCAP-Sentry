@@ -4941,9 +4941,12 @@ class PCAPSentryApp:
             var: tk.StringVar,
             status_attr: str,
             verify_cmd,
+            signup_url: str = "",
             usage_service: str = "",
             daily_limit: int = 0,
         ) -> None:
+            import webbrowser
+
             ttk.Separator(api_frame, orient="horizontal").pack(fill="x", pady=(0, 8))
             ttk.Label(api_frame, text=title).pack(anchor="w")
             row_f = ttk.Frame(api_frame)
@@ -4970,38 +4973,54 @@ class PCAPSentryApp:
                     hint_text = f"{url_hint}\n      Used today: {used:,} / {daily_limit:,}"
                 except Exception:
                     pass
-            ttk.Label(api_frame, text=hint_text, style="Hint.TLabel").pack(anchor="w", pady=(0, 8))
+            ttk.Label(api_frame, text=hint_text, style="Hint.TLabel").pack(anchor="w", pady=(0, 2))
+            if signup_url:
+                link_lbl = tk.Label(
+                    api_frame,
+                    text=f"\ud83d\udd17 Get a free API key \u2192 {signup_url}",
+                    font=("Segoe UI", 9, "underline"),
+                    cursor="hand2",
+                    anchor="w",
+                    bg=self.colors.get("bg", "#0d1117"),
+                    fg="#58a6ff",
+                )
+                link_lbl.pack(anchor="w", pady=(0, 8))
+                link_lbl.bind("<Button-1>", lambda _e, u=signup_url: webbrowser.open(u))
             setattr(self, status_attr, status_lbl)
 
         _api_section(
             "AlienVault OTX",
-            "Free key at otx.alienvault.com \u00b7 enhanced pulse data & higher rate limits",
+            "Enhanced pulse data & higher rate limits",
             self.otx_api_key_var,
             "_otx_verify_label",
             self._verify_otx_key,
+            signup_url="https://otx.alienvault.com/api",
         )
         _api_section(
             "AbuseIPDB",
-            "Free key at abuseipdb.com \u00b7 1,000 IP checks/day with full confidence scores",
+            "1,000 IP checks/day with full confidence scores",
             self.abuseipdb_api_key_var,
             "_abuseipdb_verify_label",
             self._verify_abuseipdb_key,
+            signup_url="https://www.abuseipdb.com/register",
             usage_service="abuseipdb",
             daily_limit=1000,
         )
         _api_section(
             "GreyNoise Community",
-            "Free key at greynoise.io \u00b7 distinguishes targeted attacks from internet background noise",
+            "Distinguishes targeted attacks from internet background noise",
             self.greynoise_api_key_var,
             "_greynoise_verify_label",
             self._verify_greynoise_key,
+            signup_url="https://www.greynoise.io/plans/community",
         )
         _api_section(
             "VirusTotal",
-            "Free key at virustotal.com \u00b7 500 req/day \u00b7 70+ AV engine consensus on IPs & domains",
+            "500 req/day \u00b7 70+ AV engine consensus on IPs & domains",
             self.virustotal_api_key_var,
             "_virustotal_verify_label",
             self._verify_virustotal_key,
+            signup_url="https://www.virustotal.com/gui/sign-in",
             usage_service="virustotal",
             daily_limit=500,
         )
