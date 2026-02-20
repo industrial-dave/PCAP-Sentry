@@ -4339,7 +4339,7 @@ class PCAPSentryApp:
         self._pending_llm_suggestion = None
         self.target_drop_area = None
         self.why_text = None
-        self.education_text = None
+        self.details_text = None
         self.copy_filters_button = None
         self.wireshark_filters = []
         self.packet_table = None
@@ -4457,7 +4457,7 @@ class PCAPSentryApp:
             selected_tab_index = 0
             try:
                 if hasattr(self, "notebook") and self.notebook:
-                    tab_map = [self.analyze_tab, self.train_tab, self.kb_tab, self.chat_tab]
+                    tab_map = [self.analyze_tab, self.train_tab, self.kb_tab, self.edu_main_tab, self.chat_tab]
                     current_tab = self.notebook.select()
                     for idx, tab in enumerate(tab_map):
                         if str(tab) == current_tab:
@@ -5060,21 +5060,24 @@ class PCAPSentryApp:
         self.train_tab = ttk.Frame(notebook)
         self.analyze_tab = ttk.Frame(notebook)
         self.kb_tab = ttk.Frame(notebook)
+        self.edu_main_tab = ttk.Frame(notebook)
         self.chat_tab = ttk.Frame(notebook)
 
         notebook.add(self.analyze_tab, text="  \U0001f50d  Analyze  ")
         notebook.add(self.train_tab, text="  \U0001f9e0  Train  ")
         notebook.add(self.kb_tab, text="  \U0001f4da  Knowledge Base  ")
+        notebook.add(self.edu_main_tab, text="  \U0001f393  Education  ")
         notebook.add(self.chat_tab, text="  \U0001f4ac  PARRY  ")
 
         self._build_train_tab()
         self._build_analyze_tab()
         self._build_kb_tab()
+        self._build_education_main_tab()
         self._build_chat_tab()
 
         # Restore last selected tab from settings
         saved_tab_index = self.settings.get("selected_tab", 0)
-        tab_map = [self.analyze_tab, self.train_tab, self.kb_tab, self.chat_tab]
+        tab_map = [self.analyze_tab, self.train_tab, self.kb_tab, self.edu_main_tab, self.chat_tab]
         if 0 <= saved_tab_index < len(tab_map):
             notebook.select(tab_map[saved_tab_index])
         else:
@@ -6016,6 +6019,409 @@ class PCAPSentryApp:
             self.target_path_var.set("")
         if self.ioc_path_var is not None:
             self.ioc_path_var.set("")
+
+    def _build_education_main_tab(self) -> None:
+        """Static general education tab: Wireshark usage, networking fundamentals, how-to reference."""
+        container = ttk.Frame(self.edu_main_tab, padding=(10, 6, 10, 10))
+        container.pack(fill=tk.BOTH, expand=True)
+
+        header = ttk.Frame(container)
+        header.pack(fill=tk.X, pady=(0, 6))
+        ttk.Label(header, text="Education", style="Heading.TLabel").pack(side=tk.LEFT)
+        self._help_icon(
+            header,
+            "General-purpose network analysis and Wireshark reference.\n\n"
+            "This tab does NOT change when you analyze a PCAP.\n"
+            "It is a permanent how-to guide covering:\n\n"
+            "  \u2022 Wireshark interface and workflow\n"
+            "  \u2022 Capture filters (BPF) and display filters\n"
+            "  \u2022 Following streams and extracting data\n"
+            "  \u2022 Common protocol reference\n"
+            "  \u2022 Statistics tools\n"
+            "  \u2022 Recommended learning resources\n\n"
+            "For results specific to the last analyzed PCAP, see the Details tab.",
+            side=tk.LEFT,
+        )
+
+        edu_outer = ttk.Frame(container)
+        edu_outer.pack(fill=tk.BOTH, expand=True)
+
+        edu_canvas = tk.Canvas(edu_outer, bg=self.colors["bg"], highlightthickness=0)
+        edu_sb = ttk.Scrollbar(edu_outer, orient="vertical", command=edu_canvas.yview)
+        edu_inner = ttk.Frame(edu_canvas)
+        edu_inner.bind(
+            "<Configure>",
+            lambda _: edu_canvas.configure(scrollregion=edu_canvas.bbox("all")),
+        )
+        edu_canvas.create_window((0, 0), window=edu_inner, anchor="nw")
+        edu_canvas.configure(yscrollcommand=edu_sb.set)
+        edu_canvas.pack(side="left", fill="both", expand=True)
+        edu_sb.pack(side="right", fill="y")
+        edu_canvas.bind(
+            "<Enter>",
+            lambda _: edu_canvas.bind(
+                "<MouseWheel>",
+                lambda e: edu_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"),
+            ),
+        )
+        edu_canvas.bind("<Leave>", lambda _: edu_canvas.unbind("<MouseWheel>"))
+
+        txt = tk.Text(
+            edu_inner,
+            wrap=tk.WORD,
+            font=("Segoe UI", 10),
+            bg=self.colors.get("bg", "#0d1117"),
+            fg=self.colors.get("fg", "#e6edf3"),
+            insertbackground=self.colors.get("fg", "#e6edf3"),
+            selectbackground=self.colors.get("select_bg", "#264f78"),
+            relief=tk.FLAT,
+            padx=12,
+            pady=8,
+            state=tk.NORMAL,
+        )
+        txt.pack(fill=tk.BOTH, expand=True)
+        self._bind_text_context_menu(txt)
+
+        # ── colour tags ──────────────────────────────────────────────────────
+        accent   = self.colors.get("accent",  "#58a6ff")
+        success  = self.colors.get("success", "#3fb950")
+        warning  = self.colors.get("warning", "#d29922")
+        muted    = self.colors.get("muted",   "#8b949e")
+        txt.tag_configure("h1",   font=("Segoe UI", 13, "bold"),  foreground=accent)
+        txt.tag_configure("h2",   font=("Segoe UI", 11, "bold"),  foreground=accent)
+        txt.tag_configure("h3",   font=("Segoe UI", 10, "bold"),  foreground=success)
+        txt.tag_configure("code", font=("Consolas",  9),          foreground=warning)
+        txt.tag_configure("dim",  font=("Segoe UI",  9),          foreground=muted)
+        txt.tag_configure("bold", font=("Segoe UI", 10, "bold"))
+
+        def h1(t):  txt.insert(tk.END, t + "\n", "h1")
+        def h2(t):  txt.insert(tk.END, t + "\n", "h2")
+        def h3(t):  txt.insert(tk.END, t + "\n", "h3")
+        def code(t): txt.insert(tk.END, t + "\n", "code")
+        def p(t):   txt.insert(tk.END, t + "\n")
+        def dim(t): txt.insert(tk.END, t + "\n", "dim")
+        def nl():   txt.insert(tk.END, "\n")
+
+        # ════════════════════════════════════════════════════════════════════
+        h1("NETWORK ANALYSIS & WIRESHARK — REFERENCE GUIDE")
+        dim("A permanent how-to reference. Not updated by analysis runs.")
+        nl()
+
+        # ── 1. What is PCAP ───────────────────────────────────────────────
+        h2("1 · WHAT IS A PCAP FILE?")
+        p("A PCAP (Packet CAPture) file records every packet that crossed a\n"
+          "network interface during a capture session. Each packet includes:\n"
+          "  \u2022 A timestamp (microsecond precision)\n"
+          "  \u2022 The raw bytes of the frame — headers + payload\n"
+          "The file format is either classic .pcap (libpcap) or the newer\n"
+          ".pcapng which supports multiple interfaces and comments.")
+        nl()
+        h3("How captures are created")
+        p("  Tool            Platform   Notes\n"
+          "  Wireshark       All        GUI; uses dumpcap under the hood\n"
+          "  tcpdump         Linux/Mac  CLI; produces .pcap files\n"
+          "  tshark          All        CLI version of Wireshark\n"
+          "  Network Miner   Windows    Passive sniffer + file carving\n"
+          "  Zeek / Suricata All        Generate conn.log / alert logs")
+        nl()
+
+        # ── 2. Wireshark interface ─────────────────────────────────────────
+        h2("2 · WIRESHARK INTERFACE OVERVIEW")
+        h3("Main window sections")
+        p("  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n"
+          "  \u2502 1. Menu bar + toolbar (open, save, start/stop capture)      \u2502\n"
+          "  \u2502 2. Display filter bar (green = valid, red = invalid)        \u2502\n"
+          "  \u2502 3. Packet list pane (one row per packet, colour-coded)      \u2502\n"
+          "  \u2502 4. Packet detail pane (expand protocol layers)              \u2502\n"
+          "  \u2502 5. Packet bytes pane (hex + ASCII side by side)             \u2502\n"
+          "  \u2502 6. Status bar (packet count, capture file, expert info)     \u2502\n"
+          "  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518")
+        nl()
+        h3("Default colour coding")
+        p("  Green/light     TCP traffic\n"
+          "  Blue            DNS and UDP\n"
+          "  Black           TCP errors (retransmit, reset, etc.)\n"
+          "  Yellow/orange   Routing protocols (OSPF, BGP)\n"
+          "  Purple          ICMP\n"
+          "  (Colours are configurable: View \u2192 Coloring Rules)")
+        nl()
+        h3("Useful keyboard shortcuts")
+        p("  Ctrl+F          Find packet (string, hex, regex)\n"
+          "  Ctrl+G          Go to packet number\n"
+          "  Ctrl+R          Start / stop capture\n"
+          "  Ctrl+Shift+E    Export packet dissection as text/CSV\n"
+          "  Ctrl+Alt+Shift+T  Follow TCP stream\n"
+          "  Spacebar        Mark packet\n"
+          "  M               Toggle mark on selected packet")
+        nl()
+
+        # ── 3. Capture filters ─────────────────────────────────────────────
+        h2("3 · CAPTURE FILTERS  (BPF syntax — set BEFORE capturing)")
+        p("Capture filters run in the kernel / libpcap layer and drop packets\n"
+          "before they reach Wireshark. They cannot be changed on a live file\n"
+          "and are less expressive than display filters.")
+        nl()
+        h3("Common capture filter examples")
+        code("  host 192.168.1.10            # only traffic to/from this IP")
+        code("  net 192.168.0.0/24           # entire subnet")
+        code("  port 443                     # HTTPS only")
+        code("  tcp port 80 or tcp port 443  # HTTP + HTTPS")
+        code("  not port 53                  # exclude DNS")
+        code("  tcp[tcpflags] & tcp-syn != 0 # SYN packets only")
+        code("  ether host aa:bb:cc:dd:ee:ff # specific MAC address")
+        code("  greater 1000                 # packets > 1000 bytes")
+        nl()
+
+        # ── 4. Display filters ─────────────────────────────────────────────
+        h2("4 · DISPLAY FILTERS  (post-capture filtering)")
+        p("Display filters are applied after capture and are non-destructive.\n"
+          "The filter language is richer than BPF. Field names come from the\n"
+          "protocol dissectors (e.g. http.request.method, dns.qry.name).")
+        nl()
+        h3("Operators")
+        p("  ==  equals            !=  not equals\n"
+          "  >   greater than      <   less than\n"
+          "  &&  AND               ||  OR\n"
+          "  !   NOT               ~   matches regex\n"
+          "  contains (substring)  in {value list}")
+        nl()
+        h3("IP and port filters")
+        code("  ip.addr == 10.0.0.1              # src OR dst")
+        code("  ip.src == 10.0.0.1               # source only")
+        code("  ip.dst == 8.8.8.8                # destination only")
+        code("  ip.addr == 10.0.0.0/24           # subnet")
+        code("  tcp.port == 443                  # src or dst port")
+        code("  tcp.dstport == 4444              # destination port only")
+        code("  udp.port == 53                   # UDP port")
+        nl()
+        h3("Protocol filters")
+        code("  http                             # any HTTP")
+        code("  http.request.method == \"POST\"    # HTTP POST only")
+        code("  http.host contains \"example\"     # host header")
+        code("  dns                              # any DNS")
+        code("  dns.qry.name contains \".xyz\"     # suspicious TLD")
+        code("  tls                              # any TLS")
+        code("  tls.handshake.type == 1          # ClientHello only")
+        code("  smb || smb2                      # SMB/SMB2")
+        code("  icmp                             # ping / ICMP errors")
+        nl()
+        h3("TCP flag filters")
+        code("  tcp.flags.syn == 1 && tcp.flags.ack == 0   # SYN (new connections)")
+        code("  tcp.flags.rst == 1               # TCP resets")
+        code("  tcp.flags.fin == 1               # graceful close")
+        code("  tcp.analysis.retransmission      # retransmissions")
+        code("  tcp.analysis.zero_window         # zero window (flow control)")
+        nl()
+        h3("Packet size filters")
+        code("  frame.len < 100                  # small packets (beaconing)")
+        code("  frame.len > 1400                 # near-MTU (bulk transfer)")
+        code("  ip.len > 1500                    # jumbo-frame territory")
+        nl()
+        h3("Excluding noise")
+        code("  !arp                             # hide ARP broadcasts")
+        code("  !(ip.dst == 224.0.0.0/4)         # hide multicast")
+        code("  !(dns.qry.name contains \"microsoft.com\")  # hide MS updates")
+        code("  !(ip.addr == 239.255.255.250)    # hide SSDP/UPnP")
+        nl()
+
+        # ── 5. Following streams ───────────────────────────────────────────
+        h2("5 · FOLLOWING STREAMS")
+        p("'Follow Stream' reassembles all packets in a TCP/UDP conversation\n"
+          "and shows you the full payload as a human-readable dialogue.")
+        nl()
+        h3("How to follow a stream")
+        p("  1. Apply a filter to find the flow you want.\n"
+          "  2. Right-click any packet in that flow.\n"
+          "  3. Choose  Follow \u2192 TCP Stream  (or UDP / TLS / HTTP).\n"
+          "  4. Red text = data FROM the client; Blue = FROM the server.\n"
+          "  5. Use the 'Show data as' dropdown to switch between:\n"
+          "       ASCII    \u2014 readable text (HTTP, SMTP, cleartext C2)\n"
+          "       Hex Dump \u2014 raw bytes; look for file magic bytes\n"
+          "       Raw      \u2014 save raw binary for file carving\n"
+          "  6. 'Save as' to extract the payload to a file.")
+        nl()
+        h3("File magic bytes to recognise")
+        p("  4D 5A            MZ \u2014 Windows PE executable\n"
+          "  50 4B 03 04      PK.. \u2014 ZIP archive (also .docx/.xlsx/.jar)\n"
+          "  FF D8 FF         \u2014 JPEG image\n"
+          "  89 50 4E 47      .PNG \u2014 PNG image\n"
+          "  25 50 44 46      %PDF \u2014 PDF document\n"
+          "  7F 45 4C 46      .ELF \u2014 Linux executable\n"
+          "  1F 8B            \u2014 gzip compressed data")
+        nl()
+
+        # ── 6. Statistics tools ────────────────────────────────────────────
+        h2("6 · STATISTICS TOOLS")
+        nl()
+        h3("Statistics \u2192 Conversations")
+        p("  Shows every unique host pair (Ethernet, IPv4, IPv6, TCP, UDP).\n"
+          "  Sort by 'Bytes A\u2192B' to find the biggest talkers instantly.\n"
+          "  Right-click a row \u2192 Apply as filter to isolate that flow.")
+        nl()
+        h3("Statistics \u2192 Protocol Hierarchy")
+        p("  Shows the breakdown of protocols in the capture as a tree with\n"
+          "  percentages. Useful to quickly see: is this capture mostly TCP?\n"
+          "  Mostly DNS? Any unusual protocols?")
+        nl()
+        h3("Statistics \u2192 I/O Graph")
+        p("  Plots packet rate or bytes/second over time. Spike = burst of\n"
+          "  activity. Flat horizontal line = periodic beaconing.\n"
+          "  Add a second graph line with a filter (e.g. 'http') to compare.")
+        nl()
+        h3("Statistics \u2192 DNS")
+        p("  Lists all DNS queries and responses. Filter for NXDOMAINs to\n"
+          "  spot DGA malware or failed C2 lookups.")
+        nl()
+        h3("Statistics \u2192 HTTP \u2192 Requests")
+        p("  Lists every HTTP request URL and server. Quickly spot unusual\n"
+          "  User-Agent strings, POST to unexpected paths, or large GETs.")
+        nl()
+        h3("Analyze \u2192 Expert Information")
+        p("  Wireshark's built-in anomaly detector. Shows errors (red),\n"
+          "  warnings (yellow), notes (cyan) grouped by type.\n"
+          "  Common categories: Malformed, Retransmission, Zero Window.")
+        nl()
+
+        # ── 7. Extracting files ────────────────────────────────────────────
+        h2("7 · EXTRACTING FILES FROM CAPTURES")
+        nl()
+        h3("HTTP file extraction (Wireshark built-in)")
+        p("  File \u2192 Export Objects \u2192 HTTP\n"
+          "  Lists all HTTP objects (images, scripts, downloads) in the\n"
+          "  capture. Select one or Save All to extract to disk.")
+        nl()
+        h3("Other protocols")
+        p("  File \u2192 Export Objects \u2192 SMB / DICOM / TFTP / IMF\n"
+          "  (SMB is especially useful for lateral movement captures)")
+        nl()
+        h3("Manual extraction via Follow Stream")
+        p("  Follow \u2192 TCP Stream \u2192 Show data as: Raw \u2192 Save As\n"
+          "  Use this for any unrecognised protocol where Wireshark has no\n"
+          "  built-in export support.")
+        nl()
+
+        # ── 8. TLS decryption ─────────────────────────────────────────────
+        h2("8 · DECRYPTING TLS TRAFFIC")
+        nl()
+        h3("Method 1 — SSLKEYLOGFILE (most reliable, no private key needed)")
+        p("  Modern browsers (Chrome, Firefox, Edge) can log TLS session\n"
+          "  keys to a file. Wireshark can then use these keys to decrypt.")
+        p("  Steps:\n"
+          "    1. Set the environment variable before launching the browser:\n"
+          "         Windows:  set SSLKEYLOGFILE=C:\\\\keys\\\\tls.log\n"
+          "         Linux:    export SSLKEYLOGFILE=~/tls.log\n"
+          "    2. Start the browser and reproduce the traffic.\n"
+          "    3. In Wireshark: Edit \u2192 Preferences \u2192 Protocols \u2192 TLS\n"
+          "    4. Set '(Pre)-Master-Secret log filename' to the log file.\n"
+          "    5. Reload the PCAP. TLS becomes readable.")
+        nl()
+        h3("Method 2 — Server private key (lab / test server only)")
+        p("  Edit \u2192 Preferences \u2192 Protocols \u2192 TLS \u2192 RSA Keys List\n"
+          "  Add: IP, port, protocol, path to .pem private key.\n"
+          "  Only works for RSA key exchange (not ECDHE/DHE sessions).")
+        nl()
+
+        # ── 9. Protocol reference ──────────────────────────────────────────
+        h2("9 · COMMON PROTOCOL QUICK REFERENCE")
+        nl()
+        h3("Layer 3 — Network")
+        p("  IPv4   \u2014 ip.addr, ip.ttl, ip.flags        \u2014 packets routed across nets\n"
+          "  IPv6   \u2014 ipv6.addr, ipv6.hlim              \u2014 128-bit addressing\n"
+          "  ICMP   \u2014 icmp.type, icmp.code              \u2014 ping, unreachable, redirect\n"
+          "  ARP    \u2014 arp.src.hw_mac, arp.src.proto_ipv4 \u2014 IP\u2194MAC resolution")
+        nl()
+        h3("Layer 4 — Transport")
+        p("  TCP    \u2014 reliable, ordered; 3-way handshake (SYN\u2192SYN-ACK\u2192ACK)\n"
+          "  UDP    \u2014 connectionless, no reliability guarantee\n"
+          "  SCTP   \u2014 stream control; used in telecom / WebRTC")
+        nl()
+        h3("Application protocols")
+        p("  DNS     53/udp+tcp  \u2014 name resolution; dns.qry.name\n"
+          "  HTTP    80/tcp      \u2014 web; http.request.uri, http.response.code\n"
+          "  HTTPS   443/tcp     \u2014 TLS-wrapped HTTP; tls.handshake.extensions_server_name\n"
+          "  SMTP    25/587/tcp  \u2014 email send; smtp.req.command\n"
+          "  IMAP    143/993/tcp \u2014 email receive\n"
+          "  FTP     21/tcp ctrl \u2014 file transfer; ftp.request.command\n"
+          "  SSH     22/tcp      \u2014 encrypted shell; ssh.protocol\n"
+          "  SMB     445/tcp     \u2014 Windows file shares; smb2.cmd\n"
+          "  RDP     3389/tcp    \u2014 remote desktop; rdp\n"
+          "  DHCP    67-68/udp   \u2014 IP assignment; bootp.option.hostname\n"
+          "  Kerberos 88/tcp+udp \u2014 Windows auth; kerberos.CNameString\n"
+          "  LDAP    389/tcp     \u2014 directory; ldap.AttributeValue\n"
+          "  NTP     123/udp     \u2014 time sync\n"
+          "  SNMP    161/udp     \u2014 network management")
+        nl()
+
+        # ── 10. Finding an infected host ───────────────────────────────────
+        h2("10 · IDENTIFYING AN INFECTED HOST")
+        p("When you have a suspicious capture but don\u2019t know which machine\n"
+          "is infected, work through these checks in order:")
+        nl()
+        h3("Step 1 — Find the active internal source IPs")
+        code("  ip.src == 10.0.0.0/8 || ip.src == 192.168.0.0/16")
+        p("  Sort the Conversations list by 'Bytes A\u2192B'.\n"
+          "  The internal IP sending the most data externally is a candidate.")
+        nl()
+        h3("Step 2 — Get the hostname via DHCP")
+        code("  bootp.option.type == 12          # DHCP option 12 = hostname")
+        p("  Look at bootp.option.hostname in the packet details.")
+        nl()
+        h3("Step 3 — Get the hostname via NetBIOS")
+        code("  nbns                             # NetBIOS Name Service")
+        p("  Look at nbns.name in the registration or query packets.")
+        nl()
+        h3("Step 4 — Get the logged-in username via Kerberos")
+        code("  kerberos.CNameString             # username in AS-REQ")
+        nl()
+        h3("Step 5 — Get the username via NTLM")
+        code("  ntlmssp.auth.username            # in NTLM Authenticate")
+        code("  http.authbasic                   # Basic auth over HTTP")
+        nl()
+        h3("Step 6 — Get the username via LDAP")
+        code("  ldap && ldap.AttributeValue      # sAMAccountName")
+        nl()
+
+        # ── 11. Command-line tools ─────────────────────────────────────────
+        h2("11 · COMMAND-LINE TOOLS")
+        nl()
+        h3("tshark — command-line Wireshark")
+        code("  tshark -r capture.pcap -Y 'http'               # display filter")
+        code("  tshark -r capture.pcap -T fields -e ip.src -e http.host")
+        code("  tshark -r capture.pcap -z conv,tcp             # conversation stats")
+        code("  tshark -r capture.pcap -z io,stat,1            # I/O graph 1-sec bins")
+        nl()
+        h3("tcpdump — lightweight capture")
+        code("  tcpdump -i eth0 -w capture.pcap                # capture to file")
+        code("  tcpdump -r capture.pcap 'port 80'              # read + filter")
+        code("  tcpdump -i eth0 -c 1000 host 10.0.0.5         # first 1000 pkts")
+        nl()
+
+        # ── 12. Resources ──────────────────────────────────────────────────
+        h2("12 · LEARNING RESOURCES")
+        nl()
+        h3("Free online courses and references")
+        p("  Wireshark official docs      https://www.wireshark.org/docs/\n"
+          "  Wireshark display filter ref https://www.wireshark.org/docs/dfref/\n"
+          "  Malware Traffic Analysis     https://www.malware-traffic-analysis.net/\n"
+          "    (free PCAP exercises with solutions)\n"
+          "  TCPDump primer               https://danielmiessler.com/study/tcpdump/\n"
+          "  Zeek documentation           https://docs.zeek.org/\n"
+          "  PacketLife cheat sheets      https://packetlife.net/library/cheat-sheets/\n"
+          "  SANS reading room (ICS/DFIR) https://www.sans.org/reading-room/\n"
+          "  VirusTotal                   https://www.virustotal.com/\n"
+          "  AbuseIPDB                    https://www.abuseipdb.com/\n"
+          "  Shodan                       https://www.shodan.io/")
+        nl()
+        h3("Practice PCAP repositories")
+        p("  pcapfiles.com               free sample captures\n"
+          "  netresec.com/pcaps          large collection including malware\n"
+          "  github.com/markofu/pcaps    curated malware captures\n"
+          "  cloudshark.org              browser-based Wireshark + community PCAPs")
+        nl()
+        dim("─" * 70)
+        dim("PCAP Sentry Education tab \u2014 static reference, last updated 2026-02-20")
+
+        txt.configure(state=tk.DISABLED)
 
     def _build_chat_tab(self) -> None:
         container = ttk.Frame(self.chat_tab, padding=(10, 6, 10, 10))
@@ -7192,12 +7598,12 @@ class PCAPSentryApp:
 
         self.results_tab = ttk.Frame(self.results_notebook)
         self.why_tab = ttk.Frame(self.results_notebook)
-        self.education_tab = ttk.Frame(self.results_notebook)
+        self.details_tab = ttk.Frame(self.results_notebook)
         self.packets_tab = ttk.Frame(self.results_notebook)
         self.extracted_tab = ttk.Frame(self.results_notebook)
         self.results_notebook.add(self.results_tab, text="  Results  ")
         self.results_notebook.add(self.why_tab, text="  Why  ")
-        self.results_notebook.add(self.education_tab, text="  Education  ")
+        self.results_notebook.add(self.details_tab, text="  Details  ")
         self.results_notebook.add(self.packets_tab, text="  Packets  ")
         self.results_notebook.add(self.extracted_tab, text="  \U0001f511  Extracted Info  ")
 
@@ -7210,7 +7616,7 @@ class PCAPSentryApp:
             "  Verdict: Safe / Suspicious / Malicious\n"
             "  Signals: Which detection methods fired\n"
             "  Similarity: How close this traffic matches known samples\n\n"
-            "Check the 'Why' tab for reasoning and 'Education' for learning.",
+            "Check the 'Why' tab for reasoning, 'Details' for the C2/exfil/spread breakdown,\n  and the 'Education' main tab for general Wireshark how-to.",
         )
 
         self.result_text = tk.Text(result_frame, height=12)
@@ -7278,36 +7684,38 @@ class PCAPSentryApp:
             side=tk.RIGHT,
         )
 
-        edu_frame: ttk.Labelframe = ttk.LabelFrame(
-            self.education_tab, text="  Beginner's Guide: Why This Traffic Matters  ", padding=12
+        det_frame: ttk.Labelframe = ttk.LabelFrame(
+            self.details_tab, text="  Analysis Details  ", padding=12
         )
-        edu_frame.pack(fill=tk.BOTH, expand=True)
+        det_frame.pack(fill=tk.BOTH, expand=True)
         self._help_icon(
-            edu_frame,
-            "A beginner-friendly breakdown of the analysis results. This tab:\n\n"
-            "  - Explains each finding in plain English\n"
-            "  - Points out specific suspicious IPs, ports, and flows\n"
-            "  - Provides Wireshark filters to investigate each flow\n"
-            "  - Includes a glossary of attack patterns\n"
-            "  - Links to free learning resources\n\n"
-            "Content updates automatically each time you analyze a new PCAP.",
+            det_frame,
+            "A plain-English breakdown of THIS capture's analysis results:\n\n"
+            "  - MALWARE ACTIVITY SUMMARY: C2 beaconing, data exfiltration, spread\n"
+            "  - Each flagged flow explained with real IPs, ports, and volumes\n"
+            "  - Wireshark filters for every suspicious flow\n"
+            "  - Risk score breakdown and verdict explanation\n\n"
+            "Content updates automatically each time you analyze a new PCAP.\n"
+            "For general Wireshark/networking how-to, see the Education main tab.",
         )
 
-        self.education_text = tk.Text(edu_frame, height=12, wrap=tk.WORD)
-        self._style_text(self.education_text)
-        self._bind_text_context_menu(self.education_text)
-        self.education_text.insert(
+        self.details_text = tk.Text(det_frame, height=12, wrap=tk.WORD)
+        self._style_text(self.details_text)
+        self._bind_text_context_menu(self.details_text)
+        self.details_text.insert(
             tk.END,
-            "Run an analysis on a PCAP file to see a beginner-friendly\n"
-            "explanation of what was found and why it matters.\n\n"
-            "This tab breaks down each finding in plain English,\n"
-            "explains common attack patterns, and links you to\n"
-            "free online resources to keep learning.",
+            "Run an analysis on a PCAP file to see a detailed\n"
+            "plain-English breakdown of what was found.\n\n"
+            "This tab covers:\n"
+            "  \u2022 C2 beaconing and command-and-control activity\n"
+            "  \u2022 Data exfiltration \u2014 what was likely stolen and how\n"
+            "  \u2022 Lateral movement / spread mechanisms\n"
+            "  \u2022 Per-flow Wireshark filters and investigation steps",
         )
-        edu_scroll = ttk.Scrollbar(edu_frame, orient=tk.VERTICAL, command=self.education_text.yview)
-        self.education_text.configure(yscrollcommand=edu_scroll.set)
-        edu_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.education_text.pack(fill=tk.BOTH, expand=True)
+        det_scroll = ttk.Scrollbar(det_frame, orient=tk.VERTICAL, command=self.details_text.yview)
+        self.details_text.configure(yscrollcommand=det_scroll.set)
+        det_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.details_text.pack(fill=tk.BOTH, expand=True)
 
         # Refine/accuracy tab and contextual questions removed
 
@@ -7391,7 +7799,7 @@ class PCAPSentryApp:
             "  Time range: When the traffic occurred\n"
             "  Packet size: How big each message was\n"
             "  DNS/HTTP only: Show only name lookups and web requests\n\n"
-            "Tip: Use these filters to zoom in on suspicious flows from the Education tab.",
+            "Tip: Use these filters to zoom in on suspicious flows from the Details tab.",
             row=0,
             column=9,
             sticky="e",
@@ -13040,7 +13448,7 @@ class PCAPSentryApp:
         self._sync_undo_buttons()
 
     # ------------------------------------------------------------------
-    # Education tab content builder
+    # Details tab content builder
     # ------------------------------------------------------------------
     def _build_education_content(
         self,
@@ -14778,7 +15186,7 @@ class PCAPSentryApp:
             "",
             "This tab explains the analytical reasoning behind the",
             "verdict. For definitions, tutorials, and learning resources",
-            "see the Education tab.",
+            "see the Details tab.",
             "",
             "----------------------------------------",
             "VERDICT REASONING",
@@ -14972,7 +15380,7 @@ class PCAPSentryApp:
                 why_lines.append(f"  #{idx}: {item['flow']}")
                 why_lines.append(f"      Reason: {item['reason']}  |  {item['bytes']}  |  {item['packets']} pkts")
                 why_lines.append("")
-            why_lines.append("See the Education tab for detailed explanations of each pattern.")
+            why_lines.append("See the Details tab for detailed explanations of each pattern.")
         why_lines.append("")
 
         if wireshark_filters:
@@ -14988,7 +15396,7 @@ class PCAPSentryApp:
             for filt in unique_filters:
                 why_lines.append(f"  {filt}")
             why_lines.append("")
-            why_lines.append("See the Education tab for a full Wireshark filter quick-reference.")
+            why_lines.append("See the Details tab for a full Wireshark filter quick-reference.")
 
         return why_lines
 
@@ -15442,9 +15850,9 @@ class PCAPSentryApp:
                 self.why_text.delete("1.0", tk.END)
                 self.why_text.insert(tk.END, "\n".join(why_lines))
 
-            if self.education_text is not None:
-                self.education_text.delete("1.0", tk.END)
-                self.education_text.insert(tk.END, edu_content)
+            if self.details_text is not None:
+                self.details_text.delete("1.0", tk.END)
+                self.details_text.insert(tk.END, edu_content)
 
             if self.copy_filters_button is not None:
                 if wireshark_filters:
