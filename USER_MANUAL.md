@@ -739,9 +739,10 @@ The **API Keys** tab in Preferences lets you configure optional threat intellige
 To add a key:
 
 1. Open **⚙ Preferences** and click the **API Keys** tab.
-2. Paste your key into the relevant field.
-3. Click **Verify** to confirm the key is valid.
-4. Click **Save**.
+2. Click the blue **"Get a free API key →"** link next to any service to open the signup page in your browser.
+3. Paste your key into the relevant field.
+4. Click **Verify** to confirm the key is valid.
+5. Click **Save**.
 
 The tab also shows **"Used today: X / Y"** counters for AbuseIPDB and VirusTotal so you can monitor your daily quota usage.
 
