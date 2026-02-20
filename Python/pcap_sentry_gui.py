@@ -12886,6 +12886,151 @@ class PCAPSentryApp:
         lines.append(f"  Risk Score      : {risk_score}/100")
         lines.append("")
 
+        # ── Malware activity summary — C2 / exfil / spread ──────────
+        # Build classified lists from suspicious_flows before anything else
+        _c2_flows = []
+        _exfil_flows = []
+        _spread_flows = []
+        _lateral_port_names = {445: "SMB", 3389: "RDP", 135: "WMI/RPC", 22: "SSH", 139: "NetBIOS"}
+        for _f in suspicious_flows:
+            _r = _f.get("reason", "").lower()
+            _dp = _f.get("dport", "")
+            _dp_int = int(_dp) if str(_dp).isdigit() else 0
+            if "long_duration" in _r or "beacon" in _r or "unusual_port" in _r or "port_scan" in _r:
+                _c2_flows.append(_f)
+            if "high_volume" in _r or "exfil" in _r:
+                _exfil_flows.append(_f)
+            if _dp_int in _lateral_port_names or "scan" in _r or "lateral" in _r:
+                _spread_flows.append(_f)
+        # Also classify IoC-matched flows as C2 candidates
+        _ioc_ip_set_summary = set()
+        if ioc_matches:
+            _ioc_ip_set_summary = set(ioc_matches.get("ips", []))
+        for _f in suspicious_flows:
+            if _f.get("dst", "") in _ioc_ip_set_summary or _f.get("src", "") in _ioc_ip_set_summary:
+                if _f not in _c2_flows:
+                    _c2_flows.append(_f)
+
+        _has_findings = _c2_flows or _exfil_flows or _spread_flows
+        if _has_findings:
+            lines.append("=" * 60)
+            lines.append("  MALWARE ACTIVITY SUMMARY")
+            lines.append("  What this capture shows the malware is doing")
+            lines.append("=" * 60)
+            lines.append("")
+
+            # ── C&C Communication ────────────────────────────────────
+            lines.append("  [C&C]  Command & Control Communication")
+            lines.append("")
+            if _c2_flows:
+                lines.append(
+                    "  The following flows show signs of the malware 'calling\n"
+                    "  home' to its controller — persistent connections,\n"
+                    "  beaconing patterns, or known-malicious destinations:"
+                )
+                lines.append("")
+                for _f in _c2_flows[:5]:
+                    _src = _f.get("src", "?")
+                    _dst = _f.get("dst", "?")
+                    _dp  = _f.get("dport", "?")
+                    _pr  = _f.get("proto", "?")
+                    _r   = _f.get("reason", "")
+                    _ioc_flag = "  !! IoC MATCH" if (_dst in _ioc_ip_set_summary or _src in _ioc_ip_set_summary) else ""
+                    lines.append(f"    {_src}  →  {_dst}  port {_dp} / {_pr}{_ioc_flag}")
+                    lines.append(f"      Reason: {_r}")
+                    lines.append(f"      Wireshark: ip.addr == {_dst} && {_pr.lower()}.port == {_dp}")
+                    lines.append(f"      Then: Right-click → Follow → {_pr} Stream")
+                    lines.append("")
+            else:
+                lines.append(
+                    "  No definitive C2 beaconing detected in this capture.\n"
+                    "  Encrypted C2 over HTTPS may still be present — check\n"
+                    "  the TLS SNI destinations in the section below."
+                )
+                lines.append("")
+
+            # ── Data Stolen ──────────────────────────────────────────
+            lines.append("  [EXFIL]  Data Stolen from the Host System")
+            lines.append("")
+            if _exfil_flows:
+                lines.append(
+                    "  The following flows transferred unusually large volumes\n"
+                    "  of data OUTBOUND — consistent with files, credentials,\n"
+                    "  or system information being sent to an attacker server:"
+                )
+                lines.append("")
+                for _f in _exfil_flows[:5]:
+                    _src  = _f.get("src", "?")
+                    _dst  = _f.get("dst", "?")
+                    _dp   = _f.get("dport", "?")
+                    _pr   = _f.get("proto", "?")
+                    _byte = _f.get("bytes", "?")
+                    _pkts = _f.get("packets", "?")
+                    lines.append(f"    {_src}  →  {_dst}  port {_dp} / {_pr}")
+                    lines.append(f"      Volume: {_byte} across {_pkts} packets")
+                    lines.append(f"      Wireshark: ip.src == {_src} && ip.dst == {_dst}")
+                    lines.append( "      Then: Statistics → Conversations to confirm bulk transfer")
+                    lines.append("")
+                lines.append(
+                    "  To see WHAT was taken (if unencrypted):\n"
+                    "    Right-click any packet in the flow → Follow → TCP Stream\n"
+                    "    Look for file content, Base64 blobs, or JSON/XML data\n"
+                    "    with field names like 'password', 'user', 'cookie', 'key'"
+                )
+                lines.append("")
+            else:
+                lines.append(
+                    "  No high-volume outbound transfer detected in this capture.\n"
+                    "  Slow exfiltration (drip-feeding small amounts over time)\n"
+                    "  can evade volume thresholds — review the C2 flows above\n"
+                    "  for encoded payloads in the HTTP/TCP stream."
+                )
+                lines.append("")
+
+            # ── Spread Mechanism ─────────────────────────────────────
+            lines.append("  [SPREAD]  How the Malware is Spreading")
+            lines.append("")
+            if _spread_flows:
+                lines.append(
+                    "  The following flows suggest the malware is attempting\n"
+                    "  to propagate to other machines on the network:"
+                )
+                lines.append("")
+                for _f in _spread_flows[:5]:
+                    _src  = _f.get("src", "?")
+                    _dst  = _f.get("dst", "?")
+                    _dp   = _f.get("dport", "?")
+                    _dp_i = int(_dp) if str(_dp).isdigit() else 0
+                    _pr   = _f.get("proto", "?")
+                    _svc  = _lateral_port_names.get(_dp_i, f"port {_dp}")
+                    _r    = _f.get("reason", "")
+                    lines.append(f"    {_src}  →  {_dst}  via {_svc} ({_pr})")
+                    lines.append(f"      Reason: {_r}")
+                    _pf = "tcp" if _pr == "TCP" else "udp"
+                    lines.append(f"      Wireshark: {_pf}.port == {_dp} && ip.src == {_src}")
+                    lines.append("")
+                lines.append(
+                    "  To confirm lateral movement:\n"
+                    "    Count how many UNIQUE destination IPs the source sends\n"
+                    "    to on these ports:  Statistics → Conversations → TCP\n"
+                    "    Sort by Address A — one source, many destinations = scan"
+                )
+                lines.append("")
+            else:
+                lines.append(
+                    "  No lateral movement or network scanning detected.\n"
+                    "  This capture may show a single infected host only.\n"
+                    "  Check for ARP broadcasts: filter  arp.opcode == 1\n"
+                    "  and look for one MAC sending to hundreds of IPs."
+                )
+                lines.append("")
+
+            lines.append("─" * 60)
+            lines.append("  See Phases 3–5 further below for detailed investigation")
+            lines.append("  techniques, Wireshark filters, and step-by-step guides.")
+            lines.append("─" * 60)
+            lines.append("")
+
         # ── What the verdict means ──
         lines.append("-" * 60)
         lines.append("  WHAT DOES THE VERDICT MEAN?")
