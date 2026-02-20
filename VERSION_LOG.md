@@ -4,6 +4,9 @@
 
 
 
+
+## 2026.02.20-3 - 2026-02-20
+- fix: unify all credential storage through _store/_load/_delete_credential with unique per-key Windows Credential Manager targets; automatic legacy-format migration on first load prevents key overwrites and populates LLM/OTX fields correctly
 ## 2026.02.20-2 - 2026-02-20
 - Education tab: six-phase malware analysis methodology, MALWARE ACTIVITY SUMMARY, plain-language stolen-data inference; perf: lru_cache on _is_private_ip; accuracy: high_volume floor, port-scan external filter, richer ML features
 ## 2026.02.20-2 - 2026-02-20

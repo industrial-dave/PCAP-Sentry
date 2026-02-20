@@ -952,7 +952,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.20-2"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.20-3"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version() -> str:
@@ -1345,208 +1345,177 @@ _KEYRING_USERNAME_GREYNOISE = "greynoise_api_key"
 _KEYRING_USERNAME_VIRUSTOTAL = "virustotal_api_key"
 
 
+def _kr_service(name: str) -> str:
+    """Return a per-credential Windows Credential Manager target name.
+
+    Windows Credential Manager uses the *Target* field as the unique primary
+    key.  Storing all credentials under the same ``PCAP_Sentry`` service name
+    means each ``set_password`` call overwrites the previous one.  Embedding
+    the credential name into the service string gives every key its own
+    unique Target, e.g. ``PCAP_Sentry/llm_api_key``.
+    """
+    return f"{_KEYRING_SERVICE}/{name}"
+
+
 def _keyring_available() -> bool:
     """Check if the keyring module is available and functional."""
     try:
         import keyring
 
-        return True
+        return bool(keyring)
     except Exception:
         return False
 
 
+def _store_credential(name: str, value: str) -> None:
+    """Store *value* under *name* in the OS credential store.
+
+    No-op when *value* is empty — call ``_delete_credential`` to intentionally
+    remove a credential.  This prevents auto-save paths from wiping a valid
+    credential that could not be loaded into memory (e.g. transient keyring
+    error at startup).
+    """
+    if not value:
+        return
+    try:
+        import keyring
+
+        keyring.set_password(_kr_service(name), name, value)
+    except Exception:
+        pass  # Fallback: value stays in settings.json
+
+
+def _load_credential(name: str) -> str:
+    """Return the stored value for *name*, or ``""`` on any failure or absence.
+
+    On first read, automatically migrates from the legacy ``PCAP_Sentry``
+    shared-service format (where all keys used the same Target and overwrote
+    each other) to the current per-credential ``PCAP_Sentry/<name>`` format.
+    """
+    try:
+        import keyring
+
+        # Current format: unique target per credential
+        val: str | None = keyring.get_password(_kr_service(name), name)
+        if val:
+            return val
+        # Legacy migration: old code used service="PCAP_Sentry" + username=name
+        # which on Windows Credential Manager creates target "name@PCAP_Sentry".
+        # Migrate to the new per-credential target and remove the old entry.
+        legacy: str | None = keyring.get_password(_KEYRING_SERVICE, name)
+        if legacy:
+            keyring.set_password(_kr_service(name), name, legacy)
+            try:
+                keyring.delete_password(_KEYRING_SERVICE, name)
+            except Exception:
+                pass
+            return legacy
+        return ""
+    except Exception:
+        return ""
+
+
+def _delete_credential(name: str) -> None:
+    """Remove *name* from the OS credential store; silently ignores missing entries.
+
+    Cleans up both the current per-credential target and any remaining legacy
+    shared-service entry so nothing is left behind.
+    """
+    try:
+        import keyring
+
+        keyring.delete_password(_kr_service(name), name)
+    except Exception:
+        pass
+    try:
+        import keyring
+
+        keyring.delete_password(_KEYRING_SERVICE, name)
+    except Exception:
+        pass
+
+
+# ── Per-key wrappers (thin delegation — all keys follow the same path) ────────
 def _store_api_key(key: str) -> None:
-    """Store the LLM API key in the OS credential store, falling back to no-op.
-
-    Empty string is a no-op — call _delete_api_key() explicitly to remove.
-    This prevents auto-save paths from wiping a valid key when the in-memory
-    value is empty due to a keyring backend failure at load time.
-    """
-    if not key:
-        return  # Never auto-delete; use _delete_api_key() for intentional removal
-    try:
-        import keyring
-
-        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME_LLM, key)
-    except Exception:
-        pass  # Fallback: key stays in settings.json
-
-
-def _store_otx_api_key(key: str) -> None:
-    """Store the OTX API key in the OS credential store, falling back to no-op.
-
-    Empty string is a no-op — call _delete_otx_api_key() explicitly to remove.
-    This prevents auto-save paths from wiping a valid key when the in-memory
-    value is empty due to a keyring backend failure at load time.
-    """
-    if not key:
-        return  # Never auto-delete; use _delete_otx_api_key() for intentional removal
-    try:
-        import keyring
-
-        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME_OTX, key)
-    except Exception:
-        pass  # Fallback: key stays in settings.json
+    _store_credential(_KEYRING_USERNAME_LLM, key)
 
 
 def _load_api_key() -> str:
-    """Load the LLM API key from the OS credential store, falling back to empty string."""
-    try:
-        import keyring
-
-        val: str | None = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME_LLM)
-        return val or ""
-    except Exception:
-        return ""
-
-
-def _load_otx_api_key() -> str:
-    """Load the OTX API key from the OS credential store, falling back to empty string."""
-    try:
-        import keyring
-
-        val: str | None = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME_OTX)
-        return val or ""
-    except Exception:
-        return ""
+    return _load_credential(_KEYRING_USERNAME_LLM)
 
 
 def _delete_api_key() -> None:
-    """Remove the LLM API key from the OS credential store."""
-    try:
-        import keyring
+    _delete_credential(_KEYRING_USERNAME_LLM)
 
-        keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_LLM)
-    except Exception:
-        pass
+
+def _store_otx_api_key(key: str) -> None:
+    _store_credential(_KEYRING_USERNAME_OTX, key)
+
+
+def _load_otx_api_key() -> str:
+    return _load_credential(_KEYRING_USERNAME_OTX)
 
 
 def _delete_otx_api_key() -> None:
-    """Remove the OTX API key from the OS credential store."""
-    try:
-        import keyring
-
-        keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_OTX)
-    except Exception:
-        pass
+    _delete_credential(_KEYRING_USERNAME_OTX)
 
 
 def _store_abuseipdb_api_key(key: str) -> None:
-    """Store the AbuseIPDB API key in the OS credential store (no-op if empty)."""
-    if not key:
-        return
-    try:
-        import keyring
-
-        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME_ABUSEIPDB, key)
-    except Exception:
-        pass
+    _store_credential(_KEYRING_USERNAME_ABUSEIPDB, key)
 
 
 def _load_abuseipdb_api_key() -> str:
-    """Load the AbuseIPDB API key from the OS credential store."""
-    try:
-        import keyring
-
-        val: str | None = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME_ABUSEIPDB)
-        return val or ""
-    except Exception:
-        return ""
+    return _load_credential(_KEYRING_USERNAME_ABUSEIPDB)
 
 
 def _delete_abuseipdb_api_key() -> None:
-    """Remove the AbuseIPDB API key from the OS credential store."""
-    try:
-        import keyring
-
-        keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_ABUSEIPDB)
-    except Exception:
-        pass
+    _delete_credential(_KEYRING_USERNAME_ABUSEIPDB)
 
 
 def _store_greynoise_api_key(key: str) -> None:
-    """Store the GreyNoise API key in the OS credential store (no-op if empty)."""
-    if not key:
-        return
-    try:
-        import keyring
-
-        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME_GREYNOISE, key)
-    except Exception:
-        pass
+    _store_credential(_KEYRING_USERNAME_GREYNOISE, key)
 
 
 def _load_greynoise_api_key() -> str:
-    """Load the GreyNoise API key from the OS credential store."""
-    try:
-        import keyring
-
-        val: str | None = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME_GREYNOISE)
-        return val or ""
-    except Exception:
-        return ""
+    return _load_credential(_KEYRING_USERNAME_GREYNOISE)
 
 
 def _delete_greynoise_api_key() -> None:
-    """Remove the GreyNoise API key from the OS credential store."""
-    try:
-        import keyring
-
-        keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_GREYNOISE)
-    except Exception:
-        pass
+    _delete_credential(_KEYRING_USERNAME_GREYNOISE)
 
 
 def _store_virustotal_api_key(key: str) -> None:
-    """Store the VirusTotal API key in the OS credential store (no-op if empty)."""
-    if not key:
-        return
-    try:
-        import keyring
-
-        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME_VIRUSTOTAL, key)
-    except Exception:
-        pass
+    _store_credential(_KEYRING_USERNAME_VIRUSTOTAL, key)
 
 
 def _load_virustotal_api_key() -> str:
-    """Load the VirusTotal API key from the OS credential store."""
-    try:
-        import keyring
-
-        val: str | None = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USERNAME_VIRUSTOTAL)
-        return val or ""
-    except Exception:
-        return ""
+    return _load_credential(_KEYRING_USERNAME_VIRUSTOTAL)
 
 
 def _delete_virustotal_api_key() -> None:
-    """Remove the VirusTotal API key from the OS credential store."""
-    try:
-        import keyring
-
-        keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USERNAME_VIRUSTOTAL)
-    except Exception:
-        pass
+    _delete_credential(_KEYRING_USERNAME_VIRUSTOTAL)
 
 
 # ── Data encryption helpers ──────────────────────────────────────────────────
 def _get_or_create_encryption_key(username: str) -> bytes | None:
-    """Get or create an encryption key stored in the OS credential store."""
+    """Get or create a Fernet encryption key in the OS credential store.
+
+    Uses the same ``_load_credential`` / ``_store_credential`` path as API
+    keys, which automatically handles per-credential targets and legacy
+    migration.  Returns ``None`` when keyring is unavailable.
+    """
     if not _keyring_available():
         return None
     try:
-        import keyring
         from cryptography.fernet import Fernet
 
-        # Try to load existing key
-        key_str: str | None = keyring.get_password(_KEYRING_SERVICE, username)
+        key_str: str = _load_credential(username)
         if key_str:
             return key_str.encode()
 
-        # Generate new key
+        # Generate and persist a new Fernet key
         new_key: bytes = Fernet.generate_key()
-        keyring.set_password(_KEYRING_SERVICE, username, new_key.decode())
+        _store_credential(username, new_key.decode())
         return new_key
     except Exception:
         return None
