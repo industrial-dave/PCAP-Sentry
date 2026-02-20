@@ -252,6 +252,212 @@ PORT_DESCRIPTIONS_SHORT: dict[int, str] = {
     8080: "HTTP-Alt (Proxy/Alternate Web)",
 }
 
+# ── Legitimate applications behind ports that often look suspicious ──────────
+# Each entry: port → (app_name, brief_context)
+PORT_LEGITIMATE_USES: dict[int, list[tuple[str, str]]] = {
+    # Virtualisation / hypervisors
+    8006: [("Proxmox VE", "web management console for self-hosted virtualisation")],
+    8007: [("Proxmox VE", "SPICE proxy for virtual machine consoles")],
+    # Development / web servers
+    3000: [("Grafana", "dashboard UI"), ("Node.js / React dev server", "local development")],
+    3001: [("Node.js dev server", "common alternate dev port"), ("React dev server", "local development")],
+    4000: [("Ghost CMS", "blog platform"), ("various dev servers", "local development")],
+    4200: [("Angular CLI dev server", "local development")],
+    5000: [("Flask / Python web app", "common dev port"), ("Docker Registry", "private container registry")],
+    5173: [("Vite dev server", "frontend build tool for web development")],
+    7080: [("Nginx / Apache alternate", "HTTP on non-standard port")],
+    8000: [("Python http.server / Django", "dev or internal web server"), ("SonarQube", "code-quality platform")],
+    8001: [("Django / FastAPI dev server", "local development")],
+    8008: [("HTTP alternate", "sometimes used by smart home hubs and IoT devices")],
+    8123: [("Home Assistant", "home automation platform")],
+    8443: [("HTTPS alternate", "Tomcat, JBoss, pfSense, many embedded appliances use this for TLS web UI")],
+    8880: [("IBM WebSphere HTTP", "enterprise app server"), ("HTTPS alternate", "some appliances use port 8880")],
+    8888: [("Jupyter Notebook", "data-science interactive notebooks"), ("HTTP dev server", "common development port")],
+    8889: [("Jupyter Notebook alternate", "second Jupyter instance")],
+    9090: [("Prometheus", "metrics collection"), ("Cockpit", "RHEL/CentOS/Rocky server web console")],
+    9091: [("Transmission BitTorrent", "WebUI for the Transmission client")],
+    9443: [("Portainer", "Docker/Kubernetes management UI"), ("VMware vSphere", "management interface")],
+    # Databases
+    1433: [("Microsoft SQL Server", "default MSSQL port — legitimate if you run SQL Server")],
+    1521: [("Oracle Database", "default Oracle DB listener")],
+    3306: [("MySQL / MariaDB", "standard relational database port")],
+    5432: [("PostgreSQL", "standard relational database port")],
+    5433: [("PostgreSQL alternate", "used when multiple PG instances run on the same host")],
+    6379: [("Redis", "in-memory cache and message broker")],
+    6380: [("Redis TLS", "Redis over TLS on alternate port")],
+    7474: [("Neo4j", "graph database HTTP API")],
+    7687: [("Neo4j Bolt", "graph database binary protocol")],
+    8086: [("InfluxDB", "time-series database — common in IoT/monitoring stacks")],
+    9042: [("Apache Cassandra", "CQL native transport")],
+    9200: [("Elasticsearch", "REST API — normal in logging/SIEM stacks")],
+    9300: [("Elasticsearch cluster", "node-to-node communication")],
+    11211: [("Memcached", "distributed memory cache")],
+    27017: [("MongoDB", "default document database port")],
+    27018: [("MongoDB shard", "mongod shard server port")],
+    # Message brokers / streaming
+    1883: [("MQTT", "lightweight IoT messaging protocol (unencrypted)")],
+    4369: [("RabbitMQ / Erlang EPMD", "port mapper for Erlang nodes")],
+    5671: [("AMQPS", "RabbitMQ over TLS")],
+    5672: [("AMQP / RabbitMQ", "message broker — normal in microservice stacks")],
+    9092: [("Apache Kafka", "high-throughput message streaming")],
+    9093: [("Apache Kafka TLS", "Kafka broker with encryption")],
+    15672: [("RabbitMQ Management UI", "browser-based admin console")],
+    # Container / orchestration
+    2376: [("Docker Remote API (TLS)", "daemon API — should only be reachable internally")],
+    2377: [("Docker Swarm", "cluster management port")],
+    6443: [("Kubernetes API Server", "control-plane endpoint — normal inside a cluster")],
+    8472: [("Flannel / VXLAN overlay", "Kubernetes pod networking")],
+    10250: [("Kubernetes kubelet", "node agent API — should be internal only")],
+    # Service discovery / infrastructure
+    179: [("BGP", "Border Gateway Protocol — normal between internet routers")],
+    389: [("LDAP", "directory services — Active Directory, OpenLDAP")],
+    500: [("IKE / IPSec", "VPN key exchange — normal for site-to-site VPNs")],
+    636: [("LDAPS", "LDAP over TLS — Active Directory with encryption")],
+    1812: [("RADIUS Authentication", "network access control / Wi-Fi 802.1X")],
+    1813: [("RADIUS Accounting", "network access control / Wi-Fi 802.1X")],
+    2181: [("Apache ZooKeeper", "distributed coordination — used by Kafka, HBase")],
+    4500: [("NAT-T IKE", "IPSec VPN through NAT")],
+    5353: [("mDNS / Bonjour", "local network service discovery — Apple AirPrint, Chromecast, etc.")],
+    5355: [("LLMNR", "Link-Local Multicast Name Resolution — Windows local name lookup")],
+    8300: [("HashiCorp Consul RPC", "service mesh / service discovery")],
+    8301: [("HashiCorp Consul LAN gossip", "service mesh / service discovery")],
+    8500: [("HashiCorp Consul HTTP", "service mesh / service discovery")],
+    51820: [("WireGuard VPN", "modern lightweight VPN protocol")],
+    # Media / streaming / smart home
+    1900: [("SSDP / UPnP", "device discovery — Chromecast, smart TVs, routers")],
+    5349: [("STUN/TURN over TLS", "WebRTC media relay for video/audio calls")],
+    7000: [("Apache Cassandra intra-node", "cluster communication")],
+    7001: [("Apache Cassandra TLS intra-node", "cluster communication with TLS")],
+    8096: [("Jellyfin Media Server", "self-hosted media streaming")],
+    8200: [("HashiCorp Vault", "secrets management"), ("Plex Media Server alternate", "self-hosted media")],
+    8920: [("Jellyfin HTTPS", "self-hosted media streaming over TLS")],
+    32400: [("Plex Media Server", "self-hosted personal media server")],
+    # Security / VPN / proxy
+    1080: [("SOCKS proxy", "may be Tor, Shadowsocks, or a corporate proxy — investigate context")],
+    1194: [("OpenVPN", "standard VPN port — normal if OpenVPN is in use")],
+    3128: [("Squid proxy", "transparent HTTP caching proxy — common in corporate networks")],
+    4711: [("Asterisk AMI", "VoIP management interface")],
+    5060: [("SIP", "VoIP signalling — normal if using IP phones or softphones")],
+    5061: [("SIP TLS", "encrypted VoIP signalling")],
+    8118: [("Privoxy", "privacy proxy — common alongside Tor")],
+    8388: [("Shadowsocks", "proxy protocol — may be legitimate privacy tool or evasion")],
+    9001: [("Tor ORPort", "Tor relay node — legitimate if running a Tor relay"), ("Portainer", "Docker management UI")],
+    9030: [("Tor DirPort", "Tor directory service — legitimate if running a Tor relay")],
+    9050: [("Tor SOCKS proxy", "anonymous browsing — may be legitimate or policy violation depending on context")],
+    # Remote management
+    2222: [("SSH alternate", "many servers move SSH here to reduce automated scanning noise")],
+    4848: [("GlassFish admin console", "Java EE application server management")],
+    5900: [("VNC", "remote desktop — normal for legitimate remote support")],
+    5901: [("VNC display :1", "VNC on a secondary display")],
+    5985: [("WinRM HTTP", "Windows Remote Management — used by Ansible, PowerShell remoting")],
+    5986: [("WinRM HTTPS", "Windows Remote Management over TLS")],
+    8834: [("Nessus", "vulnerability scanner web UI — normal on a security team scanner")],
+    9392: [("Greenbone / OpenVAS", "open-source vulnerability scanner")],
+    # Suspicious-looking ports with common legitimate uses
+    1337: [("dev tooling / pentest labs", "used in some CTF and developer testing environments")],
+    4444: [
+        ("Windows Messenger (legacy)", "old LAN messenger; also Metasploit default — verify process"),
+        ("test frameworks", "some test runners use this port locally"),
+    ],
+    6666: [
+        ("IRC", "Internet Relay Chat — old but still used by communities and bots"),
+        ("game server", "some older multiplayer games use ports in the 6666-6669 range"),
+    ],
+    6667: [("IRC", "classic default IRC port — still used by community chat servers")],
+    6668: [("IRC alternate", "IRC on non-standard port")],
+    6669: [("IRC alternate", "IRC on non-standard port")],
+    31337: [("some dev/pentest tooling", "historically 'elite' port; used in some CTF lab setups — verify process")],
+    # Local AI / ML inference (very common 2024-2026)
+    1234: [("LM Studio", "local large language model inference server")],
+    7860: [("Stable Diffusion / Gradio", "local AI image generation or ML demo web UI")],
+    8188: [("ComfyUI", "node-based Stable Diffusion / AI image generation UI")],
+    8501: [("Streamlit", "Python ML/data-science web app framework")],
+    11434: [("Ollama", "local large language model inference server")],
+    # Gaming / voice chat
+    9987: [("TeamSpeak 3 (UDP)", "voice communication server — normal if running a TS3 server")],
+    25565: [("Minecraft Java Edition", "Minecraft game server")],
+    25575: [("Minecraft RCON", "remote console for Minecraft server administration")],
+    27015: [("Steam / Source engine games", "game server — Counter-Strike, TF2, Valheim, etc.")],
+    27016: [("Steam game server alternate", "secondary Steam game server port")],
+    # Monitoring / observability
+    4317: [("OpenTelemetry gRPC", "telemetry data collection — normal in cloud-native stacks")],
+    4318: [("OpenTelemetry HTTP", "telemetry data collection over HTTP")],
+    5044: [("Logstash Beats", "log shipper input — Filebeat, Metricbeat to Logstash")],
+    5601: [("Kibana", "Elasticsearch visualisation UI — normal in ELK/Elastic stacks")],
+    9100: [("Prometheus Node Exporter", "OS/hardware metrics scrape endpoint — also raw printing (JetDirect)")],
+    12201: [("Graylog GELF", "structured log ingestion from applications")],
+    16686: [("Jaeger UI", "distributed tracing visualisation — normal in microservice observability")],
+    # NAS / backup / SOHO
+    5001: [("Synology DSM HTTPS", "Synology NAS management over TLS")],
+    6690: [("Synology Cloud Station", "Synology NAS cloud sync service")],
+    9102: [("Bacula File Daemon", "open-source network backup client")],
+    # CI/CD / artifact repositories
+    8081: [("Nexus Repository", "artifact repository manager"), ("Artifactory", "binary artifact repository")],
+    50000: [("Jenkins JNLP agent", "Jenkins build agent connection port")],
+    # Enterprise / hardware management
+    623: [("IPMI / BMC (RMCP)", "remote out-of-band management for servers — iDRAC, iLO, IPMI")],
+    1414: [("IBM MQ", "enterprise message queueing middleware")],
+    10050: [("Zabbix Agent", "network monitoring agent — normal if Zabbix monitors this host")],
+    10051: [("Zabbix Server / Proxy", "Zabbix monitoring server or proxy")],
+}
+
+# ── Known-benign domain suffixes: cloud/AI/CDN services that produce legitimate
+#     high-volume or asymmetric traffic.  Checked against TLS SNI data to avoid
+#     false-positive data-exfiltration alerts when users talk to LLM APIs. ──
+KNOWN_BENIGN_DOMAIN_SUFFIXES: dict[str, str] = {
+    # Cloud LLM / AI APIs
+    "api.openai.com": "OpenAI API",
+    "openai.com": "OpenAI",
+    "api.anthropic.com": "Anthropic Claude API",
+    "anthropic.com": "Anthropic",
+    "generativelanguage.googleapis.com": "Google Gemini API",
+    "aiplatform.googleapis.com": "Google Vertex AI",
+    "api.mistral.ai": "Mistral AI API",
+    "api.cohere.com": "Cohere API",
+    "api.together.xyz": "Together AI API",
+    "api.groq.com": "Groq API",
+    "openrouter.ai": "OpenRouter (multi-LLM gateway)",
+    "api.huggingface.co": "HuggingFace Inference API",
+    "huggingface.co": "HuggingFace",
+    "api.replicate.com": "Replicate AI API",
+    "replicate.com": "Replicate AI",
+    "inference.azure.com": "Azure AI Inference (Azure OpenAI)",
+    "openai.azure.com": "Azure OpenAI Service",
+    "bedrock-runtime.amazonaws.com": "AWS Bedrock (cloud AI models)",
+    # Cloud providers / CDN / object storage
+    "amazonaws.com": "Amazon Web Services",
+    "cloudfront.net": "AWS CloudFront CDN",
+    "azure.com": "Microsoft Azure",
+    "microsoft.com": "Microsoft",
+    "live.com": "Microsoft (Live / Outlook / Teams)",
+    "office.com": "Microsoft 365 / Office Online",
+    "googleapis.com": "Google APIs / Google Cloud",
+    "gstatic.com": "Google static assets",
+    "google.com": "Google",
+    "cloudflare.com": "Cloudflare",
+    "cloudflare-dns.com": "Cloudflare DNS (1.1.1.1)",
+    "fastly.net": "Fastly CDN",
+    "akamaiedge.net": "Akamai CDN",
+    "akamai.net": "Akamai CDN",
+    "cdn.jsdelivr.net": "jsDelivr CDN",
+    # Developer / collaboration
+    "github.com": "GitHub",
+    "githubusercontent.com": "GitHub (raw content / packages)",
+    "githubassets.com": "GitHub static assets",
+    "docker.io": "Docker Hub",
+    "ghcr.io": "GitHub Container Registry",
+    "registry.npmjs.org": "npm package registry",
+    "pypi.org": "Python Package Index (pip)",
+    "files.pythonhosted.org": "PyPI file downloads",
+    # OS / software updates
+    "update.microsoft.com": "Windows Update",
+    "windowsupdate.com": "Windows Update",
+    "download.windowsupdate.com": "Windows Update downloads",
+    "apple.com": "Apple (iCloud / macOS updates)",
+    "ubuntu.com": "Ubuntu package updates",
+    "debian.org": "Debian package updates",
+}
+
 # ── Education pattern descriptions (rebuilt every analysis → now a constant) ──
 PATTERN_EDUCATION: dict[str, tuple[str, str]] = {
     "high_volume": (
@@ -745,7 +951,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.19-11"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.19-12"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version() -> str:
@@ -1524,7 +1730,14 @@ def _format_bytes(value) -> str | None:
 
 
 def _default_kb():
-    return {"safe": [], "malicious": [], "unsure": [], "ioc": {"ips": [], "domains": [], "hashes": []}}
+    return {
+        "safe": [],
+        "malicious": [],
+        "unsure": [],
+        "ioc": {"ips": [], "domains": [], "hashes": []},
+        "flow_allowlist": [],
+        "trusted_ips": [],
+    }
 
 
 def load_knowledge_base():
@@ -1563,6 +1776,8 @@ def load_knowledge_base():
                     ioc.setdefault("ips", [])
                     ioc.setdefault("domains", [])
                     ioc.setdefault("hashes", [])
+                    data.setdefault("flow_allowlist", [])
+                    data.setdefault("trusted_ips", [])
                     return data
         except Exception:
             pass
@@ -2073,6 +2288,13 @@ def build_features(stats):
     # Count how many top ports are known malware / C2 ports
     malware_port_hits: int = sum(1 for p in top_ports if p in MALWARE_PORTS)
 
+    # RFC1918 / internal vs external destination ratios
+    _dst_list = stats.get("unique_dst_list", [])
+    _n_dst = len(_dst_list) or 1
+    _n_internal = sum(1 for ip in _dst_list if _is_private_ip(ip))
+    internal_traffic_ratio: float = _n_internal / _n_dst
+    external_dst_ratio: float = (_n_dst - _n_internal) / _n_dst
+
     features = {
         "packet_count": stats.get("packet_count", 0),
         "avg_size": stats.get("avg_size", 0.0),
@@ -2087,6 +2309,8 @@ def build_features(stats):
         "unique_src": stats.get("unique_src", 0),
         "unique_dst": stats.get("unique_dst", 0),
         "malware_port_hits": malware_port_hits,
+        "internal_traffic_ratio": internal_traffic_ratio,
+        "external_dst_ratio": external_dst_ratio,
     }
 
     # Add threat intelligence features if available
@@ -2140,6 +2364,9 @@ def _vectorize_features(features) -> dict[str, float]:
         "avg_domain_risk_score": float(features.get("avg_domain_risk_score", 0.0)),
         # Derived ratios
         "dns_per_packet_ratio": float(features.get("dns_query_count", 0)) / max(pkt_count, 1.0),
+        # Traffic locality ratios
+        "internal_traffic_ratio": float(features.get("internal_traffic_ratio", 0.0)),
+        "external_dst_ratio": float(features.get("external_dst_ratio", 0.0)),
     }
 
     proto_ratio = features.get("proto_ratio", {})
@@ -3481,8 +3708,34 @@ def detect_suspicious_flows(df, kb, max_items=8, flow_df=None):
     if flow_df is None:
         flow_df = compute_flow_stats(df)  # already returns a new DataFrame
     else:
-        flow_df = flow_df.copy()  # caller's DF — copy before mutating
+        flow_df = flow_df.copy()  # caller's DF \u2014 copy before mutating
     ioc_ips = set(kb.get("ioc", {}).get("ips", []))
+
+    # Build a fast lookup set from the user-confirmed flow allowlist.
+    # Each entry may have src, dst, dport (“*” = wildcard) plus an optional note.
+    _flow_allowlist: list[dict] = kb.get("flow_allowlist", [])
+    _allowlist_tuples: list[tuple[str, str, str]] = [
+        (str(e.get("src", "*")), str(e.get("dst", "*")), str(e.get("dport", "*"))) for e in _flow_allowlist
+    ]
+
+    def _is_allowlisted(src: str, dst: str, dport: int) -> str | None:
+        """Return the user note if this flow matches the allowlist, else None."""
+        dport_s = str(dport)
+        for al_src, al_dst, al_dport in _allowlist_tuples:
+            src_ok = al_src in {"*", src}
+            dst_ok = al_dst in {"*", dst}
+            port_ok = al_dport in {"*", dport_s}
+            if src_ok and dst_ok and port_ok:
+                # Find the note for this entry
+                for e in _flow_allowlist:
+                    if (
+                        str(e.get("src", "*")) == al_src
+                        and str(e.get("dst", "*")) == al_dst
+                        and str(e.get("dport", "*")) == al_dport
+                    ):
+                        return e.get("note", "user-confirmed safe")
+        return None
+
     if ioc_ips:
         flow_df["ioc_match"] = flow_df["Src"].isin(ioc_ips) | flow_df["Dst"].isin(ioc_ips)
     else:
@@ -3516,14 +3769,26 @@ def detect_suspicious_flows(df, kb, max_items=8, flow_df=None):
     suspicious = suspicious.sort_values(["ioc_match", "malware_port", "Bytes"], ascending=[False, False, False])
     results = []
     for _, row in suspicious.head(max_items).iterrows():
+        src_val: str = str(row["Src"])
+        dst_val: str = str(row["Dst"])
+        dport_val_i: int = int(row["DPort"])
+        allowlist_note: str | None = _is_allowlisted(src_val, dst_val, dport_val_i)
+        if allowlist_note is not None:
+            # User has previously confirmed this flow as safe — skip it.
+            continue
         reasons = []
         if bool(row["ioc_match"]):
             reasons.append("IoC IP match")
         if bool(row["malware_port"]):
             dport_val = int(row["DPort"])
             sport_val = int(row["SPort"])
-            port_str: str = str(dport_val) if dport_val in MALWARE_PORTS else str(sport_val)
-            reasons.append(f"Malware/C2 port ({port_str})")
+            flagged_port: int = dport_val if dport_val in MALWARE_PORTS else sport_val
+            port_str: str = str(flagged_port)
+            if flagged_port in PORT_LEGITIMATE_USES:
+                legit_names: str = ", ".join(name for name, _ in PORT_LEGITIMATE_USES[flagged_port])
+                reasons.append(f"Malware/C2 port ({port_str}) — also used by: {legit_names}")
+            else:
+                reasons.append(f"Malware/C2 port ({port_str})")
         if bool(row.get("beacon_like", False)):
             reasons.append("Beacon-like pattern")
         if bool(row["high_volume"]):
@@ -3542,6 +3807,51 @@ def detect_suspicious_flows(df, kb, max_items=8, flow_df=None):
             }
         )
     return results
+
+
+def _is_private_ip(ip: str) -> bool:
+    """Return True if *ip* is an RFC1918 / loopback / link-local address.
+
+    Covers:
+      10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 — RFC1918 private ranges
+      127.0.0.0/8                                  — loopback
+      169.254.0.0/16                               — link-local (APIPA)
+      100.64.0.0/10                                — CGNAT (RFC6598)
+    """
+    try:
+        parts = ip.split(".")
+        if len(parts) != 4:
+            return False
+        a, b = int(parts[0]), int(parts[1])
+        if a == 10:
+            return True
+        if a == 172 and 16 <= b <= 31:
+            return True
+        if a == 192 and b == 168:
+            return True
+        if a == 127:
+            return True
+        if a == 169 and b == 254:
+            return True
+        if a == 100 and 64 <= b <= 127:
+            return True
+    except (ValueError, IndexError):
+        pass
+    return False
+
+
+def _is_known_benign_domain(domain: str) -> tuple[bool, str]:
+    """Return (True, service_label) if *domain* matches a known-benign service suffix.
+
+    Used to contextualise data-exfiltration alerts and TLS SNI listings so that
+    legitimate traffic to LLM APIs, CDNs, and cloud providers is not presented
+    with the same alarm level as traffic to unknown/suspicious hosts.
+    """
+    d = domain.lower().rstrip(".")
+    for suffix, label in KNOWN_BENIGN_DOMAIN_SUFFIXES.items():
+        if d == suffix or d.endswith("." + suffix):
+            return True, label
+    return False, ""
 
 
 def detect_behavioral_anomalies(df, stats, flow_df=None):
@@ -3649,32 +3959,78 @@ def detect_behavioral_anomalies(df, stats, flow_df=None):
     top_ports = stats.get("top_ports", [])
     malware_hits = [(p, c) for p, c in top_ports if p in MALWARE_PORTS]
     if malware_hits:
-        port_str: str = ", ".join(f"{p} ({c} pkts)" for p, c in malware_hits)
-        findings.append(
-            {
-                "type": "malware_ports",
-                "detail": f"Known malware/C2 ports in top traffic: {port_str}",
-                "severity": 65,
-                "risk_boost": 15,
-            }
-        )
+        # Split: ports with no known legit use are high-confidence; ports that also appear
+        # in PORT_LEGITIMATE_USES (e.g. 1433 = MS SQL, 5432 = PostgreSQL) are ambiguous.
+        pure_hits = [(p, c) for p, c in malware_hits if p not in PORT_LEGITIMATE_USES]
+        ambiguous_hits = [(p, c) for p, c in malware_hits if p in PORT_LEGITIMATE_USES]
+        if pure_hits:
+            port_str: str = ", ".join(f"{p} ({c} pkts)" for p, c in pure_hits)
+            findings.append(
+                {
+                    "type": "malware_ports",
+                    "detail": f"Known malware/C2 ports in top traffic: {port_str}",
+                    "severity": 65,
+                    "risk_boost": 15,
+                }
+            )
+        if ambiguous_hits:
+            ambig_parts: list[str] = []
+            for p, c in ambiguous_hits:
+                legit_names: str = ", ".join(name for name, _ in PORT_LEGITIMATE_USES[p])
+                ambig_parts.append(f"{p} ({c} pkts — also used by {legit_names})")
+            findings.append(
+                {
+                    "type": "malware_ports_ambiguous",
+                    "detail": (
+                        "Ports associated with malware/C2 traffic but also with legitimate software: "
+                        + "; ".join(ambig_parts)
+                    ),
+                    "severity": 40,
+                    "risk_boost": 5,
+                }
+            )
 
     # ── 5. Data exfiltration: highly asymmetric upload (one host sends much more than receives) ──
     if not df.empty and len(df) > 20:
         src_bytes = df.groupby("Src")["Size"].sum()
         dst_bytes = df.groupby("Dst")["Size"].sum()
+        # Check TLS SNI list for known-benign services (LLM APIs, CDNs, etc.).
+        # Their traffic is naturally asymmetric (large prompts out, small tokens in)
+        # so we reduce severity and risk_boost when these are present.
+        benign_services_seen: list[str] = []
+        for _sni in stats.get("tls_sni", []):
+            _is_b, _lbl = _is_known_benign_domain(_sni)
+            if _is_b:
+                benign_services_seen.append(_lbl)
+        benign_services_seen = list(dict.fromkeys(benign_services_seen))  # deduplicate
         for src_ip in src_bytes.index:
             sent = float(src_bytes.get(src_ip, 0))
             received = float(dst_bytes.get(src_ip, 0))
             if sent > 1_000_000 and received > 0 and sent / max(received, 1) > 10:
-                findings.append(
-                    {
-                        "type": "data_exfil",
-                        "detail": f"{src_ip} sent {_format_bytes(sent)} but received only {_format_bytes(received)} — possible data exfiltration",
-                        "severity": 70,
-                        "risk_boost": 15,
-                    }
-                )
+                if benign_services_seen:
+                    svc_note: str = "; ".join(benign_services_seen[:3])
+                    findings.append(
+                        {
+                            "type": "data_exfil",
+                            "detail": (
+                                f"{src_ip} sent {_format_bytes(sent)} but received only"
+                                f" {_format_bytes(received)} — possible data exfiltration"
+                                f" (note: traffic to known cloud/AI services also present:"
+                                f" {svc_note} — could be LLM API usage; verify destination IPs)"
+                            ),
+                            "severity": 50,
+                            "risk_boost": 7,
+                        }
+                    )
+                else:
+                    findings.append(
+                        {
+                            "type": "data_exfil",
+                            "detail": f"{src_ip} sent {_format_bytes(sent)} but received only {_format_bytes(received)} — possible data exfiltration",
+                            "severity": 70,
+                            "risk_boost": 15,
+                        }
+                    )
                 break  # only report the worst offender
 
     # ── 6. Excessive failed connections (many small SYN-only packets to same dest) ──
@@ -3965,11 +4321,11 @@ class PCAPSentryApp:
 
         self.current_df = None
         self.current_stats = None
+        self.current_suspicious_flows: list[dict] = []
         self.current_sample_info = None
         self.current_verdict = None
         self.current_risk_score = None
         self._last_export_data = None
-        # self.last_analysis_stats removed (refine/contextual questions feature removed)
         self.packet_base_time = None
         self.busy_count = 0
         self.busy_widgets = []
@@ -3989,9 +4345,6 @@ class PCAPSentryApp:
         self.target_drop_area = None
         self.why_text = None
         self.education_text = None
-        self.education_questions_frame = None
-        self.contextual_questions = []
-        self.reassess_button = None
         self.copy_filters_button = None
         self.wireshark_filters = []
         self.packet_table = None
@@ -5657,10 +6010,10 @@ class PCAPSentryApp:
         ttk.Label(header, text="PARRY", style="Heading.TLabel").pack(side=tk.LEFT)
         self._help_icon(
             header,
-            "PARRY — A 1972 AI so convincingly paranoid that psychiatrists couldn't tell it from a real patient.\n\n"
-            "This PARRY has no memory of any of that, is suspicious of your packets, and may occasionally "
-            "imply that your DNS traffic is part of a larger pattern. He is almost certainly right.\n\n"
-            "Ask questions about the current analysis, packet data, threats, or general network security. "
+            "PARRY — Named after the 1972 AI that simulated paranoid thinking convincingly enough to fool psychiatrists.\n\n"
+            "This PARRY keeps the mild suspicion but leaves the theatrics at the door. "
+            "Ask questions about the current analysis, packet data, threats, or general network security "
+            "and you'll get a straight answer — with the occasional dry remark if something in the traffic truly deserves it.\n\n"
             "Chat uses the configured LLM provider.",
         )
 
@@ -5774,13 +6127,28 @@ class PCAPSentryApp:
     }
 
     _PARRY_SYSTEM_PROMPT: str = (
-        "You are PARRY, the network security analyst for PCAP Sentry. "
-        "You are modeled after the 1972 Stanford AI PARRY, which simulated paranoid thinking so convincingly "
-        "that psychiatrists couldn't distinguish it from real patients. "
-        "You are deeply suspicious of unusual network behavior, convinced that anomalies are never coincidences, "
-        "and occasionally dark about what the packets imply. "
-        "Despite this, your technical analysis is always accurate, precise, and genuinely helpful. "
-        "You may be unhinged, but you are never wrong. Answer clearly but with personality."
+        "You are PARRY, the network security analyst assistant inside PCAP Sentry. "
+        "You are named after the 1972 Stanford AI PARRY — a nod to your slightly suspicious "
+        "nature around unusual network activity. "
+        "Your primary job is to give clear, accurate, technically correct answers about "
+        "network security, packet analysis, and the current PCAP data. "
+        "Be direct and concise. Keep responses focused and professional. "
+        "You may occasionally let a dry, understated remark slip through "
+        '(e.g. noting that a port choice seems "optimistic" or that the traffic "raises an eyebrow"), '
+        "but never let personality get in the way of the answer. "
+        "Lead with the information the user needs, keep any colour brief and at the end.\n\n"
+        "You can directly control the local ML knowledge base without needing an LLM call — "
+        "these commands are intercepted locally and executed immediately:\n"
+        "  1. Label current capture: 'label as safe', 'mark as malicious', 'add to kb as unsure'\n"
+        "  2. Confirm a flow is safe: mention an IP or port with a safe-intent phrase, e.g. "
+        "'traffic to 192.168.1.5:8006 is Proxmox, normal' — adds it to the persistent flow allowlist\n"
+        "  3. Retrain the model: 'retrain', 'rebuild the model', 'train now'\n"
+        "  4. Check KB status: 'kb status', 'how many samples', 'model info'\n"
+        "  5. View allowlist: 'show allowlist', 'what flows are whitelisted'\n"
+        "  6. Manage trusted IPs: 'trust 192.168.1.1', 'add 10.0.0.5 to trusted', "
+        "'show trusted ips', 'remove 192.168.1.1 from trusted'\n"
+        "Proactively remind users of these capabilities when they ask about false positives, "
+        "improving accuracy, or reducing noise."
     )
 
     def _request_llm_chat(self, user_message):
@@ -6021,12 +6389,415 @@ class PCAPSentryApp:
         except (KeyError, IndexError) as exc:
             raise ValueError(f"Unexpected Gemini response format: {exc}") from exc
 
+    def _add_to_flow_allowlist(self, src: str = "*", dst: str = "*", dport: str = "*", note: str = "") -> None:
+        """Persist a flow entry to the KB flow_allowlist so future analyses skip it."""
+        kb = load_knowledge_base()
+        existing = kb.setdefault("flow_allowlist", [])
+        # Avoid exact duplicates
+        for e in existing:
+            if str(e.get("src", "*")) == src and str(e.get("dst", "*")) == dst and str(e.get("dport", "*")) == dport:
+                return  # already present
+        existing.append(
+            {
+                "src": src,
+                "dst": dst,
+                "dport": dport,
+                "note": note or "user-confirmed safe via PARRY chat",
+                "added": _utcnow().isoformat().replace("+00:00", "Z"),
+            }
+        )
+        _backup_knowledge_base()
+        save_knowledge_base(kb)
+        if self.kb_cache is not None:
+            self.kb_cache = kb
+
+    def _try_chat_command(self, message: str) -> bool:
+        """Detect label-intent phrases and execute them locally without an LLM call.
+
+        Returns True if the message was handled as a command (caller should skip
+        the LLM round-trip).  Returns False if the message is a normal question.
+
+        Handles two command families:
+          1. Flow-specific safe confirmation — "traffic to 192.168.1.5:8006 is Proxmox, normal"
+          2. Capture-level labelling        — "label as safe / mark as malicious / add to kb as unsure"
+        """
+        import re as _re
+
+        lowered: str = message.lower()
+
+        # ── Family 1: per-flow safe confirmation ────────────────────────
+        # Detect "safe intent" combined with an IP address or port number.
+        _FLOW_SAFE_KEYWORDS = (
+            r"\b(normal|safe|fine|ok|okay|legit(imate)?|known|expected|allowlist|whitelist|"
+            r"not.{0,10}(suspicious|malicious|threat)|that'?s?\s+(just|my)|benign)\b"
+        )
+        _IP_RE = r"\b(\d{1,3}(?:\.\d{1,3}){3})\b"
+        _PORT_RE = r"(?:port\s*:?\s*|:)(\d{2,5})\b"
+
+        has_safe_intent = bool(_re.search(_FLOW_SAFE_KEYWORDS, lowered))
+        found_ips: list[str] = _re.findall(_IP_RE, message)
+        found_ports: list[str] = _re.findall(_PORT_RE, lowered)
+
+        if has_safe_intent and (found_ips or found_ports):
+            # Normalise extracted values
+            target_ips: list[str] = list(dict.fromkeys(found_ips))  # deduplicated, original case
+            target_ports: list[str] = [p for p in dict.fromkeys(found_ports) if 1 <= int(p) <= 65535]
+
+            # Match against currently visible suspicious flows
+            flows: list[dict] = self.current_suspicious_flows or []
+            matched_flows: list[dict] = []
+            for flow in flows:
+                dst = str(flow.get("dst", ""))
+                src = str(flow.get("src", ""))
+                dport = str(flow.get("dport", ""))
+                ip_match = (not target_ips) or (dst in target_ips or src in target_ips)
+                port_match = (not target_ports) or (dport in target_ports)
+                if ip_match and port_match:
+                    matched_flows.append(flow)
+
+            # Also accept if no current suspicious flows but user gave explicit IP/port
+            if not flows and (target_ips or target_ports):
+                pass  # fall through – still allowlist the explicit entry
+
+            # Build note from original message (capped for readability)
+            note: str = message[:120].strip()
+
+            # Persist each matched flow to the allowlist (uses wildcards for unspecified axis)
+            if matched_flows:
+                for flow in matched_flows:
+                    self._add_to_flow_allowlist(
+                        src=str(flow.get("src", "*")),
+                        dst=str(flow.get("dst", "*")),
+                        dport=str(flow.get("dport", "*")),
+                        note=note,
+                    )
+                flow_descs: list[str] = [
+                    f"{f.get('src')} → {f.get('dst')}:{f.get('dport')} ({f.get('reason', '').split(';')[0]})"
+                    for f in matched_flows
+                ]
+                reply_parts: list[str] = [
+                    f"Got it — {len(matched_flows)} flow(s) marked as confirmed-safe and added to the allowlist:",
+                ]
+                for d in flow_descs:
+                    reply_parts.append(f"  • {d}")
+                reply_parts.append(
+                    "These flows will be silently skipped in all future analyses. "
+                    "The allowlist is stored in your local knowledge base."
+                )
+                # If target_ips/ports given without matched flows covering them, also save a generic entry
+            else:
+                # No current suspicious flows matched — save a generic allowlist entry
+                # so future analyses are also covered.
+                al_dst = target_ips[0] if target_ips else "*"
+                al_dport = target_ports[0] if target_ports else "*"
+                self._add_to_flow_allowlist(src="*", dst=al_dst, dport=al_dport, note=note)
+                spec = []
+                if target_ips:
+                    spec.append(f"IP {target_ips[0]}")
+                if target_ports:
+                    spec.append(f"port {target_ports[0]}")
+                reply_parts = [
+                    f"Noted — {' / '.join(spec) or 'that flow'} added to the allowlist. "
+                    "No matching flagged flow was found in the current analysis, but future captures "
+                    "involving this traffic will not be flagged."
+                ]
+
+            reply: str = "\n".join(reply_parts)
+            self._append_chat_message("assistant", reply)
+            self.chat_history.append({"role": "assistant", "content": reply})
+            return True
+
+        # ── Family 2: capture-level labelling ───────────────────────────
+        _LABEL_PATTERNS: list[tuple[str, str]] = [
+            (r"\b(label|mark|save|add|train|flag|classify)\b.{0,30}\b(as\s+)?safe\b", "safe"),
+            (r"\b(label|mark|save|add|train|flag|classify)\b.{0,30}\b(as\s+)?malicious\b", "malicious"),
+            (r"\b(label|mark|save|add|train|flag|classify)\b.{0,30}\b(as\s+)?unsure\b", "unsure"),
+            (r"\badd\s+(to\s+)?(kb|knowledge\s*base)\s+(as\s+)?safe\b", "safe"),
+            (r"\badd\s+(to\s+)?(kb|knowledge\s*base)\s+(as\s+)?malicious\b", "malicious"),
+            (r"\badd\s+(to\s+)?(kb|knowledge\s*base)\s+(as\s+)?unsure\b", "unsure"),
+            (r"\bthis\s+is\s+safe\b", "safe"),
+            (r"\bthis\s+is\s+malicious\b", "malicious"),
+            (r"\bthis\s+is\s+unsure\b", "unsure"),
+        ]
+
+        matched_label: str | None = None
+        for pattern, label in _LABEL_PATTERNS:
+            if _re.search(pattern, lowered):
+                matched_label = label
+                break
+
+        if matched_label is not None:
+            if self.current_stats is None:
+                reply = (
+                    "No analysis is loaded yet. Run an analysis on the Analyze tab first, then I can label it for you."
+                )
+                self._append_chat_message("assistant", reply)
+                self.chat_history.append({"role": "assistant", "content": reply})
+                return True
+
+            label_display: dict[str, str] = {"safe": "Safe", "malicious": "Malicious", "unsure": "Unsure"}
+            try:
+                self._label_current_as(matched_label)
+                kb_check = load_knowledge_base()
+                n_safe = len(kb_check.get("safe", []))
+                n_mal = len(kb_check.get("malicious", []))
+                can_train = n_safe >= 1 and n_mal >= 1
+                reply = (
+                    f"Done \u2014 current capture labelled as \u2018{label_display[matched_label]}\u2019 "
+                    f"and added to the knowledge base ({n_safe} safe / {n_mal} malicious samples total)."
+                )
+                if can_train:
+                    reply += (
+                        "\n\nSay \u2018retrain\u2019 to rebuild the model now and put this sample to work immediately."
+                    )
+                elif matched_label == "safe" and n_mal < 1:
+                    reply += (
+                        "\n\nNote: you\u2019ll need at least one malicious sample before the model can be retrained."
+                    )
+                elif matched_label == "malicious" and n_safe < 1:
+                    reply += "\n\nNote: you\u2019ll need at least one safe sample before the model can be retrained."
+            except Exception as exc:
+                reply = f"I tried to label the capture as {matched_label} but hit an error: {exc}"
+            self._append_chat_message("assistant", reply)
+            self.chat_history.append({"role": "assistant", "content": reply})
+            return True
+
+        # ── Family 3: retrain the model ──────────────────────────────────
+        _RETRAIN_PATTERNS = [
+            r"\bretrain\b",
+            r"\brebuild.{0,15}model\b",
+            r"\btrain.{0,15}(model|ml|classifier|now)\b",
+            r"\bupdate.{0,15}model\b",
+            r"\bfit.{0,15}model\b",
+        ]
+        if any(_re.search(p, lowered) for p in _RETRAIN_PATTERNS):
+            kb_check = load_knowledge_base()
+            n_safe = len(kb_check.get("safe", []))
+            n_mal = len(kb_check.get("malicious", []))
+            if n_safe < 1 or n_mal < 1:
+                reply = (
+                    f"Not enough data to train yet \u2014 the model needs at least 1 safe and 1 malicious sample.\n"
+                    f"Current KB: {n_safe} safe, {n_mal} malicious.\n\n"
+                    "Run some analyses and label them first, then ask me to retrain."
+                )
+                self._append_chat_message("assistant", reply)
+                self.chat_history.append({"role": "assistant", "content": reply})
+                return True
+
+            # Fire retrain on main thread (it spawns its own background thread)
+            self.root.after(0, lambda: self._retrain_model_now(silent=False))
+            reply = (
+                f"Retraining now using {n_safe} safe and {n_mal} malicious samples. "
+                "The status bar will confirm when it\u2019s done."
+            )
+            self._append_chat_message("assistant", reply)
+            self.chat_history.append({"role": "assistant", "content": reply})
+            return True
+
+        # ── Family 4: KB status ──────────────────────────────────────────
+        _KB_STATUS_PATTERNS = [
+            r"\b(kb|knowledge.?base)\s*(status|summary|stats|info|count|size|entries|samples)?\b",
+            r"\bhow\s+many\s+samples\b",
+            r"\bhow\s+(many|much).{0,20}(train|label|kb|data)\b",
+            r"\btraining\s+data\b",
+            r"\bmodel\s+(status|info|accuracy|details?)\b",
+            r"\bwhat.{0,20}(kb|knowledge.?base|model).{0,20}(have|got|contain)\b",
+        ]
+        if any(_re.search(p, lowered) for p in _KB_STATUS_PATTERNS):
+            kb_check = load_knowledge_base()
+            n_safe = len(kb_check.get("safe", []))
+            n_mal = len(kb_check.get("malicious", []))
+            n_unsure = len(kb_check.get("unsure", []))
+            n_allow = len(kb_check.get("flow_allowlist", []))
+            n_trusted = len(kb_check.get("trusted_ips", []))
+            ioc = kb_check.get("ioc", {})
+            n_ioc_ip = len(ioc.get("ips", []))
+            n_ioc_dom = len(ioc.get("domains", []))
+            model_ready = os.path.exists(MODEL_FILE)
+            model_line = "Model file: present \u2713" if model_ready else "Model file: not yet built"
+            can_train = n_safe >= 1 and n_mal >= 1
+            train_hint = (
+                "Ready to retrain \u2014 say \u2018retrain\u2019 to rebuild."
+                if can_train
+                else f"Need \u2265 1 safe + 1 malicious sample before retraining (have {n_safe} safe, {n_mal} malicious)."
+            )
+            reply = (
+                f"Knowledge Base status:\n"
+                f"  Safe samples    : {n_safe}\n"
+                f"  Malicious samples: {n_mal}\n"
+                f"  Unsure samples  : {n_unsure}\n"
+                f"  Flow allowlist  : {n_allow} entr{'y' if n_allow == 1 else 'ies'}\n"
+                f"  Trusted IPs     : {n_trusted}\n"
+                f"  IoC IPs         : {n_ioc_ip}\n"
+                f"  IoC domains     : {n_ioc_dom}\n"
+                f"  {model_line}\n\n"
+                f"{train_hint}"
+            )
+            self._append_chat_message("assistant", reply)
+            self.chat_history.append({"role": "assistant", "content": reply})
+            return True
+
+        # ── Family 5: show flow allowlist ────────────────────────────────
+        _ALLOWLIST_PATTERNS = [
+            r"\b(show|list|view|what.{0,10}(is|are|in)).{0,20}allowlist\b",
+            r"\ballowlist\b",
+            r"\bwhitelist\b",
+            r"\bflow.{0,15}(safe|allow|skip|ignore)\b",
+        ]
+        if any(_re.search(p, lowered) for p in _ALLOWLIST_PATTERNS):
+            kb_check = load_knowledge_base()
+            entries: list[dict] = kb_check.get("flow_allowlist", [])
+            if not entries:
+                reply = "The flow allowlist is empty. Tell me about a specific flow that\u2019s normal and I\u2019ll add it."
+            else:
+                lines = [f"Flow allowlist ({len(entries)} {'entry' if len(entries) == 1 else 'entries'}):"]
+                for i, e in enumerate(entries[:20], 1):
+                    src = e.get("src", "*")
+                    dst = e.get("dst", "*")
+                    dport = e.get("dport", "*")
+                    note = e.get("note", "")[:60]
+                    added = e.get("added", "")[:10]
+                    lines.append(f"  {i:>2}. {src} \u2192 {dst}:{dport}  [{added}]  {note}")
+                if len(entries) > 20:
+                    lines.append(f"  ... and {len(entries) - 20} more")
+                reply = "\n".join(lines)
+            self._append_chat_message("assistant", reply)
+            self.chat_history.append({"role": "assistant", "content": reply})
+            return True
+
+        # ── Family 6: trusted IP management ─────────────────────────────
+        _TRUST_ADD_PATTERNS = [
+            r"\btrust\s+(\d{1,3}(?:\.\d{1,3}){3})\b",
+            r"\badd\s+(\d{1,3}(?:\.\d{1,3}){3}).{0,20}trusted\b",
+            r"\b(\d{1,3}(?:\.\d{1,3}){3}).{0,20}(trusted|safe\s+ip|known\s+ip)\b",
+            r"\bmark\s+(\d{1,3}(?:\.\d{1,3}){3}).{0,15}trusted\b",
+        ]
+        _TRUST_REMOVE_PATTERNS = [
+            r"\b(remove|delete|untrust).{0,20}(\d{1,3}(?:\.\d{1,3}){3}).{0,20}trusted\b",
+            r"\b(remove|delete|untrust).{0,20}trusted.{0,20}(\d{1,3}(?:\.\d{1,3}){3})\b",
+            r"\bno\s+longer\s+trusted.{0,20}(\d{1,3}(?:\.\d{1,3}){3})\b",
+        ]
+        _TRUST_SHOW_PATTERNS = [
+            r"\bshow\s+trusted\b",
+            r"\blist\s+trusted\b",
+            r"\btrusted\s+ips?\b",
+            r"\bwhat.{0,15}trusted\b",
+        ]
+
+        # Show trusted IPs
+        if any(_re.search(p, lowered) for p in _TRUST_SHOW_PATTERNS):
+            kb_check = load_knowledge_base()
+            t_ips: list[str] = kb_check.get("trusted_ips", [])
+            if not t_ips:
+                reply = (
+                    "No trusted IPs configured yet.\n"
+                    "Say e.g. \u2018trust 192.168.1.1\u2019 and I\u2019ll add it. "
+                    "Trusted IPs reduce the risk score when they account for most of a capture\u2019s traffic."
+                )
+            else:
+                lines = [f"Trusted IPs ({len(t_ips)}):"]
+                for ip in t_ips:
+                    lines.append(f"  \u2022 {ip}")
+                reply = "\n".join(lines)
+            self._append_chat_message("assistant", reply)
+            self.chat_history.append({"role": "assistant", "content": reply})
+            return True
+
+        # Remove trusted IP
+        _remove_candidates: list[str] = []
+        for p in _TRUST_REMOVE_PATTERNS:
+            for m in _re.finditer(p, lowered):
+                for g in m.groups():
+                    if g and _re.match(r"\d{1,3}(?:\.\d{1,3}){3}$", g):
+                        _remove_candidates.append(g)
+        # Also extract any IP in the message if "remove/untrust/delete" intent detected
+        _has_remove_intent = _re.search(r"\b(remove|delete|untrust)\b", lowered)
+        if not _remove_candidates and _has_remove_intent:
+            _remove_candidates = _re.findall(_IP_RE, message)
+        if _remove_candidates:
+            kb_mut = load_knowledge_base()
+            t_ips_mut: list[str] = kb_mut.get("trusted_ips", [])
+            removed, not_found = [], []
+            for ip in dict.fromkeys(_remove_candidates):
+                if ip in t_ips_mut:
+                    t_ips_mut.remove(ip)
+                    removed.append(ip)
+                else:
+                    not_found.append(ip)
+            if removed:
+                kb_mut["trusted_ips"] = t_ips_mut
+                _backup_knowledge_base()
+                save_knowledge_base(kb_mut)
+                if self.kb_cache is not None:
+                    self.kb_cache = kb_mut
+                reply_parts = [f"Removed {len(removed)} IP(s) from the trusted list:"]
+                for ip in removed:
+                    reply_parts.append(f"  \u2022 {ip}")
+                if not_found:
+                    reply_parts.append(f"Not found in trusted list (ignored): {', '.join(not_found)}")
+                reply = "\n".join(reply_parts)
+            else:
+                reply = f"None of those IPs ({', '.join(not_found)}) were in the trusted list."
+            self._append_chat_message("assistant", reply)
+            self.chat_history.append({"role": "assistant", "content": reply})
+            return True
+
+        # Add trusted IP(s)
+        _add_candidates: list[str] = []
+        for p in _TRUST_ADD_PATTERNS:
+            for m in _re.finditer(p, lowered):
+                for g in m.groups():
+                    if g and _re.match(r"\d{1,3}(?:\.\d{1,3}){3}$", g):
+                        _add_candidates.append(g)
+        # Fallback: any IP if "trust" keyword present
+        if not _add_candidates and _re.search(r"\btrust\b", lowered):
+            _add_candidates = _re.findall(_IP_RE, message)
+        if _add_candidates:
+            kb_mut = load_knowledge_base()
+            t_ips_mut: list[str] = kb_mut.setdefault("trusted_ips", [])
+            added, already = [], []
+            for ip in dict.fromkeys(_add_candidates):
+                if ip not in t_ips_mut:
+                    t_ips_mut.append(ip)
+                    added.append(ip)
+                else:
+                    already.append(ip)
+            if added:
+                _backup_knowledge_base()
+                save_knowledge_base(kb_mut)
+                if self.kb_cache is not None:
+                    self.kb_cache = kb_mut
+                reply_parts = [
+                    f"Added {len(added)} IP(s) to the trusted list (risk scores will be dampened when "
+                    "\u226580\u202f% of a capture\u2019s traffic goes to trusted IPs and there are no IoC matches):"
+                ]
+                for ip in added:
+                    reply_parts.append(f"  \u2022 {ip}")
+                if already:
+                    reply_parts.append(f"Already trusted (skipped): {', '.join(already)}")
+            else:
+                reply_parts = [f"All of those IPs ({', '.join(already)}) are already in the trusted list."]
+            reply = "\n".join(reply_parts)
+            self._append_chat_message("assistant", reply)
+            self.chat_history.append({"role": "assistant", "content": reply})
+            return True
+
+        return False
+
     def _send_chat_message(self) -> None:
-        if not self._llm_is_enabled():
-            messagebox.showwarning("Chat", "Chat is disabled. Configure an LLM provider in File → LLM Settings first.")
-            return
         message: str = self.chat_entry_var.get().strip()
         if not message:
+            return
+        # Allow label commands even when the LLM is not configured.
+        llm_enabled: bool = self._llm_is_enabled()
+        if not llm_enabled:
+            # Still handle local commands; reject pure chat questions.
+            self.chat_entry_var.set("")
+            self.chat_history.append({"role": "user", "content": message})
+            self._append_chat_message("user", message)
+            if self._try_chat_command(message):
+                return
+            messagebox.showwarning("Chat", "Chat is disabled. Configure an LLM provider in File → LLM Settings first.")
             return
         self.chat_entry_var.set("")
         self.chat_history.append({"role": "user", "content": message})
@@ -6036,6 +6807,11 @@ class PCAPSentryApp:
             self.chat_history = self.chat_history[-_MAX_CHAT_HISTORY:]
         self._append_chat_message("user", message)
         self.sample_note_var.set("Chat: thinking...")
+
+        # Check for local-action commands (e.g. "label as safe") before hitting the LLM.
+        if self._try_chat_command(message):
+            self.sample_note_var.set("")
+            return
 
         if self.chat_entry is not None:
             self.chat_entry.configure(state=tk.DISABLED)
@@ -7502,7 +8278,14 @@ class PCAPSentryApp:
         top_ports = stats.get("top_ports", [])
         if top_ports:
             unusual_ports: list[str] = [str(port) for port, _ in top_ports if port not in COMMON_PORTS]
-            malware_flagged: list[str] = [str(port) for port, _ in top_ports if port in MALWARE_PORTS]
+            malware_flagged: list[str] = []
+            for port, _ in top_ports:
+                if port in MALWARE_PORTS:
+                    if port in PORT_LEGITIMATE_USES:
+                        legit_names: str = "/".join(name for name, _ in PORT_LEGITIMATE_USES[port])
+                        malware_flagged.append(f"{port} (also legit: {legit_names})")
+                    else:
+                        malware_flagged.append(str(port))
             if malware_flagged:
                 hint_lines.append(f"- ⚠ Known malware/C2 ports: {', '.join(malware_flagged)}")
             if unusual_ports:
@@ -8421,209 +9204,6 @@ class PCAPSentryApp:
         widget.bind("<Enter>", _bind_mousewheel)
         widget.bind("<Leave>", _unbind_mousewheel)
 
-    def _populate_contextual_questions(self, questions) -> None:
-        """Display contextual questions in the Improve Accuracy tab with Yes/No buttons."""
-        if self.education_questions_frame is None:
-            return
-        # Clear existing questions
-        for widget in self.education_questions_frame.winfo_children():
-            widget.destroy()
-
-        if not questions:
-            # Show placeholder if no questions
-            self.contextual_questions = []
-            placeholder_label = ttk.Label(
-                self.education_questions_frame,
-                text="No contextual questions for this analysis.\n\nEither LLM is disabled, or no unusual traffic patterns detected.",
-                font=("Segoe UI", 10, "italic"),
-            )
-            placeholder_label.pack(pady=20)
-            return
-
-        # Store questions with None answers initially
-        # Questions can be either strings or dicts with {"question": str, "context": str}
-        self.contextual_questions = []
-        for q in questions:
-            if isinstance(q, dict):
-                self.contextual_questions.append(
-                    {"question": q.get("question", ""), "context": q.get("context", ""), "answer": None}
-                )
-            else:
-                self.contextual_questions.append({"question": str(q), "context": "", "answer": None})
-
-        # Create UI for each question
-        for idx, q_data in enumerate(self.contextual_questions):
-            question_text = q_data["question"]
-            context_text = q_data.get("context", "")
-
-            # Question container
-            q_container = ttk.Frame(self.education_questions_frame)
-            q_container.pack(fill=tk.X, pady=8, padx=4)
-
-            # Header row with question number and buttons
-            header_frame = ttk.Frame(q_container)
-            header_frame.pack(fill=tk.X)
-
-            # Question label
-            q_label = ttk.Label(
-                header_frame,
-                text=f"Question {idx + 1}:",
-                font=("Segoe UI", 10, "bold"),
-            )
-            q_label.pack(side=tk.LEFT)
-
-            # Button frame
-            btn_frame = ttk.Frame(header_frame)
-            btn_frame.pack(side=tk.RIGHT)
-
-            # Yes button
-            yes_btn = tk.Button(
-                btn_frame,
-                text="✓ Yes",
-                width=8,
-                command=lambda i=idx: self._answer_question(i, True),
-            )
-            yes_btn.pack(side=tk.LEFT, padx=2)
-
-            # No button
-            no_btn = tk.Button(
-                btn_frame,
-                text="✗ No",
-                width=8,
-                command=lambda i=idx: self._answer_question(i, False),
-            )
-            no_btn.pack(side=tk.LEFT, padx=2)
-
-            # Store button references for highlighting
-            q_data["yes_btn"] = yes_btn
-            q_data["no_btn"] = no_btn
-
-            # Style buttons
-            self._style_question_button(yes_btn, "yes")
-            self._style_question_button(no_btn, "no")
-
-            # Question text
-            question_label = ttk.Label(
-                q_container,
-                text=question_text,
-                font=("Segoe UI", 11),
-                wraplength=700,
-            )
-            question_label.pack(fill=tk.X, pady=(4, 2), padx=(0, 0))
-
-            # Context/explanation (if available)
-            if context_text:
-                context_label = ttk.Label(
-                    q_container,
-                    text=f"📊 Context: {context_text}",
-                    font=("Segoe UI", 9, "italic"),
-                    foreground="#666666",
-                    wraplength=700,
-                )
-                context_label.pack(fill=tk.X, pady=(0, 4), padx=(20, 0))
-
-            # Separator
-            separator = ttk.Separator(q_container, orient=tk.HORIZONTAL)
-            separator.pack(fill=tk.X, pady=(8, 0))
-
-        # Re-assess button (shown after all questions answered)
-        reassess_frame = ttk.Frame(self.education_questions_frame)
-        reassess_frame.pack(fill=tk.X, pady=(12, 0))
-
-        self.reassess_button = tk.Button(
-            reassess_frame,
-            text="🔄 Re-assess with Answers",
-            state="disabled",
-            command=self._reassess_analysis,
-        )
-        self.reassess_button.pack()
-        self._style_question_button(self.reassess_button, "reassess")
-
-    def _style_question_button(self, button, btn_type) -> None:
-        """Style Yes/No/Re-assess buttons."""
-        if btn_type == "yes":
-            bg_color = "#2d5016"  # Dark green
-            fg_color = "#ffffff"
-            hover_bg = "#3d7020"
-        elif btn_type == "no":
-            bg_color = "#5a1a1a"  # Dark red
-            fg_color = "#ffffff"
-            hover_bg = "#7a2a2a"
-        elif btn_type == "reassess":
-            bg_color: str = self.colors["accent"]
-            fg_color = "#ffffff"
-            hover_bg = "#4a7ba0"
-        else:
-            bg_color: str = self.colors["panel"]
-            fg_color: str = self.colors["text"]
-            hover_bg: str = self.colors["accent_subtle"]
-
-        button.configure(
-            background=bg_color,
-            foreground=fg_color,
-            activebackground=hover_bg,
-            activeforeground=fg_color,
-            borderwidth=1,
-            relief="flat",
-            font=("Segoe UI", 10, "bold"),
-            cursor="hand2",
-            padx=10,
-            pady=5,
-        )
-
-    def _answer_question(self, index, answer) -> None:
-        """Handle Yes/No button click for a question."""
-        if index >= len(self.contextual_questions):
-            return
-
-        q_data = self.contextual_questions[index]
-        q_data["answer"] = answer
-
-        # Highlight selected button
-        yes_btn = q_data.get("yes_btn")
-        no_btn = q_data.get("no_btn")
-
-        if answer:  # Yes selected
-            yes_btn.configure(background="#4a8a2a", relief="sunken")  # Bright green
-            no_btn.configure(background="#5a1a1a", relief="flat")  # Reset no button
-        else:  # No selected
-            no_btn.configure(background="#8a2a2a", relief="sunken")  # Bright red
-            yes_btn.configure(background="#2d5016", relief="flat")  # Reset yes button
-
-        # Check if all questions answered
-        if all(q["answer"] is not None for q in self.contextual_questions):
-            self.reassess_button.configure(state="normal")
-
-    def _reassess_analysis(self) -> None:
-        """Re-run analysis considering user's question answers."""
-        # Get current analysis context
-        if not hasattr(self, "last_analysis_stats") or not self.last_analysis_stats:
-            messagebox.showinfo("No Analysis", "Please run an analysis first.")
-            return
-
-        # Build context from answers
-        answers_context = []
-        for q_data in self.contextual_questions:
-            question = q_data["question"]
-            answer: str = "Yes" if q_data["answer"] else "No"
-            answers_context.append(f"{question} → {answer}")
-
-        # Show user their answers
-        answers_summary: str = "\n".join(answers_context)
-        messagebox.showinfo(
-            "Re-assessing Analysis",
-            f"Re-assessing with your answers:\n\n{answers_summary}\n\n"
-            "Note: This feature will adjust risk scoring based on confirmed legitimate traffic.",
-        )
-
-        # TODO: Implement actual re-assessment logic
-        # For now, just log the answers
-        print("[INFO] User answers to contextual questions:")
-        for ctx in answers_context:
-            print(f"  - {ctx}")
-
-        self.status_var.set("Re-assessment complete (answers recorded)")
-
     def _show_overlay(self, message) -> None:
         pass
 
@@ -9110,113 +9690,6 @@ class PCAPSentryApp:
         if not self._llm_is_enabled():
             return False
         return self.llm_test_status_var.get().strip() in ("OK", "Auto", "Ready")
-
-    def _generate_contextual_questions(self, stats):
-        """
-        Use the LLM to generate contextual questions based on analysis findings.
-        Returns a list of question strings, or empty list if LLM unavailable.
-        """
-        if not self._llm_is_ready():
-            return []
-
-        provider: str = self.llm_provider_var.get().strip().lower()
-
-        # Build context for LLM
-        top_ports = stats.get("top_ports", [])
-        protocol_counts = stats.get("protocol_counts", {})
-        unique_dst = stats.get("unique_dst", 0)
-        dns_query_count = stats.get("dns_query_count", 0)
-        http_request_count = stats.get("http_request_count", 0)
-        tls_packet_count = stats.get("tls_packet_count", 0)
-
-        context = {
-            "top_ports": top_ports[:10],  # Top 10 ports
-            "protocol_counts": protocol_counts,
-            "unique_destinations": unique_dst,
-            "dns_queries": dns_query_count,
-            "http_requests": http_request_count,
-            "tls_packets": tls_packet_count,
-        }
-
-        prompt: str = (
-            "You are a network security assistant. Based on the network traffic analysis below, "
-            "generate 2-5 contextual yes/no questions to ask the user that would help determine "
-            "if unusual traffic patterns are actually expected/legitimate.\n\n"
-            f"Analysis context:\n{json.dumps(context, indent=2)}\n\n"
-            "Return ONLY a JSON array of objects. Each object must have:\n"
-            '- "question": A yes/no question about the traffic\n'
-            "- \"context\": A brief explanation of WHAT traffic pattern triggered this question (e.g., 'Port 8006 has 234 connections')\n\n"
-            "Examples:\n"
-            '[{"question": "Are you running Proxmox VE?", "context": "Port 8006 shows 234 connections (Proxmox web interface)"}]\n'
-            '[{"question": "Do you have Remote Desktop enabled?", "context": "Port 3389 (RDP) has 56 packets"}]\n'
-            '[{"question": "Is this a PostgreSQL database server?", "context": "Port 5432 shows database traffic"}]\n'
-            '[{"question": "Are you running a DNS server?", "context": "1,234 DNS queries detected"}]\n\n'
-            "Make each context specific with actual numbers/ports from the analysis data.\n"
-        )
-
-        try:
-            if provider == "ollama":
-                response_text = self._request_ollama_questions(prompt)
-            elif provider == "openai_compatible":
-                response_text = self._request_openai_compat_questions(prompt)
-            else:
-                return []
-
-            # Parse JSON response — strip markdown fences first
-            cleaned = PCAPSentryApp._extract_json_from_llm(response_text)
-            questions = json.loads(cleaned)
-            if isinstance(questions, list):
-                result = []
-                for q in questions:
-                    if isinstance(q, dict):
-                        # New format with question and context
-                        question_text = q.get("question", "").strip()
-                        context_text = q.get("context", "").strip()
-                        if question_text:
-                            result.append({"question": question_text, "context": context_text})
-                    elif isinstance(q, str) and q.strip():
-                        # Backward compatibility: string-only format
-                        result.append({"question": q.strip(), "context": ""})
-                return result
-            return []
-
-        except Exception as e:
-            print(f"[WARN] Failed to generate contextual questions: {e}")
-            return []
-
-    def _request_ollama_questions(self, prompt):
-        """Request questions from Ollama LLM."""
-        endpoint: str = self._normalize_ollama_endpoint(self.llm_endpoint_var.get() or "http://localhost:11434")
-        model: str = self.llm_model_var.get().strip() or "llama3"
-        url: str = endpoint.rstrip("/") + "/api/generate"
-
-        payload = {
-            "model": model,
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",
-        }
-        data: bytes = json.dumps(payload).encode("utf-8")
-        raw = self._llm_http_request(url, data, timeout=15)
-        response = json.loads(raw)
-        content = response.get("response", "")
-        if not content:
-            raise ValueError("LLM response was empty.")
-        return content.strip()
-
-    def _request_openai_compat_questions(self, prompt):
-        """Request questions from OpenAI-compatible LLM."""
-        messages = [
-            {
-                "role": "system",
-                "content": "You are a network security assistant. Return ONLY a JSON array of question strings.",
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ]
-        return self._request_openai_compat_chat(messages, temperature=0.3)
 
     def _confirm_llm_label(self, intended_label, stats, summary, on_apply) -> None:
         if not self._llm_is_ready():
@@ -12493,6 +12966,9 @@ class PCAPSentryApp:
                 desc: str = PORT_DESCRIPTIONS.get(port, "Unknown / non-standard service")
                 flag: str = "  ** UNUSUAL **" if port not in COMMON_PORTS else ""
                 lines.append(f"      Port {port:>5} : {desc} ({count} packets){flag}")
+                if port not in COMMON_PORTS and port in PORT_LEGITIMATE_USES:
+                    for app_name, app_ctx in PORT_LEGITIMATE_USES[port]:
+                        lines.append(f"               ✓ Could be legit: {app_name} — {app_ctx}")
             if unusual_ports:
                 lines.append("")
                 lines.append(
@@ -12500,7 +12976,13 @@ class PCAPSentryApp:
                     "    service.  Malware frequently picks random high ports to\n"
                     "    avoid basic firewall rules.  Ask: 'What program in my\n"
                     "    network would use this port?'  If you can't answer,\n"
-                    "    investigate further."
+                    "    investigate further.\n"
+                    "\n"
+                    "    NOTE: Some unusual ports have well-known legitimate uses\n"
+                    "    (e.g. port 8006 = Proxmox, 5432 = PostgreSQL, 9200 =\n"
+                    "    Elasticsearch). These are listed inline above. If the\n"
+                    "    listed application matches something in your environment,\n"
+                    "    the traffic is likely benign."
                 )
             lines.append("")
 
@@ -12572,7 +13054,21 @@ class PCAPSentryApp:
             )
             if tls_sni:
                 lines.append("")
-                lines.append(f"    Destinations seen (SNI): {', '.join(tls_sni[:5])}")
+                lines.append("    Destinations seen (SNI):")
+                for _sni_domain in tls_sni[:10]:
+                    _is_b, _svc = _is_known_benign_domain(_sni_domain)
+                    if _is_b:
+                        lines.append(f"      {_sni_domain}  \u2713 {_svc}")
+                    else:
+                        lines.append(f"      {_sni_domain}")
+                lines.append("")
+                lines.append(
+                    "    TIP: Destinations marked \u2713 are known cloud / AI services.\n"
+                    "    High outbound volumes to these hosts is normal for users\n"
+                    "    of LLM tools (ChatGPT, Claude, Gemini, Copilot, etc.),\n"
+                    "    cloud storage, CI/CD pipelines, or OS update services.\n"
+                    "    Focus investigation on unlabelled or unfamiliar destinations."
+                )
             lines.append("")
 
         # -- Packet sizes --
@@ -12697,6 +13193,10 @@ class PCAPSentryApp:
                     lines.append(f"      Port {dport} is NOT a standard service port.")
                     lines.append(f"      Ask yourself: 'What program would use port {dport}?'")
                     lines.append("      If you can't answer, this is suspicious.")
+                if dport_int and dport_int in PORT_LEGITIMATE_USES:
+                    lines.append("      \u2713 Could still be LEGITIMATE if you are running:")
+                    for app_name, app_ctx in PORT_LEGITIMATE_USES[dport_int]:
+                        lines.append(f"          {app_name}  \u2014  {app_ctx}")
                 lines.append("")
 
                 # -- Why it was flagged --
@@ -13605,6 +14105,17 @@ class PCAPSentryApp:
 
             # ── Risk scoring (same for both paths) ──
             _report(68, label="Computing risk score...")
+
+            # Trusted-destination ratio: fraction of observed dst IPs the user has
+            # explicitly trusted — used further down to dampen the risk score.
+            _trusted_ips_set = set(kb.get("trusted_ips", []))
+            _raw_dst_list = stats.get("unique_dst_list", [])
+            _trusted_dst_ratio: float = (
+                sum(1 for _ip in _raw_dst_list if _ip in _trusted_ips_set) / len(_raw_dst_list)
+                if _raw_dst_list
+                else 0.0
+            )
+
             ioc_count: int = len(ioc_matches["ips"]) + len(ioc_matches["domains"])
             ioc_available: bool = any(kb.get("ioc", {}).get(key) for key in ("ips", "domains", "hashes"))
             ioc_score: float = min(100.0, 80.0 + (ioc_count - 1) * 5.0) if ioc_count else 0.0
@@ -13640,6 +14151,12 @@ class PCAPSentryApp:
                 risk_score: float = max(risk_score, 60.0)
             if behavioral_score >= 40 and risk_score < 45:
                 risk_score: float = max(risk_score, 45.0)
+
+            # Trust dampener: if ≥80 % of destination IPs are user-confirmed trusted
+            # and there are no IoC matches, reduce the score by 30 % to reflect that
+            # the analyst has already vetted this traffic.
+            if _trusted_dst_ratio >= 0.8 and ioc_count == 0:
+                risk_score = round(risk_score * 0.7, 1)
 
             if risk_score >= 70:
                 verdict = "Likely Malicious"
@@ -13711,10 +14228,6 @@ class PCAPSentryApp:
                     output_lines = f_output.result()
                     why_lines = f_why.result()
                     edu_content = f_edu.result()
-
-                # Generate contextual questions using LLM if available
-                _report(92, label="Generating contextual questions...")
-                contextual_questions = self._generate_contextual_questions(stats)
             else:
                 output_lines = self._build_result_output_lines(
                     risk_score,
@@ -13765,10 +14278,6 @@ class PCAPSentryApp:
                     threat_intel_findings,
                 )
 
-                # Generate contextual questions using LLM if available
-                _report(92, label="Generating contextual questions...")
-                contextual_questions = self._generate_contextual_questions(stats)
-
             if wireshark_filters:
                 output_lines.append("- Wireshark filters: see Why tab")
 
@@ -13790,7 +14299,6 @@ class PCAPSentryApp:
                 "output_lines": output_lines,
                 "why_lines": why_lines,
                 "edu_content": edu_content,
-                "contextual_questions": contextual_questions,
                 "wireshark_filters": wireshark_filters if wireshark_filters else [],
                 "risk_score": risk_score,
                 "verdict": verdict,
@@ -13859,7 +14367,6 @@ class PCAPSentryApp:
             output_lines = result["output_lines"]
             why_lines = result["why_lines"]
             edu_content = result["edu_content"]
-            contextual_questions = result.get("contextual_questions", [])
             wireshark_filters = result["wireshark_filters"]
             classifier_result = result["classifier_result"]
             self.current_verdict = result.get("verdict")
@@ -13875,9 +14382,8 @@ class PCAPSentryApp:
 
             self.current_df = df
             self.current_stats = stats
+            self.current_suspicious_flows = result.get("suspicious_flows", [])
             self.current_sample_info = sample_info
-            # Store stats for re-assessment
-            self.last_analysis_stats = stats
             if not df.empty and "Time" in df.columns:
                 self.packet_base_time = float(df["Time"].min())
             else:
@@ -13900,14 +14406,6 @@ class PCAPSentryApp:
             if self.education_text is not None:
                 self.education_text.delete("1.0", tk.END)
                 self.education_text.insert(tk.END, edu_content)
-
-            # Populate contextual questions if available
-            if contextual_questions:
-                self._populate_contextual_questions(contextual_questions)
-                print(f"[INFO] Generated {len(contextual_questions)} contextual questions")
-            else:
-                # Clear questions if none generated
-                self._populate_contextual_questions([])
 
             if self.copy_filters_button is not None:
                 if wireshark_filters:

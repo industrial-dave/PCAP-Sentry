@@ -33,8 +33,8 @@
 - **Credential extraction** — Discover how attackers steal passwords from unencrypted protocols
 - **C2 pattern detection** — Learn to spot command-and-control communication
 - **Wireshark integration** — Generate filters for deeper packet investigation
-- **Trainable knowledge base** — Build your own malware signature library as you learn
-- **Pre-trained ML model** — Ships with a RandomForest baseline trained on 13 realistic traffic profiles; improves automatically as you label your own captures
+- **Trainable knowledge base** — Build your own malware signature library as you learn; PARRY chat assistant can label captures, confirm safe flows, manage trusted IPs, and retrain the model — all without an LLM
+- **Pre-trained ML model** — Ships with a RandomForest baseline trained on 13 realistic traffic profiles; improves automatically as you label your own captures; learns internal vs external traffic ratios for better contextual scoring
 - **ThreatFox & GreyNoise integration** — abuse.ch ThreatFox and GreyNoise community lookups work out-of-the-box without any API key
 - **Export results** — Save full analysis results (verdict, risk score, TI findings, flows) as JSON via File → Export Results as JSON
 

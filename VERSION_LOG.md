@@ -1,6 +1,12 @@
 # Version Log
 
 
+
+## 2026.02.19-12 - 2026-02-19
+- **ML:** `internal_traffic_ratio` and `external_dst_ratio` added to `build_features()` and `_vectorize_features()` — the Random Forest can now learn from whether a capture talks mostly to internal (RFC1918) vs external IPs; `_is_private_ip()` helper covers RFC1918, loopback, link-local, and CGNAT ranges
+- **KB / Risk scoring:** `trusted_ips` field added to the knowledge base schema; when ≥ 80 % of unique destination IPs are user-trusted and there are no IoC matches, the final risk score is damped by 30 % to reduce false-positive noise on well-understood networks
+- **PARRY Family 6:** trust IP management commands — `trust 192.168.1.1`, `show trusted ips`, `remove 10.0.0.1 from trusted` — all execute locally without an LLM call; KB status (`kb status`) now reports the trusted-IP count
+- **Fix:** flow-allowlist `_is_allowlisted()` comparisons rewritten as set membership (`al_src in {"*", src}`) to satisfy Ruff PLR1714; `ruff format` applied
 ## 2026.02.19-11 - 2026-02-19
 - UX: clickable API key signup links on API Keys tab; fix Ruff PLW0602; CI coverage threshold fix
 - **Fix:** LLM "mark capture" fails with "not valid JSON" — LLM responses wrapped in markdown fences or prefixed with prose are now cleaned before parsing (`_extract_json_from_llm`); same fix applied to contextual question generation
