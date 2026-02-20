@@ -9021,10 +9021,26 @@ class PCAPSentryApp:
         }
 
     @staticmethod
+    def _extract_json_from_llm(content: str) -> str:
+        """Strip markdown code fences and extract the first {...} object from LLM output."""
+        import re
+
+        # Remove ```json ... ``` or ``` ... ``` fences
+        fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", content)
+        if fenced:
+            return fenced.group(1).strip()
+        # Find the first {...} block in the text
+        brace = re.search(r"\{[\s\S]*\}", content)
+        if brace:
+            return brace.group(0).strip()
+        return content.strip()
+
+    @staticmethod
     def _parse_llm_label_response(content):
         """Parse and validate LLM label JSON response (shared by Ollama & OpenAI paths)."""
+        cleaned = PCAPSentryApp._extract_json_from_llm(content)
         try:
-            parsed = json.loads(content)
+            parsed = json.loads(cleaned)
         except json.JSONDecodeError as exc:
             raise ValueError(f"LLM response was not valid JSON: {exc}")
 
@@ -9146,8 +9162,9 @@ class PCAPSentryApp:
             else:
                 return []
 
-            # Parse JSON response
-            questions = json.loads(response_text)
+            # Parse JSON response — strip markdown fences first
+            cleaned = PCAPSentryApp._extract_json_from_llm(response_text)
+            questions = json.loads(cleaned)
             if isinstance(questions, list):
                 result = []
                 for q in questions:
