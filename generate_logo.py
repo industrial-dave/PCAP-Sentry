@@ -47,6 +47,10 @@ def generate_logo(size=512):
     cx, cy = size / 2, size / 2
     r = size * 0.415                         # hexagon circumradius
 
+    # At very small sizes the helix is just coloured noise — skip it so the
+    # black fill is clearly visible and the icon reads cleanly.
+    draw_helix_art = size >= 48
+
     hex_pts = _hex_vertices(cx, cy, r)
 
     # ── 1. Subtle outer glow behind the hexagon ────────────────
@@ -78,70 +82,71 @@ def generate_logo(size=512):
     img.alpha_composite(hex_layer)
 
     # ── 2.5. Double Helix (DNA strand) in center ───────────────
-    # Draw a vertical DNA double helix through the center
-    helix_height = r * 1.4                   # height of helix
-    helix_width = r * 0.28                   # horizontal spread
-    helix_top = cy - helix_height * 0.55     # centered vertically
-    helix_bottom = cy + helix_height * 0.55  # centered vertically
-    turns = 2.0                              # complete cycles for clean end
-    segments = 60                            # smoothness of curve
+    if draw_helix_art:
+        # Draw a vertical DNA double helix through the center
+        helix_height = r * 1.4                   # height of helix
+        helix_width = r * 0.28                   # horizontal spread
+        helix_top = cy - helix_height * 0.55     # centered vertically
+        helix_bottom = cy + helix_height * 0.55  # centered vertically
+        turns = 2.0                              # complete cycles for clean end
+        segments = 60                            # smoothness of curve
 
-    def draw_helix(d, s):
-        strand_width = max(2, int(size * 0.008 * s))
-        connector_width = max(1, int(size * 0.004 * s))
+        def draw_helix(d, s):
+            strand_width = max(2, int(size * 0.008 * s))
+            connector_width = max(1, int(size * 0.004 * s))
 
-        # Calculate helix points for both strands
-        strand1_points = []
-        strand2_points = []
-        connector_pairs = []
+            # Calculate helix points for both strands
+            strand1_points = []
+            strand2_points = []
+            connector_pairs = []
 
-        for i in range(segments + 1):
-            t = i / segments
-            y = helix_top + t * (helix_bottom - helix_top)
-            angle = t * turns * 2 * math.pi
+            for i in range(segments + 1):
+                t = i / segments
+                y = helix_top + t * (helix_bottom - helix_top)
+                angle = t * turns * 2 * math.pi
 
-            # Strand 1 (cyan)
-            x1 = cx + helix_width * math.sin(angle)
-            strand1_points.append((x1 * s, y * s))
+                # Strand 1 (cyan)
+                x1 = cx + helix_width * math.sin(angle)
+                strand1_points.append((x1 * s, y * s))
 
-            # Strand 2 (magenta) - 180 degrees out of phase
-            x2 = cx + helix_width * math.sin(angle + math.pi)
-            strand2_points.append((x2 * s, y * s))
+                # Strand 2 (magenta) - 180 degrees out of phase
+                x2 = cx + helix_width * math.sin(angle + math.pi)
+                strand2_points.append((x2 * s, y * s))
 
-            # Draw connectors at crossover points (every ~15 segments)
-            if i % 8 == 0 and i > 0:
-                connector_pairs.append(((x1 * s, y * s), (x2 * s, y * s)))
+                # Draw connectors at crossover points (every ~15 segments)
+                if i % 8 == 0 and i > 0:
+                    connector_pairs.append(((x1 * s, y * s), (x2 * s, y * s)))
 
-        # Draw connecting bars (rungs of the DNA ladder)
-        for p1, p2 in connector_pairs:
-            d.line([p1, p2], fill=(*CONN_MAGENTA[:3], 120), width=connector_width)
+            # Draw connecting bars (rungs of the DNA ladder)
+            for p1, p2 in connector_pairs:
+                d.line([p1, p2], fill=(*CONN_MAGENTA[:3], 120), width=connector_width)
 
-        # Draw the two strands with gradient effect
-        # Strand 1 (cyan with subtle glow)
-        d.line(strand1_points, fill=HELIX_BRIGHT, width=strand_width, joint="curve")
+            # Draw the two strands with gradient effect
+            # Strand 1 (cyan with subtle glow)
+            d.line(strand1_points, fill=HELIX_BRIGHT, width=strand_width, joint="curve")
 
-        # Strand 2 (magenta with subtle glow)
-        d.line(strand2_points, fill=HELIX_ACCENT, width=strand_width, joint="curve")
+            # Strand 2 (magenta with subtle glow)
+            d.line(strand2_points, fill=HELIX_ACCENT, width=strand_width, joint="curve")
 
-        # Add small spheres at key points for depth
-        sphere_r = max(2, int(size * 0.01 * s))
-        for i in range(0, len(strand1_points), 10):
-            x1, y1 = strand1_points[i]
-            d.ellipse([x1 - sphere_r, y1 - sphere_r,
-                      x1 + sphere_r, y1 + sphere_r],
-                     fill=HELIX_BRIGHT)
+            # Add small spheres at key points for depth
+            sphere_r = max(2, int(size * 0.01 * s))
+            for i in range(0, len(strand1_points), 10):
+                x1, y1 = strand1_points[i]
+                d.ellipse([x1 - sphere_r, y1 - sphere_r,
+                          x1 + sphere_r, y1 + sphere_r],
+                         fill=HELIX_BRIGHT)
 
-            x2, y2 = strand2_points[i]
-            d.ellipse([x2 - sphere_r, y2 - sphere_r,
-                      x2 + sphere_r, y2 + sphere_r],
-                     fill=HELIX_ACCENT)
+                x2, y2 = strand2_points[i]
+                d.ellipse([x2 - sphere_r, y2 - sphere_r,
+                          x2 + sphere_r, y2 + sphere_r],
+                         fill=HELIX_ACCENT)
 
-    helix_layer = _draw_aa(size, draw_helix)
-    img.alpha_composite(helix_layer)
+        helix_layer = _draw_aa(size, draw_helix)
+        img.alpha_composite(helix_layer)
 
-    # Add soft glow to helix
-    helix_glow = _draw_aa(size, draw_helix, blur=size // 100)
-    img.alpha_composite(helix_glow)
+        # Add soft glow to helix
+        helix_glow = _draw_aa(size, draw_helix, blur=size // 100)
+        img.alpha_composite(helix_glow)
 
     return img
 
@@ -149,13 +154,16 @@ def generate_logo(size=512):
 # ── ICO builder (multi-size, PNG-compressed frames) ─────────────
 
 def build_ico(source_img, ico_path, sizes=None):
-    """Build a multi-size ICO from a high-res RGBA source image."""
+    """Build a multi-size ICO, rendering each frame at native size to avoid
+    downsampling artifacts (blended helix colours bleeding into the black fill)."""
     if sizes is None:
         sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
 
     frames = []
     for s in sizes:
-        frame = source_img.resize((s, s), Image.LANCZOS)
+        # Render natively so interior pixels are exactly what was drawn, not a
+        # LANCZOS blend of helix + black that produces off-black purple pixels.
+        frame = generate_logo(s)
         frames.append((s, frame))
 
     # Build ICO binary - all frames stored as PNG for best quality
@@ -191,29 +199,21 @@ if __name__ == "__main__":
     assets = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
     os.makedirs(assets, exist_ok=True)
 
-    print("Generating 512x512 logo ...")
-    logo = generate_logo(512)
-
-    # Master PNG
-    master_path = os.path.join(assets, "pcap_sentry_512.png")
-    logo.save(master_path, format="PNG")
-    print(f"  Saved {master_path}  ({os.path.getsize(master_path):,} bytes)")
-
-    # 256px PNG (GUI header)
-    png256 = logo.resize((256, 256), Image.LANCZOS)
-    png256_path = os.path.join(assets, "pcap_sentry_256.png")
-    png256.save(png256_path, format="PNG")
-    print(f"  Saved {png256_path}  ({os.path.getsize(png256_path):,} bytes)")
-
-    # 48px PNG (legacy)
-    png48 = logo.resize((48, 48), Image.LANCZOS)
-    png48_path = os.path.join(assets, "pcap_sentry_48.png")
-    png48.save(png48_path, format="PNG")
-    print(f"  Saved {png48_path}  ({os.path.getsize(png48_path):,} bytes)")
+    # Render every PNG natively at its target size (no downscale bleed)
+    for px, name in [(512, "pcap_sentry_512.png"),
+                     (256, "pcap_sentry_256.png"),
+                     (128, "pcap_sentry_128.png"),
+                     (48,  "pcap_sentry_48.png")]:
+        print(f"Generating {px}x{px} PNG ...")
+        img = generate_logo(px)
+        path = os.path.join(assets, name)
+        img.save(path, format="PNG")
+        print(f"  Saved {path}  ({os.path.getsize(path):,} bytes)")
 
     # Multi-size ICO for Windows desktop / taskbar
+    # build_ico renders each frame natively (not downscaled)
     ico_path = os.path.join(assets, "pcap_sentry.ico")
-    build_ico(logo, ico_path)
+    build_ico(None, ico_path)
     print(f"  Saved {ico_path}  ({os.path.getsize(ico_path):,} bytes)")
 
     # Verify
