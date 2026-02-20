@@ -6053,8 +6053,10 @@ class PCAPSentryApp:
             "<Configure>",
             lambda _: edu_canvas.configure(scrollregion=edu_canvas.bbox("all")),
         )
-        edu_canvas.create_window((0, 0), window=edu_inner, anchor="nw")
+        _edu_win = edu_canvas.create_window((0, 0), window=edu_inner, anchor="nw")
         edu_canvas.configure(yscrollcommand=edu_sb.set)
+        # Stretch inner frame to always fill the canvas width
+        edu_canvas.bind("<Configure>", lambda e: edu_canvas.itemconfig(_edu_win, width=e.width))
         edu_canvas.pack(side="left", fill="both", expand=True)
         edu_sb.pack(side="right", fill="y")
         edu_canvas.bind(
@@ -6101,6 +6103,17 @@ class PCAPSentryApp:
         def p(t):   txt.insert(tk.END, t + "\n")
         def dim(t): txt.insert(tk.END, t + "\n", "dim")
         def nl():   txt.insert(tk.END, "\n")
+
+        _link_idx = [0]
+        def link(display: str, url: str) -> None:
+            import webbrowser
+            tag = f"link_{_link_idx[0]}"
+            _link_idx[0] += 1
+            txt.tag_configure(tag, foreground=accent, underline=True, font=("Segoe UI", 10))
+            txt.tag_bind(tag, "<Button-1>", lambda _e, u=url: webbrowser.open(u))
+            txt.tag_bind(tag, "<Enter>", lambda _e: txt.configure(cursor="hand2"))
+            txt.tag_bind(tag, "<Leave>", lambda _e: txt.configure(cursor=""))
+            txt.insert(tk.END, display, tag)
 
         # ════════════════════════════════════════════════════════════════════
         h1("NETWORK ANALYSIS & WIRESHARK — REFERENCE GUIDE")
@@ -6400,23 +6413,34 @@ class PCAPSentryApp:
         h2("12 · LEARNING RESOURCES")
         nl()
         h3("Free online courses and references")
-        p("  Wireshark official docs      https://www.wireshark.org/docs/\n"
-          "  Wireshark display filter ref https://www.wireshark.org/docs/dfref/\n"
-          "  Malware Traffic Analysis     https://www.malware-traffic-analysis.net/\n"
-          "    (free PCAP exercises with solutions)\n"
-          "  TCPDump primer               https://danielmiessler.com/study/tcpdump/\n"
-          "  Zeek documentation           https://docs.zeek.org/\n"
-          "  PacketLife cheat sheets      https://packetlife.net/library/cheat-sheets/\n"
-          "  SANS reading room (ICS/DFIR) https://www.sans.org/reading-room/\n"
-          "  VirusTotal                   https://www.virustotal.com/\n"
-          "  AbuseIPDB                    https://www.abuseipdb.com/\n"
-          "  Shodan                       https://www.shodan.io/")
+        resources = [
+            ("Wireshark official docs",       "https://www.wireshark.org/docs/"),
+            ("Wireshark display filter ref",  "https://www.wireshark.org/docs/dfref/"),
+            ("Malware Traffic Analysis",       "https://www.malware-traffic-analysis.net/"),
+            ("TCPDump primer",                "https://danielmiessler.com/study/tcpdump/"),
+            ("Zeek documentation",            "https://docs.zeek.org/"),
+            ("PacketLife cheat sheets",        "https://packetlife.net/library/cheat-sheets/"),
+            ("SANS reading room (ICS/DFIR)",  "https://www.sans.org/reading-room/"),
+            ("VirusTotal",                    "https://www.virustotal.com/"),
+            ("AbuseIPDB",                     "https://www.abuseipdb.com/"),
+            ("Shodan",                        "https://www.shodan.io/"),
+        ]
+        for label, url in resources:
+            txt.insert(tk.END, "  ")
+            link(label, url)
+            txt.insert(tk.END, "\n")
         nl()
         h3("Practice PCAP repositories")
-        p("  pcapfiles.com               free sample captures\n"
-          "  netresec.com/pcaps          large collection including malware\n"
-          "  github.com/markofu/pcaps    curated malware captures\n"
-          "  cloudshark.org              browser-based Wireshark + community PCAPs")
+        pcap_repos = [
+            ("pcapfiles.com",                  "https://www.pcapfiles.com/"),
+            ("netresec.com/pcaps",             "https://www.netresec.com/?page=pcapfiles"),
+            ("github.com/markofu/pcaps",       "https://github.com/markofu/pcaps"),
+            ("cloudshark.org",                 "https://www.cloudshark.org/"),
+        ]
+        for label, url in pcap_repos:
+            txt.insert(tk.END, "  ")
+            link(label, url)
+            txt.insert(tk.END, "\n")
         nl()
         dim("─" * 70)
         dim("PCAP Sentry Education tab \u2014 static reference, last updated 2026-02-20")
