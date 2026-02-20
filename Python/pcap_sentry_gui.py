@@ -17,6 +17,7 @@
 
 import base64
 import ctypes
+import functools
 import hashlib
 import hmac
 import io
@@ -2311,6 +2312,10 @@ def build_features(stats):
         "malware_port_hits": malware_port_hits,
         "internal_traffic_ratio": internal_traffic_ratio,
         "external_dst_ratio": external_dst_ratio,
+        # Per-packet ratios — strong ML discriminators:
+        # high tls_ratio + low http_ratio = encrypted C2; inverse = cleartext exfil
+        "tls_per_packet_ratio": stats.get("tls_packet_count", 0) / (stats.get("packet_count", 0) or 1),
+        "http_per_packet_ratio": stats.get("http_request_count", 0) / (stats.get("packet_count", 0) or 1),
     }
 
     # Add threat intelligence features if available
@@ -2357,6 +2362,9 @@ def _vectorize_features(features) -> dict[str, float]:
         "unique_src": float(features.get("unique_src", 0)),
         "unique_dst": float(features.get("unique_dst", 0)),
         "malware_port_hits": float(features.get("malware_port_hits", 0)),
+        # Per-packet ratios
+        "tls_per_packet_ratio": float(features.get("tls_per_packet_ratio", 0.0)),
+        "http_per_packet_ratio": float(features.get("http_per_packet_ratio", 0.0)),
         # Threat intelligence features
         "flagged_ip_count": float(features.get("flagged_ip_count", 0)),
         "flagged_domain_count": float(features.get("flagged_domain_count", 0)),
@@ -3714,26 +3722,23 @@ def detect_suspicious_flows(df, kb, max_items=8, flow_df=None):
     # Build a fast lookup set from the user-confirmed flow allowlist.
     # Each entry may have src, dst, dport (“*” = wildcard) plus an optional note.
     _flow_allowlist: list[dict] = kb.get("flow_allowlist", [])
-    _allowlist_tuples: list[tuple[str, str, str]] = [
-        (str(e.get("src", "*")), str(e.get("dst", "*")), str(e.get("dport", "*"))) for e in _flow_allowlist
-    ]
+    # Map (src, dst, dport) → note for O(n) lookup instead of the old O(n²)
+    # double-loop that re-scanned _flow_allowlist for every match.
+    _allowlist_map: dict[tuple[str, str, str], str] = {
+        (
+            str(e.get("src", "*")),
+            str(e.get("dst", "*")),
+            str(e.get("dport", "*")),
+        ): e.get("note", "user-confirmed safe")
+        for e in _flow_allowlist
+    }
 
     def _is_allowlisted(src: str, dst: str, dport: int) -> str | None:
         """Return the user note if this flow matches the allowlist, else None."""
         dport_s = str(dport)
-        for al_src, al_dst, al_dport in _allowlist_tuples:
-            src_ok = al_src in {"*", src}
-            dst_ok = al_dst in {"*", dst}
-            port_ok = al_dport in {"*", dport_s}
-            if src_ok and dst_ok and port_ok:
-                # Find the note for this entry
-                for e in _flow_allowlist:
-                    if (
-                        str(e.get("src", "*")) == al_src
-                        and str(e.get("dst", "*")) == al_dst
-                        and str(e.get("dport", "*")) == al_dport
-                    ):
-                        return e.get("note", "user-confirmed safe")
+        for (al_src, al_dst, al_dport), note in _allowlist_map.items():
+            if al_src in {"*", src} and al_dst in {"*", dst} and al_dport in {"*", dport_s}:
+                return note
         return None
 
     if ioc_ips:
@@ -3741,11 +3746,19 @@ def detect_suspicious_flows(df, kb, max_items=8, flow_df=None):
     else:
         flow_df["ioc_match"] = False
 
+    # Require BOTH a relative threshold (P95 of this capture) AND an absolute
+    # floor (100 KB) so that a capture consisting entirely of small flows never
+    # falsely flags 5 % of them as 'high volume exfiltration'.
+    _HIGH_VOLUME_FLOOR = 100_000  # 100 KB — below this is never meaningful exfil
     if not flow_df["Bytes"].empty:
         high_bytes_threshold = float(flow_df["Bytes"].quantile(0.95))
     else:
         high_bytes_threshold = 0.0
-    flow_df["high_volume"] = flow_df["Bytes"] >= high_bytes_threshold if high_bytes_threshold > 0 else False
+    flow_df["high_volume"] = (
+        (flow_df["Bytes"] >= high_bytes_threshold) & (flow_df["Bytes"] >= _HIGH_VOLUME_FLOOR)
+        if high_bytes_threshold > 0
+        else False
+    )
 
     # Flag flows using known malware / C2 ports
     flow_df["malware_port"] = flow_df["DPort"].isin(MALWARE_PORTS) | flow_df["SPort"].isin(MALWARE_PORTS)
@@ -3809,6 +3822,7 @@ def detect_suspicious_flows(df, kb, max_items=8, flow_df=None):
     return results
 
 
+@functools.lru_cache(maxsize=4096)
 def _is_private_ip(ip: str) -> bool:
     """Return True if *ip* is an RFC1918 / loopback / link-local address.
 
@@ -3817,6 +3831,9 @@ def _is_private_ip(ip: str) -> bool:
       127.0.0.0/8                                  — loopback
       169.254.0.0/16                               — link-local (APIPA)
       100.64.0.0/10                                — CGNAT (RFC6598)
+
+    Results are cached (LRU 4096) — the same IPs appear thousands of times
+    per capture so the cache eliminates nearly all repeated string-split work.
     """
     try:
         parts = ip.split(".")
@@ -3939,17 +3956,26 @@ def detect_behavioral_anomalies(df, stats, flow_df=None):
                 }
             )
 
-    # ── 3. Port scanning: single source hitting many distinct destination ports ──
-    if not df.empty and "DPort" in df.columns:
-        src_port_counts = df.groupby("Src")["DPort"].nunique()
-        scanners = src_port_counts[src_port_counts >= 20]
+    # ── 3. Port scanning: single source hitting many distinct EXTERNAL dest ports ──
+    # Filter to external, non-multicast destinations before counting ports.
+    # Windows SSDP, mDNS, WSD, and LLMNR legitimately contact dozens of unique
+    # ports on 224.x.x.x / 239.x.x.x / 255.255.255.255 / local broadcast, which
+    # would otherwise trigger this rule on every normal Windows capture.
+    if not df.empty and "DPort" in df.columns and "Dst" in df.columns:
+        _MULTICAST_PREFIXES = ("224.", "239.", "255.", "0.")
+        _ext_mask = df["Dst"].apply(
+            lambda ip: not _is_private_ip(ip) and not any(ip.startswith(p) for p in _MULTICAST_PREFIXES)
+        )
+        _scan_df = df[_ext_mask] if _ext_mask.any() else df
+        src_port_counts = _scan_df.groupby("Src")["DPort"].nunique()
+        scanners = src_port_counts[src_port_counts >= 15]
         if not scanners.empty:
             top_scanner = scanners.idxmax()
             n_ports = int(scanners.max())
             findings.append(
                 {
                     "type": "port_scan",
-                    "detail": f"{top_scanner} contacted {n_ports} distinct destination ports — possible port scan",
+                    "detail": f"{top_scanner} contacted {n_ports} distinct external destination ports — possible port scan",
                     "severity": 60,
                     "risk_boost": 15,
                 }
