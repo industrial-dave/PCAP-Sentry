@@ -3,6 +3,9 @@
 
 
 
+
+## 2026.02.20-2 - 2026-02-20
+- Education tab: six-phase malware analysis methodology, MALWARE ACTIVITY SUMMARY, plain-language stolen-data inference; perf: lru_cache on _is_private_ip; accuracy: high_volume floor, port-scan external filter, richer ML features
 ## 2026.02.20-2 - 2026-02-20
 
 ### Education Tab — Step-by-Step Malware Traffic Analysis
