@@ -58,7 +58,15 @@ def generate_logo(size=512):
     glow = _draw_aa(size, draw_glow, blur=size // 30)
     img.alpha_composite(glow)
 
-    # ── 2. Hexagon outline ─────────────────────────────────────
+    # ── 2. Hexagon black fill ──────────────────────────────────
+    def draw_hex_fill(d, s):
+        pts = [(x * s, y * s) for x, y in hex_pts]
+        d.polygon(pts, fill=(0, 0, 0, 255))
+
+    fill_layer = _draw_aa(size, draw_hex_fill)
+    img.alpha_composite(fill_layer)
+
+    # ── 3. Hexagon outline ─────────────────────────────────────
     lw_hex = max(4, int(size * 0.02))       # ~10px at 512
 
     def draw_hex(d, s):
