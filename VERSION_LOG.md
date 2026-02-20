@@ -10,6 +10,9 @@
 
 
 
+
+## 2026.02.20-9 - 2026-02-20
+- Rename chatbot from PARRY to CASS with new sarcastic/edgy personality
 ## 2026.02.20-8 - 2026-02-20
 - Remove LLM API key from API Keys tab - use LLM Settings dialog only
 ## 2026.02.20-7 - 2026-02-20

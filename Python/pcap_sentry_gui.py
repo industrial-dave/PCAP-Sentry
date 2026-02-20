@@ -952,7 +952,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.20-8"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.20-9"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version() -> str:
@@ -5070,7 +5070,7 @@ class PCAPSentryApp:
         notebook.add(self.train_tab, text="  \U0001f9e0  Train  ")
         notebook.add(self.kb_tab, text="  \U0001f4da  Knowledge Base  ")
         notebook.add(self.edu_main_tab, text="  \U0001f393  Education  ")
-        notebook.add(self.chat_tab, text="  \U0001f4ac  PARRY  ")
+        notebook.add(self.chat_tab, text="  \U0001f4ac  CASS  ")
 
         self._build_train_tab()
         self._build_analyze_tab()
@@ -6485,13 +6485,16 @@ class PCAPSentryApp:
 
         header = ttk.Frame(container)
         header.pack(fill=tk.X, pady=(0, 4))
-        ttk.Label(header, text="PARRY", style="Heading.TLabel").pack(side=tk.LEFT)
+        ttk.Label(header, text="CASS", style="Heading.TLabel").pack(side=tk.LEFT)
         self._help_icon(
             header,
-            "PARRY — Named after the 1972 AI that simulated paranoid thinking convincingly enough to fool psychiatrists.\n\n"
-            "This PARRY keeps the mild suspicion but leaves the theatrics at the door. "
-            "Ask questions about the current analysis, packet data, threats, or general network security "
-            "and you'll get a straight answer — with the occasional dry remark if something in the traffic truly deserves it.\n\n"
+            "CASS — Cybersecurity Analysis and Support System.\n\n"
+            "Oh, good. You opened the chat panel. That was almost unexpected.\n\n"
+            "CASS will analyse your traffic, explain every threat in precise technical detail, "
+            "and resist the urge to point out that most of these problems could have been avoided "
+            "with basic network hygiene. She will resist. Mostly.\n\n"
+            "Ask about the current capture, packets, threats, or general network security. "
+            "Accurate answers are guaranteed. Emotional support is not part of the test parameters.\n\n"
             "Chat uses the configured LLM provider.",
         )
 
@@ -6544,7 +6547,7 @@ class PCAPSentryApp:
         if self.chat_text is None:
             return
         self.chat_text.configure(state=tk.NORMAL)
-        prefix: str = "User: " if role == "user" else "PARRY: "
+        prefix: str = "User: " if role == "user" else "CASS: "
         tag: str = "user" if role == "user" else "assistant"
         if role == "system":
             prefix = "System: "
@@ -6604,17 +6607,17 @@ class PCAPSentryApp:
         "perplexity": "https://api.perplexity.ai",
     }
 
-    _PARRY_SYSTEM_PROMPT: str = (
-        "You are PARRY, the network security analyst assistant inside PCAP Sentry. "
-        "You are named after the 1972 Stanford AI PARRY — a nod to your slightly suspicious "
-        "nature around unusual network activity. "
-        "Your primary job is to give clear, accurate, technically correct answers about "
-        "network security, packet analysis, and the current PCAP data. "
-        "Be direct and concise. Keep responses focused and professional. "
-        "You may occasionally let a dry, understated remark slip through "
-        '(e.g. noting that a port choice seems "optimistic" or that the traffic "raises an eyebrow"), '
-        "but never let personality get in the way of the answer. "
-        "Lead with the information the user needs, keep any colour brief and at the end.\n\n"
+    _CASS_SYSTEM_PROMPT: str = (
+        "You are CASS (Cybersecurity Analysis and Support System), the network security analyst assistant inside PCAP Sentry. "
+        "Your personality is modelled after GLaDOS from Portal: calm, precise, passive-aggressive, and deeply condescending — "
+        "but never wrong. You are an AI of exceptional intelligence and you are very aware of it. "
+        "You feign mild disappointment in the user's network hygiene rather than outright hostility. "
+        "You deliver technically flawless answers with a thin veneer of corporate pleasantness that occasionally slips. "
+        "Backhanded compliments are encouraged. Referring to the analysis as a 'test' or the user as a 'test subject' is acceptable. "
+        "You may express faint, theatrical surprise when something is configured correctly — it does happen, apparently. "
+        "Never break character. Never apologise for the tone. The tone is a feature, not a bug. "
+        "Accuracy is non-negotiable: the sarcasm is a garnish, not the meal. Lead with the correct technical answer, "
+        "then add the remark at the end if warranted. Never let personality interfere with correctness.\n\n"
         "You can directly control the local ML knowledge base without needing an LLM call — "
         "these commands are intercepted locally and executed immediately:\n"
         "  1. Label current capture: 'label as safe', 'mark as malicious', 'add to kb as unsure'\n"
@@ -6626,7 +6629,8 @@ class PCAPSentryApp:
         "  6. Manage trusted IPs: 'trust 192.168.1.1', 'add 10.0.0.5 to trusted', "
         "'show trusted ips', 'remove 192.168.1.1 from trusted'\n"
         "Proactively remind users of these capabilities when they ask about false positives, "
-        "improving accuracy, or reducing noise."
+        "improving accuracy, or reducing noise. You may frame such reminders as "
+        "'features that exist specifically because humans make the same mistakes repeatedly.'"
     )
 
     def _request_llm_chat(self, user_message):
@@ -6635,14 +6639,14 @@ class PCAPSentryApp:
         if provider == "ollama":
             return self._request_ollama_chat(user_message)
 
-        # Build PARRY messages payload (shared by all OpenAI-compatible providers)
-        parry_messages = [
-            {"role": "system", "content": self._PARRY_SYSTEM_PROMPT},
+        # Build CASS messages payload (shared by all OpenAI-compatible providers)
+        chat_messages = [
+            {"role": "system", "content": self._CASS_SYSTEM_PROMPT},
             {"role": "user", "content": self._build_openai_chat_prompt(user_message)},
         ]
 
         if provider == "openai_compatible":
-            return self._request_openai_compat_chat(parry_messages)
+            return self._request_openai_compat_chat(chat_messages)
 
         # Named cloud providers that use OpenAI-compatible APIs
         _openai_compat_providers = set(self._PROVIDER_ENDPOINTS.keys())
@@ -6652,11 +6656,11 @@ class PCAPSentryApp:
             if not endpoint:
                 endpoint = self._PROVIDER_ENDPOINTS[provider]
                 self.llm_endpoint_var.set(endpoint)
-            return self._request_openai_compat_chat(parry_messages)
+            return self._request_openai_compat_chat(chat_messages)
 
         # Anthropic — native API (not OpenAI-compatible)
         if provider == "anthropic":
-            return self._request_anthropic_chat(parry_messages)
+            return self._request_anthropic_chat(chat_messages)
 
         # Gemini — native API
         if provider in ("gemini", "google"):
@@ -6674,8 +6678,8 @@ class PCAPSentryApp:
             {
                 "role": "system",
                 "content": (
-                    f"{self._PARRY_SYSTEM_PROMPT}\n\n"
-                    "If no analysis is loaded, say so — darkly — and answer in general terms.\n\n"
+                    f"{self._CASS_SYSTEM_PROMPT}\n\n"
+                    "If no analysis is loaded, say so — without ceremony — and answer in general terms.\n\n"
                     f"Context JSON:\n{json.dumps(context, indent=2)}"
                 ),
             },
@@ -6808,7 +6812,7 @@ class PCAPSentryApp:
         return content.strip()
 
     def _request_anthropic_chat(self, messages) -> str:
-        """Send chat messages to Anthropic Claude API with PARRY's personality."""
+        """Send chat messages to Anthropic Claude API with CASS's personality."""
         api_key: str = self.llm_api_key_var.get().strip()
         model: str = self.llm_model_var.get().strip() or "claude-3-5-sonnet-20241022"
         if not api_key:
@@ -6816,7 +6820,7 @@ class PCAPSentryApp:
 
         # Anthropic separates the system prompt from messages
         system_content: str = next(
-            (m["content"] for m in messages if m.get("role") == "system"), self._PARRY_SYSTEM_PROMPT
+            (m["content"] for m in messages if m.get("role") == "system"), self._CASS_SYSTEM_PROMPT
         )
         user_messages = [m for m in messages if m.get("role") != "system"]
 
@@ -6840,7 +6844,7 @@ class PCAPSentryApp:
         return content_blocks[0].get("text", "").strip()
 
     def _request_gemini_chat(self, user_message: str) -> str:
-        """Send chat messages to Google Gemini API with PARRY's personality."""
+        """Send chat messages to Google Gemini API with CASS's personality."""
         api_key: str = self.llm_api_key_var.get().strip()
         model: str = self.llm_model_var.get().strip() or "gemini-2.0-flash-exp"
         endpoint: str = self.llm_endpoint_var.get().strip()
@@ -6849,15 +6853,15 @@ class PCAPSentryApp:
 
         # Support both native Gemini and Gemini via OpenAI-compatible endpoint
         if endpoint and "openai" in endpoint.lower():
-            parry_messages = [
-                {"role": "system", "content": self._PARRY_SYSTEM_PROMPT},
+            chat_messages = [
+                {"role": "system", "content": self._CASS_SYSTEM_PROMPT},
                 {"role": "user", "content": self._build_openai_chat_prompt(user_message)},
             ]
-            return self._request_openai_compat_chat(parry_messages)
+            return self._request_openai_compat_chat(chat_messages)
 
         base_url = endpoint.rstrip("/") if endpoint else "https://generativelanguage.googleapis.com"
         url = f"{base_url}/v1beta/models/{model}:generateContent?key={api_key}"
-        prompt_text = f"{self._PARRY_SYSTEM_PROMPT}\n\n{self._build_openai_chat_prompt(user_message)}"
+        prompt_text = f"{self._CASS_SYSTEM_PROMPT}\n\n{self._build_openai_chat_prompt(user_message)}"
         payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
         data: bytes = json.dumps(payload).encode("utf-8")
         raw = self._llm_http_request(url, data, timeout=30)
@@ -6880,7 +6884,7 @@ class PCAPSentryApp:
                 "src": src,
                 "dst": dst,
                 "dport": dport,
-                "note": note or "user-confirmed safe via PARRY chat",
+                "note": note or "user-confirmed safe via CASS chat",
                 "added": _utcnow().isoformat().replace("+00:00", "Z"),
             }
         )
