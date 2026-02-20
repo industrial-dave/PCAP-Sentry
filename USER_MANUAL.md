@@ -897,7 +897,7 @@ All preferences are saved to `settings.json` in the application data directory:
 %LOCALAPPDATA%\PCAP_Sentry\settings.json
 ```
 
-> **Security Note:** If the `keyring` Python package is installed, the LLM API key is stored in the Windows Credential Manager instead of `settings.json`. Existing plaintext keys are automatically migrated on first load. If `keyring` is not available, the API key is stored in the JSON file as a fallback.
+> **Security Note:** If the `keyring` Python package is installed, **all** API keys (LLM providers, AlienVault OTX, AbuseIPDB, GreyNoise, VirusTotal) and the model encryption key are each stored under a unique per-credential Windows Credential Manager target — no two credentials share the same WCM target, eliminating the legacy credential-overwrite bug. On first load, any key previously stored in the old shared-service format is automatically migrated to the new per-credential format. If `keyring` is not available, keys fall back to `settings.json`.
 
 ---
 

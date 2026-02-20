@@ -109,7 +109,7 @@ python Python/pcap_sentry_gui.py
 - **Release checksums** are generated locally by `build_release.bat` after all assets are uploaded and published as `SHA256SUMS.txt`; a manual-trigger GitHub Actions workflow (`.github/workflows/release-checksums.yml`) is available as a fallback
 - **Download verification**: The built-in updater automatically verifies downloaded EXE files against the published `SHA256SUMS.txt` hashes before execution, with a second verification at launch time (TOCTOU prevention)
 - **ML model integrity**: Trained models are signed with HMAC-SHA256 using a persisted random secret key and verified before loading to prevent deserialization attacks; the shipped baseline is integrity-checked against a SHA-256 file before being copied to the user's app data directory
-- **Credential storage**: LLM API keys are stored in the OS credential manager (Windows Credential Manager via `keyring`) when available, with automatic migration from plaintext settings
+- **Credential storage**: All API keys (LLM providers, AlienVault OTX, AbuseIPDB, GreyNoise, VirusTotal) and the model encryption key are each stored under a unique per-credential Windows Credential Manager target via `keyring`; first load automatically migrates any key that was stored in the legacy shared-service format, preventing credential overwrites
 - **LLM endpoint validation**: Only `http://` and `https://` schemes are accepted; plaintext HTTP to non-localhost hosts is blocked
 - **URL scheme validation**: Centralized `_safe_urlopen()` wrapper prevents file:// and other dangerous URL schemes (CWE-22 defense-in-depth)
 - **Atomic file writes**: Settings and knowledge base saves use `tempfile.mkstemp` + `os.replace` to prevent symlink/race attacks.

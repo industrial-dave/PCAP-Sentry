@@ -183,32 +183,44 @@ def _verify_model_hmac():
 ### Error Type 6: Plaintext Credential Storage
 
 **Vulnerability:** Hardcoded Credentials / Credential Exposure (CWE-798, CWE-256)  
-**Risk in This Software:** VirusTotal API keys needed for threat intelligence lookups. Storing in config files exposes keys to malware/attackers.  
+**Risk in This Software:** Multiple API keys (LLM providers, AlienVault OTX, AbuseIPDB, GreyNoise, VirusTotal) and the model encryption key are needed at runtime. Storing them in config files exposes them to malware/attackers.  
 **Attack Scenario:** Malware scans config files for API keys, exfiltrates them for abuse.
 
-**Mitigation Method: OS Native Credential Manager**
+**Mitigation Method: OS Native Credential Manager — unique per-credential target**
 ```python
-def _store_api_key(key: str) -> bool:
-    try:
-        # Use Windows Credential Manager (encrypted, access-controlled)
-        keyring.set_password("PCAP_Sentry", "virustotal_api_key", key)
-        return True
-    except Exception:
-        return False  # Never store in plaintext as fallback
+def _store_credential(name: str, value: str) -> None:
+    """Store *value* under a unique WCM target for *name*."""
+    if not value:
+        return
+    keyring.set_password(_kr_service(name), name, value)  # target = PCAP_Sentry/<name>
+
+def _load_credential(name: str) -> str:
+    """Load credential, migrating from legacy shared-service format on first read."""
+    val = keyring.get_password(_kr_service(name), name)   # current per-credential target
+    if val:
+        return val
+    # Legacy migration: old code used service="PCAP_Sentry" for all keys,
+    # causing WCM targets to collide and overwrite each other.
+    legacy = keyring.get_password(_KEYRING_SERVICE, name)
+    if legacy:
+        keyring.set_password(_kr_service(name), name, legacy)  # promote to new target
+        keyring.delete_password(_KEYRING_SERVICE, name)         # remove old entry
+        return legacy
+    return ""
 ```
 
 **Why This Works:**
-- OS credential manager uses OS-level encryption
-- Access control prevents unauthorized access
-- No plaintext config files
-- Gracefully degrades (prompts user) if keyring unavailable
-- Never falls back to insecure storage
+- Each credential occupies its own WCM target (`PCAP_Sentry/<name>`), preventing overwrites
+- OS credential manager uses OS-level DPAPI encryption
+- Access control prevents unauthorized access by other users or processes
+- Automatic legacy migration on first read — no user action required
+- Fallback: if `keyring` is unavailable, value remains in `settings.json` (no silent discard)
 
 **Additional Protection:**
-- API key never transmitted over HTTP (TLS-only)
-- Key not logged or displayed in UI
+- API keys never transmitted over HTTP (TLS-only)
+- Keys not logged or displayed in UI
 
-**Implementation:** [pcap_sentry_gui.py:451-523](Python/pcap_sentry_gui.py#L451-L523)  
+**Implementation:** [pcap_sentry_gui.py:1370-1435](Python/pcap_sentry_gui.py#L1370-L1435)  
 **Test Coverage:** [test_stability.py:153-182](tests/test_stability.py#L153-182)
 
 ---
@@ -1563,10 +1575,10 @@ for cipher in ciphers:
    - **Machine-specific:** Different key per machine, not shared across network
    - **Compromise impact:** Attacker can only forge model integrity on that machine, no PFS concern
 
-2. **VirusTotal API key** (optional, user-provided)
-   - **Stored in:** Windows Credential Manager (encrypted by OS)
+2. **API keys** (LLM providers, OTX, AbuseIPDB, GreyNoise, VirusTotal — optional, user-provided)
+   - **Stored in:** Windows Credential Manager, one unique target per credential (encrypted by OS)
    - **Not a session key:** Used per-request, not for session establishment
-   - **Transmitted over TLS with PFS:** API key itself is protected by PFS-enabled TLS
+   - **Transmitted over TLS with PFS:** API keys themselves are protected by PFS-enabled TLS
 
 **Conclusion:** No long-term keys are used for session key derivation, so PFS protection is automatically achieved through TLS.
 
@@ -1676,26 +1688,32 @@ Top 5 preferred cipher suites:
 
 **1. API Keys (Not Passwords)**
 
-PCAP Sentry stores API keys for third-party services:
+PCAP Sentry stores API keys for third-party services and an internal encryption key:
+- **LLM provider API key** (optional, user-provided — OpenAI, Ollama, etc.)
+- **AlienVault OTX API key** (optional, user-provided)
+- **AbuseIPDB API key** (optional, user-provided)
+- **GreyNoise API key** (optional, user-provided)
 - **VirusTotal API key** (optional, user-provided)
-- **OpenAI API key** (optional, user-provided)
+- **Model encryption key** (auto-generated, machine-specific)
 
-**Code:** [pcap_sentry_gui.py:472](Python/pcap_sentry_gui.py#L472)
+Each key occupies a **unique per-credential WCM target** (`PCAP_Sentry/<name>`).
+
+**Code:** [pcap_sentry_gui.py:1370-1435](Python/pcap_sentry_gui.py#L1370-L1435)
 
 ```python
-def _store_api_key(key: str) -> None:
-    """Store the API key in the OS credential store."""
-    keyring.set_password(_KEYRING_SERVICE, _KEYRING_USERNAME, key)
+def _store_credential(name: str, value: str) -> None:
+    """Store *value* under its own WCM target PCAP_Sentry/<name>."""
+    keyring.set_password(_kr_service(name), name, value)
 ```
 
 **Storage Method:**
-- **OS Credential Manager** (Windows)
+- **OS Credential Manager** (Windows) — per-credential target
 - **Encrypted by operating system** (DPAPI on Windows)
 - **Per-user isolation** (only accessible by the OS user who stored it)
 - **Not iterated hashing** (API keys are secret tokens, not passwords; they need to be retrievable)
 
 **Why not hashed:**
-- API keys must be sent in plaintext to the API endpoint (VirusTotal, OpenAI)
+- API keys must be sent in plaintext to the API endpoint (VirusTotal, OpenAI, etc.)
 - Hashing would make them unusable (can't recover original key from hash)
 - OS credential store provides encryption at rest
 
