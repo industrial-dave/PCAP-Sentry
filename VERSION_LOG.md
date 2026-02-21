@@ -21,6 +21,9 @@
 
 
 
+
+## 2026.02.20-20 - 2026-02-20
+- Spinning logo: use full-res pcap_sentry_512.png as spin source for higher-quality frame generation
 ## 2026.02.20-19 - 2026-02-20
 - Boost helix visibility at small icon sizes: wider amplitude, thicker strands/rungs, fewer turns and rungs for sub-128px frames
 ## 2026.02.20-18 - 2026-02-20

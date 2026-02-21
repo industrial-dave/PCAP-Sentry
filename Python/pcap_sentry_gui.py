@@ -952,7 +952,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.20-19"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.20-20"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version() -> str:
@@ -5000,12 +5000,16 @@ class PCAPSentryApp:
             try:
                 from PIL import Image, ImageTk
 
-                src = Image.open(icon_path).convert("RGBA")
+                src_full = Image.open(icon_path).convert("RGBA")
                 self._brand_icon_size = 70
-                src = src.resize((self._brand_icon_size, self._brand_icon_size), Image.LANCZOS)
-                self._spin_src_img = src
+                src_thumb = src_full.resize(
+                    (self._brand_icon_size, self._brand_icon_size), Image.LANCZOS
+                )
+                # Keep the full-resolution image as the spin source so every
+                # squeezed frame is downscaled from 512px → best quality.
+                self._spin_src_img = src_full
                 # Create initial static frame only - defer animation generation
-                self._header_icon_image = ImageTk.PhotoImage(src)
+                self._header_icon_image = ImageTk.PhotoImage(src_thumb)
             except Exception:
                 pass
         self._brand_label = None
