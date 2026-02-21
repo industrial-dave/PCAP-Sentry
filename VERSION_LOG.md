@@ -14,6 +14,9 @@
 
 
 
+
+## 2026.02.20-13 - 2026-02-20
+- Fix taskbar icon size - load ICO at SM_CXICON/SM_CYICON metrics, set class-level icons via SetClassLongPtrW
 ## 2026.02.20-12 - 2026-02-20
 - Rebuild icons from 512px master - bundle all sizes, fix 256px taskbar icon
 ## 2026.02.20-11 - 2026-02-20

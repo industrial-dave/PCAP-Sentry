@@ -952,7 +952,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.20-12"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.20-13"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version() -> str:
@@ -1215,9 +1215,12 @@ def _set_app_icon(root) -> None:
         root.iconbitmap(icon_path)
     except Exception:
         pass
-    # Also set taskbar icon explicitly via Win32 API.
-    # root.iconbitmap() only fixes the title-bar icon; the taskbar button
-    # needs WM_SETICON sent with properly sized icons loaded via LoadImageW.
+    # Set taskbar / title-bar icons explicitly via Win32 API.
+    # Tkinter's iconbitmap() only touches the title-bar small icon.
+    # The taskbar button uses ICON_BIG at the system icon size (SM_CXICON,
+    # typically 32 px at 100 % DPI or 48 px at 150 %). Loading the ICO at
+    # exactly that size picks the best matching frame rather than having
+    # Windows scale a 256 px frame down, which produces a blurry result.
     try:
         import ctypes
         import ctypes.wintypes
@@ -1227,32 +1230,36 @@ def _set_app_icon(root) -> None:
         WM_SETICON = 0x0080
         ICON_SMALL = 0
         ICON_BIG = 1
+        GCL_HICON = -14
+        GCL_HICONSM = -34
+        SM_CXICON = 11
+        SM_CYICON = 12
+        SM_CXSMICON = 49
+        SM_CYSMICON = 50
 
         user32 = ctypes.windll.user32
-        # Small icon (16 px) for taskbar thumbnail
-        hicon_small = user32.LoadImageW(
-            None,
-            icon_path,
-            IMAGE_ICON,
-            16,
-            16,
-            LR_LOADFROMFILE,
-        )
-        # Big icon (256 px) for taskbar jump-list / alt-tab
-        hicon_big = user32.LoadImageW(
-            None,
-            icon_path,
-            IMAGE_ICON,
-            256,
-            256,
-            LR_LOADFROMFILE,
-        )
+
+        # Query the exact pixel sizes Windows uses for icons at current DPI
+        big_w = user32.GetSystemMetrics(SM_CXICON)
+        big_h = user32.GetSystemMetrics(SM_CYICON)
+        sm_w = user32.GetSystemMetrics(SM_CXSMICON)
+        sm_h = user32.GetSystemMetrics(SM_CYSMICON)
+
+        hicon_big = user32.LoadImageW(None, icon_path, IMAGE_ICON, big_w, big_h, LR_LOADFROMFILE)
+        hicon_small = user32.LoadImageW(None, icon_path, IMAGE_ICON, sm_w, sm_h, LR_LOADFROMFILE)
+
         # GetParent gives the real top-level HWND for a Tk window
         hwnd = user32.GetParent(root.winfo_id())
         if not hwnd:
             hwnd = root.winfo_id()
+
+        # Window-level icons (title bar + alt-tab)
         user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
         user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+
+        # Class-level icons — this is what actually drives the taskbar button
+        user32.SetClassLongPtrW(hwnd, GCL_HICON, hicon_big)
+        user32.SetClassLongPtrW(hwnd, GCL_HICONSM, hicon_small)
     except Exception:
         pass
 
@@ -4266,6 +4273,7 @@ class PCAPSentryApp:
         # Restore window geometry from last session
         saved_geometry = self.settings.get("window_geometry", "1280x860")
         self.root.geometry(saved_geometry)
+        self.root.resizable(True, True)
         self.root.minsize(960, 700)
 
         self.theme_var = tk.StringVar(value=self.settings.get("theme", "system"))
@@ -9121,6 +9129,9 @@ class PCAPSentryApp:
 
         self.root.configure(bg=self.colors["bg"])
         self._set_dark_titlebar()
+        # Re-assert resizability — DwmSetWindowAttribute can silently strip
+        # WS_THICKFRAME on some Windows 11 builds if called before Tk settles.
+        self.root.resizable(True, True)
         style = ttk.Style(self.root)
         with contextlib.suppress(tk.TclError):
             style.theme_use("clam")
