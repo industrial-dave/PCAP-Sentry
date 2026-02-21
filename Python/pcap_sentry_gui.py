@@ -952,7 +952,7 @@ def _is_valid_model_name(name: str) -> bool:
     return bool(name and _MODEL_NAME_RE.fullmatch(name))
 
 
-_EMBEDDED_VERSION = "2026.02.20-10"  # Stamped by update_version.ps1 at build time
+_EMBEDDED_VERSION = "2026.02.20-11"  # Stamped by update_version.ps1 at build time
 
 
 def _compute_app_version() -> str:
@@ -5501,11 +5501,9 @@ class PCAPSentryApp:
         self.llm_provider_var.set(defaults.get("llm_provider", "disabled"))
         self.llm_model_var.set(defaults.get("llm_model", ""))
         self.llm_endpoint_var.set(defaults.get("llm_endpoint", ""))
-        self.llm_api_key_var.set(defaults.get("llm_api_key", ""))
-        self.otx_api_key_var.set(defaults.get("otx_api_key", ""))
-        self.abuseipdb_api_key_var.set(defaults.get("abuseipdb_api_key", ""))
-        self.greynoise_api_key_var.set(defaults.get("greynoise_api_key", ""))
-        self.virustotal_api_key_var.set(defaults.get("virustotal_api_key", ""))
+        # API keys are credentials stored in Windows Credential Manager —
+        # they are intentionally NOT reset here. Use the API Keys tab to
+        # manage them explicitly.
         self.theme_var.set(defaults["theme"])
         self._save_settings_from_vars()
 

@@ -12,6 +12,9 @@
 
 
 
+
+## 2026.02.20-11 - 2026-02-20
+- Fix: Reset to Defaults no longer deletes API keys from Windows Credential Manager
 ## 2026.02.20-10 - 2026-02-20
 - CASS personality rework - GLaDOS-inspired tone
 ## 2026.02.20-9 - 2026-02-20
