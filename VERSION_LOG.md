@@ -18,6 +18,9 @@
 
 
 
+
+## 2026.02.20-17 - 2026-02-20
+- Minor tweaks and improvements
 ## 2026.02.20-16 - 2026-02-20
 - Improve icon quality - adaptive 8x/4x supersampling, proportional outline, larger hex fill
 ## 2026.02.20-15 - 2026-02-20
