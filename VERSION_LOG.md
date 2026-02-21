@@ -16,6 +16,30 @@
 
 
 
+
+
+
+
+
+
+
+## 2026.02.20-21 - 2026-02-20
+- Fix app logo and taskbar icon: regenerate all icon assets (PNG/ICO) with correct DNA double-helix design; update README and User Manual to reference PNG icons; remove stale build artefacts and dev tool scripts
+## 2026.02.20-20 - 2026-02-20
+- Spinning logo: use full-res pcap_sentry_512.png as spin source for higher-quality frame generation
+## 2026.02.20-19 - 2026-02-20
+- Boost helix visibility at small icon sizes: wider amplitude, thicker strands/rungs, fewer turns and rungs for sub-128px frames
+## 2026.02.20-18 - 2026-02-20
+- Rebuild logo: skeletal double helix — thin strands, solid rungs, no dot nodes, no glow; all icon assets regenerated
+## 2026.02.20-18 - 2026-02-20
+- Rebuild logo: skeletal double helix â€” thin strands, solid evenly-spaced rungs, no dot nodes, no glow pass; wider helix amplitude (0.32r); icy-blue/violet strand palette; pale-slate rungs; all PNG/ICO assets regenerated
+
+## 2026.02.20-17 - 2026-02-20
+- Minor tweaks and improvements
+## 2026.02.20-16 - 2026-02-20
+- Improve icon quality - adaptive 8x/4x supersampling, proportional outline, larger hex fill
+## 2026.02.20-15 - 2026-02-20
+- Larger taskbar icon - increase hex radius 41.5, each ICO frame rendered natively at exact size
 ## 2026.02.20-14 - 2026-02-20
 - Fix taskbar icon size - proper 64-bit ctypes types for LoadImageW/SetClassLongPtrW, re-apply icons after window mapped
 ## 2026.02.20-13 - 2026-02-20
