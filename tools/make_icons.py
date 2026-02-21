@@ -1,9 +1,12 @@
 """
 Regenerate PCAP Sentry icon assets from scratch.
 
-Design: pointy-top hexagon (cyan outline, black fill) on transparent bg,
-DNA double helix in centre.  The hexagon fills ~94 % of the canvas so the
-icon appears the same visual weight as other taskbar icons.
+Design: pointy-top hexagon (blue outline, black fill) on transparent bg,
+skeletal DNA double helix in centre.  The hexagon fills ~94 % of the canvas
+so the icon appears the same visual weight as other taskbar icons.
+
+The helix is deliberately sparse / wireframe: two thin twisted strands
+connected by evenly-spaced solid rungs – no filled node dots, no glow pass.
 
 Run:  python tools/make_icons.py
 """
@@ -17,10 +20,10 @@ from PIL import Image, ImageDraw, ImageFilter
 
 # ── colour palette ───────────────────────────────────────────────
 DARK_BG      = (10,  12,  17,  255)
-HEX_CYAN     = (63,  169, 245, 255)
-CONN_MAGENTA = (194,  53, 168, 255)
-HELIX_BRIGHT = (140, 220, 255, 255)
-HELIX_ACCENT = (220,  80, 200, 255)
+HEX_CYAN     = (63,  169, 245, 255)   # hex border (unchanged)
+STRAND_A     = (100, 200, 255, 255)   # left strand  – icy blue
+STRAND_B     = (200,  80, 210, 255)   # right strand – violet
+RUNG_COL     = (180, 180, 220, 255)   # cross-rungs  – pale slate
 
 # ── geometry constants ───────────────────────────────────────────
 # Circumradius as fraction of canvas half-size.
@@ -73,41 +76,46 @@ def generate_logo(size: int = 512) -> Image.Image:
                   outline=HEX_CYAN, width=int(lw * s), fill=None)
     img.alpha_composite(_draw_aa(size, _outline))
 
-    # 4. DNA double helix
+    # 4. Skeletal DNA double helix
     if draw_helix:
-        helix_h   = r * 1.3
-        helix_w   = r * 0.26
-        top_y     = cy - helix_h * 0.55
-        bottom_y  = cy + helix_h * 0.55
-        turns     = 2.0
-        segs      = max(120, size * 2)  # scale with size for smooth curves
+        helix_h  = r * 1.30          # vertical span
+        helix_w  = r * 0.32          # horizontal amplitude (wider → more visible)
+        top_y    = cy - helix_h * 0.55
+        bottom_y = cy + helix_h * 0.55
+        turns    = 2.0
+        # Use many segments for smooth curves but only draw rungs every N steps
+        segs     = max(160, size * 2)
+        # Number of rungs (cross-bars) – 10 gives one per half-turn ≈ ladder feel
+        n_rungs  = 10
 
         def _helix(d, s):
-            sw = max(2, int(size * 0.008 * s))
-            cw = max(1, int(size * 0.004 * s))
-            s1, s2, conns = [], [], []
+            # strand line width – thin/wiry
+            sw = max(1, int(size * 0.006 * s))
+            # rung line width – slightly thicker than strands for "bones" look
+            rw = max(1, int(size * 0.005 * s))
+
+            s1, s2 = [], []
             for i in range(segs + 1):
-                t = i / segs
-                y = top_y + t * (bottom_y - top_y)
-                a = t * turns * 2 * math.pi
+                t  = i / segs
+                y  = top_y + t * (bottom_y - top_y)
+                a  = t * turns * 2 * math.pi
                 x1 = cx + helix_w * math.sin(a)
                 x2 = cx + helix_w * math.sin(a + math.pi)
                 s1.append((x1 * s, y * s))
                 s2.append((x2 * s, y * s))
-                if i % 8 == 0 and i > 0:
-                    conns.append(((x1 * s, y * s), (x2 * s, y * s)))
-            for p1, p2 in conns:
-                d.line([p1, p2], fill=(*CONN_MAGENTA[:3], 120), width=cw)
-            d.line(s1, fill=HELIX_BRIGHT, width=sw, joint="curve")
-            d.line(s2, fill=HELIX_ACCENT, width=sw, joint="curve")
-            sr = max(2, int(size * 0.01 * s))
-            for i in range(0, len(s1), 10):
-                x1, y1 = s1[i]; x2, y2 = s2[i]
-                d.ellipse([x1-sr, y1-sr, x1+sr, y1+sr], fill=HELIX_BRIGHT)
-                d.ellipse([x2-sr, y2-sr, x2+sr, y2+sr], fill=HELIX_ACCENT)
+
+            # draw rungs first (behind strands)
+            rung_indices = [int(i * segs / n_rungs) for i in range(n_rungs + 1)]
+            for ri in rung_indices:
+                p1 = s1[ri]
+                p2 = s2[ri]
+                d.line([p1, p2], fill=RUNG_COL, width=rw)
+
+            # draw the two strands on top
+            d.line(s1, fill=STRAND_A, width=sw, joint="curve")
+            d.line(s2, fill=STRAND_B, width=sw, joint="curve")
 
         img.alpha_composite(_draw_aa(size, _helix))
-        img.alpha_composite(_draw_aa(size, _helix, blur=size // 100))
 
     return img
 

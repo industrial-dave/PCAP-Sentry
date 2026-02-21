@@ -19,6 +19,9 @@
 
 
 
+## 2026.02.20-18 - 2026-02-20
+- Rebuild logo: skeletal double helix — thin strands, solid evenly-spaced rungs, no dot nodes, no glow pass; wider helix amplitude (0.32r); icy-blue/violet strand palette; pale-slate rungs; all PNG/ICO assets regenerated
+
 ## 2026.02.20-17 - 2026-02-20
 - Minor tweaks and improvements
 ## 2026.02.20-16 - 2026-02-20
